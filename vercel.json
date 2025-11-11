@@ -1,9 +1,8 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "public/**/*", "use": "@vercel/static" },
-    { "src": "pages/api/ppe.js", "use": "@vercel/node" }
+    { "src": "pages/api/ppe.js", "use": "@vercel/node" },
+    { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
     {
@@ -12,7 +11,7 @@
     },
     {
       "src": "^/$",
-      "dest": "/index.html"
+      "dest": "/public/index.html"
     },
     {
       "src": "/(.*)\\.(js|css|png|jpg|jpeg|gif|ico|svg|webp)$",

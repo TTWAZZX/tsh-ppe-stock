@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -254,7 +254,7 @@ async function addNewVoucher(voucherData) {
       department: voucherData.department,
       status: 'pending',
       adminNotes: '',
-      itemsJson: voucherData.items,
+      itemsJson: JSON.stringify(voucherData.items),
     })
     .select()
     .single();
@@ -355,18 +355,30 @@ async function rejectVoucher(voucherId) {
 async function addReceiveTransactionAndUpdateStock(tx) {
   const nextId = await getNextId('receive_transactions', 'id');
 
+  // ดึงชื่ออุปกรณ์จาก itemId
+  let itemName = tx.itemName || null;
+  if (!itemName && tx.itemId) {
+    const { data: itemRow } = await supabase
+      .from('ppe_items')
+      .select('name')
+      .eq('id', tx.itemId)
+      .single();
+    itemName = itemRow ? itemRow.name : null;
+  }
+
   const { error: rErr } = await supabase
     .from('receive_transactions')
     .insert({
       id: nextId,
       timestamp: new Date().toISOString(),
-      itemName: tx.itemName,
+      itemName,                 // ใส่ค่าที่เราเพิ่งดึง
       type: tx.type,
       quantity: tx.quantity,
       user: tx.user,
       department: tx.department,
       status: 'completed',
     });
+
   if (rErr) throw rErr;
 
   const updatedStockItems = await updateStockLevels(
