@@ -16,7 +16,7 @@ const supabase =
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_BASE64 = process.env.ADMIN_PASSWORD_BASE64 || null;
 
-// ปิด bodyParser เดิมของ Next.js
+// ปิด bodyParser เดิมของ Next.js (เพราะเราอ่าน raw body เอง)
 export const config = {
   api: {
     bodyParser: false,
@@ -34,15 +34,18 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ status: 'error', message: 'Method not allowed' });
+    return res
+      .status(405)
+      .json({ success: false, message: 'Method not allowed' });
   }
 
   // ถ้า env ไม่ครบ ให้ตอบ 500 เลย จะได้ไม่งง
   if (!supabase) {
     console.error('Missing SUPABASE env vars');
-    return res
-      .status(500)
-      .json({ status: 'error', message: 'Supabase is not configured on the server.' });
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase is not configured on the server.',
+    });
   }
 
   try {
@@ -89,13 +92,16 @@ export default async function handler(req, res) {
         result = await checkAdminCredentials(payload.username, payload.password);
         break;
       default:
-        return res.status(400).json({ status: 'error', message: 'Invalid action' });
+        return res
+          .status(400)
+          .json({ success: false, message: 'Invalid action' });
     }
 
-    return res.status(200).json({ status: 'success', data: result });
+    // 👇 ตรงนี้เปลี่ยนจาก status -> success
+    return res.status(200).json({ success: true, data: result });
   } catch (err) {
     console.error('API Error:', err);
-    return res.status(500).json({ status: 'error', message: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 }
 

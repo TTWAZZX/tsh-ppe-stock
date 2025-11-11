@@ -83,6 +83,14 @@
       .backdrop {
         backdrop-filter: blur(6px);
       }
+      .toast {
+    transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+    }
+
+    .toast.hide {
+    opacity: 0;
+    transform: translateY(-6px);
+    }
     </style>
   </head>
   <body class="min-h-screen bg-slate-900 text-slate-50">
@@ -125,7 +133,7 @@
             onclick="showPage('dashboard')"
             class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-teal-500/10 hover:text-white transition"
           >
-            <i class="fa-solid fa-grid-2 text-slate-400 w-5 text-center"></i>
+            <i class="fa-solid fa-grip"></i>
             แดชบอร์ด
           </button>
           <button
@@ -414,53 +422,352 @@
         </div>
         </section>       
 
-            <!-- PAGES อื่น ๆ ของคุณให้คง id เดิมไว้ -->
-            <section id="issuePage" class="page hidden"></section>
-            <section id="loanPage" class="page hidden">
-            <div id="onLoanEmptyState" class="hidden"></div>
-            </section>
+<!-- PAGES อื่น ๆ ของคุณให้คง id เดิมไว้ -->
 
-            <section id="allHistoryPage" class="page hidden">
-            <div id="loanHistoryEmptyState" class="hidden"></div>
-            <div id="issueHistoryEmptyState" class="hidden"></div>
-            </section>
+<!-- 1. สร้างใบเบิก -->
+<section id="issuePage" class="page hidden">
+  <div class="p-4 md:p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-100">สร้างใบเบิก PPE</h2>
+      <button
+        type="button"
+        onclick="addIssueItem()"
+        class="px-3 py-1.5 rounded-lg bg-teal-500 text-white text-sm hover:bg-teal-600"
+      >
+        + เพิ่มรายการ
+      </button>
+    </div>
 
-            <section id="pendingPage" class="page hidden admin-page">
-                <div id="pendingEmptyState" class="hidden"></div>
-            </section>
-            
-            <section id="managePage" class="page hidden admin-page"></section>
-            <section id="receivePage" class="page hidden admin-page"></section>
-            <!-- กัน error จากพวกฟังก์ชันจัดการ -->
-            <div id="manageItemsList" class="hidden"></div>
-            <table class="hidden">
-            <tbody id="pendingTableBody"></tbody>
-            <tbody id="onLoanTableBody"></tbody>
-            <tbody id="loanHistoryTableBody"></tbody>
-            <tbody id="historyTableBody"></tbody>
-            </table>
+    <form
+      id="issueForm"
+      onsubmit="handleIssueSubmit(event)"
+      class="space-y-4 bg-slate-900/40 border border-slate-800 rounded-2xl p-4"
+    >
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label for="issueUser" class="text-xs text-slate-400">ชื่อผู้เบิก</label>
+          <input
+            id="issueUser"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            placeholder="เช่น สมชาย แผนกผลิต"
+            required
+          />
+        </div>
+        <div>
+          <label for="issueDepartment" class="text-xs text-slate-400">หน่วยงาน/แผนก</label>
+          <input
+            id="issueDepartment"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            placeholder="เช่น Production, SHE, QA"
+            required
+          />
+        </div>
+      </div>
 
-            <!-- กัน error จาก dropdown -->
-            <select id="itemCategory" class="hidden"></select>
-            <select id="receiveItem" class="hidden"></select>
-            <select id="loanItem" class="hidden"></select>
+      <!-- รายการอุปกรณ์ที่ขอเบิก -->
+      <div id="issueItems" class="space-y-3">
+        <!-- ปล่อยว่างไว้ ฟังก์ชัน addIssueItem() จะเติมให้ -->
+      </div>
 
-            <!-- กัน error จาก category modal -->
-            <div id="categoryListContainer" class="hidden"></div>
-            <form id="categoryForm" class="hidden">
-            <input id="editCategoryId" />
-            <input id="categoryNameInput" />
-            </form>
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-slate-500">
+          เลือกอุปกรณ์จากสต็อกที่มีอยู่ ระบบจะตรวจสต็อกให้อัตโนมัติ
+        </p>
+        <button
+          type="submit"
+          class="px-4 py-2 rounded-lg bg-teal-500 text-white text-sm hover:bg-teal-600"
+        >
+          บันทึกใบเบิก
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
 
-            <!-- กัน error จากฟอร์มใบเบิก -->
-            <form id="issueForm" class="hidden">
-            <div id="issueItems"></div>
-            </form>
+<!-- 2. ยืม - คืน -->
+<section id="loanPage" class="page hidden">
+  <div class="p-4 md:p-6 space-y-6">
+    <h2 class="text-lg font-semibold text-slate-100 mb-2">ยืมอุปกรณ์ / PPE</h2>
 
-            <!-- กัน error จากฟอร์มอื่นๆ -->
-            <form id="receiveForm" class="hidden"></form>
-            <form id="manageForm" class="hidden"></form>
-            <form id="loanForm" class="hidden"></form>
+    <form
+      id="loanForm"
+      onsubmit="handleBorrowSubmit(event)"
+      class="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4"
+    >
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="text-xs text-slate-400">อุปกรณ์ที่ยืม</label>
+          <!-- จะถูกเติมจาก populateAllDropdowns() -->
+          <select
+            id="loanItem"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            required
+          ></select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">ผู้ยืม</label>
+          <input
+            id="borrowerName"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            placeholder="ชื่อ-สกุล / รหัสพนักงาน"
+            required
+          />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">กำหนดคืน</label>
+          <input
+            id="loanDueDate"
+            type="date"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            required
+          />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">หมายเหตุ</label>
+          <input
+            id="loanNotes"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            placeholder="เช่น ใช้ตรวจงาน, ใช้งานภายนอก"
+          />
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-teal-500 text-white text-sm">
+          บันทึกการยืม
+        </button>
+      </div>
+    </form>
+
+    <!-- ตารางกำลังยืม -->
+    <div class="bg-slate-900/40 border border-slate-800 rounded-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-100">รายการที่กำลังยืม</h3>
+      </div>
+      <div id="onLoanEmptyState" class="hidden p-4"></div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-900/60 text-left text-slate-300">
+            <tr>
+              <th class="px-6 py-3">อุปกรณ์</th>
+              <th class="px-6 py-3">ผู้ยืม</th>
+              <th class="px-6 py-3">ยืมเมื่อ</th>
+              <th class="px-6 py-3">กำหนดคืน</th>
+              <th class="px-6 py-3 text-center">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="onLoanTableBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ประวัติยืม-คืน -->
+    <div class="bg-slate-900/40 border border-slate-800 rounded-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-100">ประวัติยืม-คืน</h3>
+      </div>
+      <div id="loanHistoryEmptyState" class="hidden p-4"></div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-900/60 text-left text-slate-300">
+            <tr>
+              <th class="px-6 py-3">อุปกรณ์</th>
+              <th class="px-6 py-3">ผู้ยืม</th>
+              <th class="px-6 py-3">ยืมเมื่อ</th>
+              <th class="px-6 py-3">คืนเมื่อ</th>
+              <th class="px-6 py-3">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="loanHistoryTableBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. ประวัติใบเบิกทั้งหมด -->
+<section id="allHistoryPage" class="page hidden">
+  <div class="p-4 md:p-6 space-y-4">
+    <h2 class="text-lg font-semibold text-slate-100">ประวัติการเบิกทั้งหมด</h2>
+    <div class="bg-slate-900/40 border border-slate-800 rounded-2xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-900/60 text-left text-slate-300">
+            <tr>
+              <th class="px-6 py-3">เลขที่ใบเบิก</th>
+              <th class="px-6 py-3">วันที่</th>
+              <th class="px-6 py-3">ผู้เบิก</th>
+              <th class="px-6 py-3">สถานะ</th>
+              <th class="px-6 py-3 text-right">ดู</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+      <div id="issueHistoryEmptyState" class="hidden p-4"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. รายการรออนุมัติ (Admin) -->
+<section id="pendingPage" class="page hidden admin-page">
+  <div class="p-4 md:p-6 space-y-4">
+    <h2 class="text-lg font-semibold text-slate-100">รายการรออนุมัติ</h2>
+    <div class="bg-slate-900/40 border border-slate-800 rounded-2xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-900/60 text-left text-slate-300">
+            <tr>
+              <th class="px-6 py-3">เลขที่ใบเบิก</th>
+              <th class="px-6 py-3">วันที่</th>
+              <th class="px-6 py-3">ผู้เบิก</th>
+              <th class="px-6 py-3">หน่วยงาน</th>
+              <th class="px-6 py-3 text-center">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="pendingTableBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+      <div id="pendingEmptyState" class="hidden p-4"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. จัดการรายการ PPE (Admin) -->
+<section id="managePage" class="page hidden admin-page">
+  <div class="p-4 md:p-6 space-y-4">
+    <div class="flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-slate-100">จัดการอุปกรณ์ PPE</h2>
+    <button
+        type="button"
+        onclick="showCategoryModal()"
+        class="px-3 py-1.5 rounded-lg bg-slate-700 text-slate-100 text-sm hover:bg-slate-600"
+    >
+        จัดการหมวดหมู่
+    </button>
+    </div>
+    <div class="grid gap-4 lg:grid-cols-2">
+      <form
+        id="manageForm"
+        onsubmit="handleManageSubmit(event)"
+        class="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-3"
+      >
+        <input type="hidden" id="editItemId" />
+        <div>
+          <label class="text-xs text-slate-400">รหัสอุปกรณ์</label>
+          <input id="itemCode" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100" required />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">ชื่ออุปกรณ์</label>
+          <input id="itemName" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100" required />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">หมวดหมู่</label>
+          <!-- ใช้ id เดิม เพื่อให้ populateAllDropdowns() เติมได้ -->
+          <select id="itemCategory" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100">
+            <option value="">เลือกหมวดหมู่</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs text-slate-400">หน่วย</label>
+            <input id="itemUnit" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100" placeholder="คู่ / ชิ้น / ตัว" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-400">จุดสั่งซื้อ</label>
+            <input id="itemReorderPoint" type="number" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100" value="0" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-400">คงเหลือ</label>
+            <input id="itemStock" type="number" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100" value="0" />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">จำนวนที่กำลังยืม (ถ้ามี)</label>
+          <input id="onLoanQuantity" type="number" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100" value="0" />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="resetManageForm()" class="px-3 py-2 rounded-lg bg-slate-700 text-white text-sm">
+            ล้างฟอร์ม
+          </button>
+          <button type="submit" class="px-3 py-2 rounded-lg bg-teal-500 text-white text-sm">
+            บันทึก
+          </button>
+        </div>
+      </form>
+
+      <div id="manageItemsList" class="space-y-2 bg-slate-900/40 border border-slate-800 rounded-2xl p-4">
+        <!-- updateManageItemsList() จะมาเติมให้ -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. รับเข้าสต็อก (Admin) -->
+<section id="receivePage" class="page hidden admin-page">
+  <div class="p-4 md:p-6 space-y-4">
+    <h2 class="text-lg font-semibold text-slate-100">รับอุปกรณ์เข้าสต็อก</h2>
+    <form
+      id="receiveForm"
+      onsubmit="handleReceiveSubmit(event)"
+      class="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4"
+    >
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="text-xs text-slate-400">อุปกรณ์</label>
+          <select
+            id="receiveItem"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            required
+          ></select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">จำนวนที่รับเข้า</label>
+          <input
+            id="receiveQuantity"
+            type="number"
+            min="1"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            required
+          />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">ประเภทการรับ</label>
+          <select
+            id="receiveType"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+          >
+            <option value="receive">รับเข้า</option>
+            <option value="return">คืนจากยืม/ซ่อม</option>
+            <option value="adjust">ปรับปรุงยอด</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">ผู้บันทึก</label>
+          <input
+            id="receiveUser"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            placeholder="ชื่อผู้รับเข้า"
+            required
+          />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">หน่วยงาน</label>
+          <input
+            id="receiveDepartment"
+            class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+            placeholder="หน่วยงาน"
+          />
+        </div>
+      </div>
+      <div class="flex justify-end">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-teal-500 text-white text-sm">
+          บันทึกการรับเข้า
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
         </main>
       </div>
     </div>
@@ -512,45 +819,39 @@
     // ===========================================
     // API Configuration
     // ===========================================
-    const WEB_APP_URL = "/api/ppe";
+    const API_BASE = "/api/ppe"; // ให้ Vercel รับที่นี่
 
-    /**
-     * Central function to call the Google Apps Script API.
-     * @param {string} action - The function name to call in Code.gs.
-     * @param {object} [payload=null] - The data to send.
-     * @returns {Promise<any>} - A promise that resolves with the response data.
-     */
     async function callServerFunction(action, payload = null) {
-        showLoading();
-        try {
-            const response = await fetch(WEB_APP_URL, {
-                method: 'POST',
-                redirect: 'follow',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8',
-                },
-                body: JSON.stringify({ action: action, payload: payload })
-            });
+    showLoading();
+    try {
+        const response = await fetch(API_BASE, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action, payload }),
+        });
 
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-
-            if (result.status === 'error') {
-                throw new Error(result.message);
-            }
-            
-            return result.data;
-
-        } catch (error) {
-            console.error(`API call failed for action "${action}":`, error);
-            onFailure(error); // Call onFailure directly
-            throw error; // Re-throw to stop promise chain if needed
-        } finally {
-            hideLoading();
+        if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
         }
+
+        const result = await response.json();
+
+        // สมมติให้ backend ของคุณตอบแบบนี้
+        // { success: true, data: {...} } หรือ { success: false, message: "..." }
+        if (result.success === false) {
+        throw new Error(result.message || "API error");
+        }
+
+        return result.data ?? result; // เผื่อ backend คืน data ตรงๆ
+    } catch (error) {
+        console.error(`API call failed for action "${action}":`, error);
+        onFailure(error);
+        throw error;
+    } finally {
+        hideLoading();
+    }
     }
 
     // ===========================================
@@ -603,15 +904,10 @@
     }
 
     function setupEventListeners() {
+    // login มีแค่ใน JS ก็พอ
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
 
-    // เอาไว้ก่อนนะ ยังไม่มีฟอร์มพวกนี้ในหน้า
-    // document.getElementById('issueForm').addEventListener('submit', handleIssueSubmit);
-    // document.getElementById('manageForm').addEventListener('submit', handleManageSubmit);
-    // document.getElementById('receiveForm').addEventListener('submit', handleReceiveSubmit);
-    // document.getElementById('loanForm').addEventListener('submit', handleBorrowSubmit);
-    // document.getElementById('categoryForm').addEventListener('submit', handleSaveCategory);
-
+    // ค้นหา + filter
     const debouncedFilterStock = debounce(filterStock, 300);
     document.getElementById('stockSearch').addEventListener('input', debouncedFilterStock);
     document.getElementById('categoryFilter').addEventListener('change', filterStock);
@@ -643,28 +939,49 @@
             toast.addEventListener('transitionend', () => toast.remove());
         }, 3000);
     }
+
     function showPage(pageName) {
-        document.querySelectorAll('.page-container > .page').forEach(page => {
-            if (page.id !== `${pageName}Page`) page.classList.add('hidden');
-        });
-        const pageElement = document.getElementById(pageName + 'Page');
-        if (pageElement) pageElement.classList.remove('hidden');
+    // 🔹 ซ่อนทุกหน้า
+    document.querySelectorAll('.page-container > .page').forEach(page => {
+        page.classList.add('hidden');
+    });
 
-        document.querySelectorAll('aside .nav-item').forEach(item => item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold'));
-        const activeNavItemDesktop = document.querySelector(`aside .nav-item[onclick="showPage('${pageName}')"]`);
-        if (activeNavItemDesktop) activeNavItemDesktop.classList.add('bg-teal-50', 'text-teal-600', 'font-bold');
+    // 🔹 แสดงหน้าที่เลือก
+    const pageElement = document.getElementById(`${pageName}Page`);
+    if (pageElement) pageElement.classList.remove('hidden');
 
-        document.querySelectorAll('.nav-item-mobile').forEach(item => item.classList.remove('text-teal-600'));
-        const activeNavItemMobile = document.querySelector(`.nav-item-mobile[onclick="showPage('${pageName}')"]`);
-        if (activeNavItemMobile) activeNavItemMobile.classList.add('text-teal-600');
-        
-        if (pageName === 'dashboard') updateDashboard();
-        if (pageName === 'allHistory') {
-            updateHistoryTable();
-            updateLoanHistoryTable();
-            showHistoryTab('issue');
-        }
+    // 🔹 รีเซ็ตสถานะเมนูซ้ายก่อน
+    document.querySelectorAll('aside .nav-item').forEach(item => {
+        item.classList.remove('bg-slate-800', 'text-white', 'font-bold');
+    });
+
+    // 🔹 ทำให้เมนูที่เลือก active
+    const activeNavItemDesktop = document.querySelector(
+        `aside .nav-item[onclick="showPage('${pageName}')"]`
+    );
+    if (activeNavItemDesktop) {
+        activeNavItemDesktop.classList.add('bg-slate-800', 'text-white', 'font-bold');
     }
+
+    // 🔹 (ถ้ามีเมนู mobile)
+    document.querySelectorAll('.nav-item-mobile').forEach(item => {
+        item.classList.remove('text-teal-400');
+    });
+    const activeNavItemMobile = document.querySelector(
+        `.nav-item-mobile[onclick="showPage('${pageName}')"]`
+    );
+    if (activeNavItemMobile) {
+        activeNavItemMobile.classList.add('text-teal-400');
+    }
+
+    // 🔹 หน้าที่ต้อง refresh ข้อมูล
+    if (pageName === 'dashboard') updateDashboard();
+    if (pageName === 'allHistory') {
+        updateHistoryTable();
+        updateLoanHistoryTable();
+    }
+    }
+
     function showHistoryTab(tabName) {
         document.querySelectorAll('.history-tab-content').forEach(content => content.classList.add('hidden'));
         document.querySelectorAll('.history-tab').forEach(tab => {
@@ -676,7 +993,14 @@
         activeTab.classList.add('border-teal-500', 'text-teal-600');
     }
     function createEmptyState(message, iconClass) {
-        return `<div class="text-center py-12 px-6"><div class="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center"><i class="${iconClass} text-3xl text-gray-400"></i></div><p class="mt-4 text-gray-500">${message}</p></div>`;
+    return `
+        <div class="text-center py-10 px-6 text-slate-400">
+        <div class="w-14 h-14 mx-auto bg-slate-800 rounded-full flex items-center justify-center mb-3">
+            <i class="${iconClass} text-2xl text-slate-400"></i>
+        </div>
+        <p class="text-sm">${message}</p>
+        </div>
+    `;
     }
     function debounce(func, delay) {
         let timeout;
@@ -968,9 +1292,9 @@
             }
             return `
                 <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">${item.code}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-800">${item.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.category}</td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-100">${item.code}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-100">${item.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-300">${item.category}</td>
                     <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${item.stock} <span class="text-gray-500 font-normal">${item.unit}</span></td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.onLoanQuantity || 0}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -1270,19 +1594,23 @@
     }
     function renderCategoryList() {
         const container = document.getElementById('categoryListContainer');
-        const sortedCategories = [...currentData.categories].sort((a,b) => a.name.localeCompare(b.name));
+        const sortedCategories = [...currentData.categories].sort((a, b) => a.name.localeCompare(b.name));
         if (sortedCategories.length === 0) {
             container.innerHTML = createEmptyState('ยังไม่มีหมวดหมู่', 'fa-solid fa-tags');
             return;
         }
         container.innerHTML = sortedCategories.map(cat => `
-            <div class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-50">
-                <span class="text-gray-800">${cat.name}</span>
-                <div class="space-x-2">
-                    <button onclick="editCategory(${cat.id}, '${cat.name}')" class="text-gray-500 hover:text-teal-600"><i class="fas fa-edit"></i></button>
-                    <button onclick="handleDeleteCategory(${cat.id})" class="text-gray-500 hover:text-red-600"><i class="fas fa-trash"></i></button>
-                </div>
+        <div class="flex justify-between items-center p-3 rounded-lg hover:bg-slate-800/40">
+            <span class="text-slate-100">${cat.name}</span>
+            <div class="space-x-2">
+            <button onclick="editCategory(${cat.id}, &quot;${cat.name}&quot;)" class="text-slate-400 hover:text-teal-400">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button onclick="handleDeleteCategory(${cat.id})" class="text-slate-400 hover:text-red-400">
+                <i class="fas fa-trash"></i>
+            </button>
             </div>
+        </div>
         `).join('');
     }
     function editCategory(id, name) {
@@ -1512,6 +1840,42 @@
         </div>
     </div>
     </div>
+    <!-- CATEGORY MANAGEMENT MODAL -->
+<div
+  id="categoryManagementModal"
+  class="fixed inset-0 z-[999] hidden bg-slate-950/70 backdrop flex items-center justify-center"
+>
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold text-slate-100">จัดการหมวดหมู่ PPE</h2>
+      <button
+        onclick="hideCategoryModal()"
+        class="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center"
+      >
+        <i class="fa-solid fa-xmark text-slate-200"></i>
+      </button>
+    </div>
+
+    <form id="categoryForm" class="space-y-3" onsubmit="handleSaveCategory(event)">
+      <input type="hidden" id="editCategoryId" />
+      <div>
+        <label class="text-xs text-slate-400">ชื่อหมวดหมู่</label>
+        <input
+          id="categoryNameInput"
+          class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+          placeholder="เช่น ถุงมือ, หมวกนิรภัย, รองเท้าเซฟตี้"
+          required
+        />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="hideCategoryModal()" class="px-4 py-2 bg-slate-700 rounded-lg text-slate-100 text-sm">ยกเลิก</button>
+        <button type="submit" class="px-4 py-2 bg-teal-500 rounded-lg text-white text-sm">บันทึก</button>
+      </div>
+    </form>
+
+    <div id="categoryListContainer" class="mt-5 space-y-2 max-h-60 overflow-y-auto"></div>
+  </div>
+</div>
 
   </body>
 </html>
