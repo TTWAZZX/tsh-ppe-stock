@@ -2,7 +2,7 @@
 export async function getServerSideProps() {
   return {
     redirect: {
-      destination: '/index.html', // ไฟล์ที่อยู่ใน public/
+      destination: '/index.html', // ชี้ไปไฟล์ใน public
       permanent: false,
     },
   };
