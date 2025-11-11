@@ -92,6 +92,109 @@
     transform: translateY(-6px);
     }
     </style>
+    <style>
+    /* ===== Hybrid Modern Dashboard Theme ===== */
+
+    /* พื้นหลังหลักให้สว่างขึ้นนิดนึง */
+    body {
+        background: #1f2937; /* slate-800 */
+        color: #e2e8f0;      /* slate-200 */
+    }
+
+    /* พื้นหลัง main content */
+    .page-container {
+        background: radial-gradient(circle at top, rgba(15,23,42,0) 0%, rgba(15,23,42,0) 40%, rgba(15,23,42,0.35) 100%);
+    }
+
+    /* sidebar ให้เข้มแต่ไม่ดำ */
+    aside {
+        background: rgba(15, 23, 42, 0.9); /* slate-900/90 */
+        border-right: 1px solid rgba(148, 163, 184, 0.08);
+        backdrop-filter: blur(10px);
+    }
+
+    /* top bar ให้สว่างกว่าบอดี้นิดหน่อย */
+    header {
+        background: rgba(30, 41, 59, 0.65); /* slate-700/65 */
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        backdrop-filter: blur(8px);
+    }
+
+    /* กล่องหลักๆ ทุกตัวให้ดูเป็น card สว่างขึ้น */
+    .bg-slate-900,
+    .bg-slate-900\/40,
+    .bg-slate-950\/40 {
+        background: rgba(30, 41, 59, 0.6) !important; /* slate-700/60 */
+        border-color: rgba(148, 163, 184, 0.12) !important;
+    }
+
+    /* ตาราง */
+    table thead {
+        background: rgba(15, 23, 42, 0.12) !important;
+    }
+    table tbody tr:hover {
+        background: rgba(15, 23, 42, 0.08) !important;
+    }
+
+    /* ข้อความให้สว่างขึ้นนิด */
+    .text-slate-50,
+    .text-slate-100 {
+        color: #e2e8f0 !important; /* slate-200 */
+    }
+    .text-slate-400 {
+        color: #cbd5f5 !important;
+    }
+
+    /* ปุ่มเมนูซ้ายเวลา active ให้ contrast ขึ้น (พื้นเข้ม ตัวอักษรฟ้า) */
+    aside .nav-item.bg-slate-800,
+    aside .nav-item.bg-slate-800.text-white,
+    aside .nav-item.font-bold {
+        background: rgba(15, 118, 110, 0.15) !important; /* teal-700/15 */
+        color: #ffffff !important;
+        border: 1px solid rgba(45, 212, 191, 0.35);
+    }
+
+    /* toast ให้ดู pop ขึ้นบนพื้นหลังใหม่ */
+    #toastContainer .toast {
+        box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+    }
+
+    /* modal backdrop ให้สว่างขึ้นหน่อย */
+    .backdrop {
+        backdrop-filter: blur(8px);
+        background: rgba(15, 23, 42, 0.55);
+    }
+
+    /* input ให้ต่างจากพื้นหลังชัดขึ้น */
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select,
+    textarea {
+        background: rgba(15, 23, 42, 0.35) !important;
+        border: 1px solid rgba(148, 163, 184, 0.25) !important;
+        color: #e2e8f0 !important;
+    }
+    input::placeholder,
+    textarea::placeholder {
+        color: rgba(226, 232, 240, 0.5) !important;
+    }
+
+    /* empty state ให้ดูฟ้าๆ ไม่หม่น */
+    .empty-state,
+    #stockEmptyState > div,
+    #issueHistoryEmptyState > div {
+        background: rgba(15, 23, 42, 0.12);
+    }
+
+    /* low stock list / overdue list ที่คุณทำ เป็นพื้นอ่อนๆ แต่ยังไปกับดาร์กได้ */
+    #lowStockList .bg-red-50,
+    #lowStockList .bg-orange-50,
+    #overdueLoansList .bg-red-50 {
+        background: rgba(248, 113, 113, 0.08) !important;
+    }
+    </style>
+
   </head>
   <body class="min-h-screen bg-slate-900 text-slate-50">
     <!-- Loading Overlay -->
