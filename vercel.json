@@ -1,18 +1,11 @@
 {
   "version": 2,
   "builds": [
-    { "src": "pages/api/ppe.js", "use": "@vercel/node" },
+    { "src": "package.json", "use": "@vercel/next" },
     { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/pages/api/$1.js"
-    },
-    {
-      "src": "^/$",
-      "dest": "/public/index.html"
-    },
+    { "src": "^/$", "dest": "/index.html" },
     {
       "src": "/(.*)\\.(js|css|png|jpg|jpeg|gif|ico|svg|webp)$",
       "headers": {

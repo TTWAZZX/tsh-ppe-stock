@@ -1,22 +1,19 @@
 // pages/api/ppe.js
+// API เวอร์ชัน Supabase ที่เลียนแบบ Code.gs และรับ text/plain แบบเดิมจาก index.html
+
 import { createClient } from '@supabase/supabase-js';
 
-// ดึงจาก 2 ชื่อ เผื่อบาง env ใช้ชื่อ NEXT_PUBLIC_*
-const supabaseUrl =
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// สร้าง client ไปยัง Supabase ของคุณ
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-// สร้าง client
-const supabase =
-  supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey)
-    : null;
-
-// admin จาก env
+// ตั้งค่า admin จาก env (แทน ScriptProperties)
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_BASE64 = process.env.ADMIN_PASSWORD_BASE64 || null;
 
-// ปิด bodyParser เดิมของ Next.js (เพราะเราอ่าน raw body เอง)
+// ปิด bodyParser เดิมของ Next.js เพื่อให้เราอ่าน text/plain เอง
 export const config = {
   api: {
     bodyParser: false,
@@ -24,7 +21,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // CORS เบื้องต้น
+  // CORS เบื้องต้น (ถ้าคุณรัน index.html จากที่อื่น)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -34,22 +31,13 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== 'POST') {
-    return res
-      .status(405)
-      .json({ success: false, message: 'Method not allowed' });
-  }
-
-  // ถ้า env ไม่ครบ ให้ตอบ 500 เลย จะได้ไม่งง
-  if (!supabase) {
-    console.error('Missing SUPABASE env vars');
-    return res.status(500).json({
-      success: false,
-      message: 'Supabase is not configured on the server.',
-    });
+    return res.status(405).json({ status: 'error', message: 'Method not allowed' });
   }
 
   try {
+    // อ่าน body แบบ raw เพื่อรองรับ text/plain;charset=utf-8
     const rawBody = await getRawBody(req);
+    // rawBody จะเป็น string ประมาณ '{"action":"getInitialData","payload":null}'
     const { action, payload } = JSON.parse(rawBody || '{}');
 
     let result;
@@ -58,73 +46,87 @@ export default async function handler(req, res) {
       case 'getInitialData':
         result = await getInitialData();
         break;
+
       case 'saveCategory':
         result = await saveCategory(payload);
         break;
+
       case 'deleteCategory':
         result = await deleteCategory(payload.categoryId);
         break;
+
       case 'savePpeItem':
         result = await savePpeItem(payload);
         break;
+
       case 'addNewVoucher':
         result = await addNewVoucher(payload);
         break;
+
       case 'approveVoucher':
         result = await approveVoucher(payload.voucherId);
         break;
+
       case 'approvePartialVoucher':
         result = await approvePartialVoucher(payload);
         break;
+
       case 'rejectVoucher':
         result = await rejectVoucher(payload.voucherId);
         break;
+
       case 'borrowItem':
         result = await borrowItem(payload);
         break;
+
       case 'returnItem':
         result = await returnItem(payload.loanId);
         break;
+
       case 'addReceiveTransaction':
         result = await addReceiveTransactionAndUpdateStock(payload);
         break;
+
       case 'checkAdminCredentials':
         result = await checkAdminCredentials(payload.username, payload.password);
         break;
+
       default:
-        return res
-          .status(400)
-          .json({ success: false, message: 'Invalid action' });
+        return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
 
-    // 👇 ตรงนี้เปลี่ยนจาก status -> success
-    return res.status(200).json({ success: true, data: result });
+    return res.status(200).json({ status: 'success', data: result });
   } catch (err) {
     console.error('API Error:', err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ status: 'error', message: err.message });
   }
 }
 
-// ---------- utils ----------
+// ------------------------- utils: อ่าน raw body -------------------------
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
     req.on('data', (chunk) => {
       data += chunk;
     });
-    req.on('end', () => resolve(data));
-    req.on('error', (err) => reject(err));
+    req.on('end', () => {
+      resolve(data);
+    });
+    req.on('error', (err) => {
+      reject(err);
+    });
   });
 }
 
-// ---------- main logic ----------
+// ------------------------- ฟังก์ชันหลักแปลงจาก Code.gs -------------------------
+
 async function getInitialData() {
   const [
     ppeItemsRes,
     issueVouchersRes,
     receiveTransactionsRes,
     loanTransactionsRes,
-    categoriesRes,
+    categoriesRes
   ] = await Promise.all([
     supabase.from('ppe_items').select('*'),
     supabase.from('issue_vouchers').select('*'),
@@ -252,8 +254,7 @@ async function addNewVoucher(voucherData) {
       department: voucherData.department,
       status: 'pending',
       adminNotes: '',
-      // เก็บเป็น string
-      itemsJson: JSON.stringify(voucherData.items),
+      itemsJson: voucherData.items,
     })
     .select()
     .single();
@@ -334,8 +335,7 @@ async function approvePartialVoucher(approvalData) {
     .update({
       status: newStatus,
       adminNotes: finalNote,
-      // เก็บกลับเป็น string เพื่อให้หน้าบ้าน parse ได้เสมอ
-      itemsJson: JSON.stringify(itemsToUpdateInStock),
+      itemsJson: itemsToUpdateInStock,
     })
     .eq('id', voucherId);
   if (upErr) throw upErr;
@@ -355,26 +355,18 @@ async function rejectVoucher(voucherId) {
 async function addReceiveTransactionAndUpdateStock(tx) {
   const nextId = await getNextId('receive_transactions', 'id');
 
-  let itemName = tx.itemName || null;
-  if (!itemName && tx.itemId) {
-    const { data: itemRow } = await supabase
-      .from('ppe_items')
-      .select('name')
-      .eq('id', tx.itemId)
-      .single();
-    itemName = itemRow ? itemRow.name : null;
-  }
-
-  const { error: rErr } = await supabase.from('receive_transactions').insert({
-    id: nextId,
-    timestamp: new Date().toISOString(),
-    itemName,
-    type: tx.type,
-    quantity: tx.quantity,
-    user: tx.user,
-    department: tx.department,
-    status: 'completed',
-  });
+  const { error: rErr } = await supabase
+    .from('receive_transactions')
+    .insert({
+      id: nextId,
+      timestamp: new Date().toISOString(),
+      itemName: tx.itemName,
+      type: tx.type,
+      quantity: tx.quantity,
+      user: tx.user,
+      department: tx.department,
+      status: 'completed',
+    });
   if (rErr) throw rErr;
 
   const updatedStockItems = await updateStockLevels(
@@ -442,7 +434,7 @@ async function checkAdminCredentials(username, password) {
   return username === ADMIN_USERNAME && providedBase64 === ADMIN_PASSWORD_BASE64;
 }
 
-// ---------- helpers ----------
+// ------------------------- helpers ที่ยกมาจาก logic เดิม -------------------------
 async function getNextId(tableName, colName = 'id') {
   const { data, error } = await supabase
     .from(tableName)
@@ -536,7 +528,7 @@ function getTopIssuedItems(issueVouchers, ppeItems, n) {
       if (!Array.isArray(items)) {
         try {
           items = JSON.parse(items || '[]');
-        } catch {
+        } catch (e) {
           items = [];
         }
       }
@@ -572,13 +564,7 @@ function getLoanStatusSummary(loanTransactions) {
   );
 }
 
-function getRecentActivities(
-  issueVouchers,
-  loanTransactions,
-  receiveTransactions,
-  ppeItems,
-  limit
-) {
+function getRecentActivities(issueVouchers, loanTransactions, receiveTransactions, ppeItems, limit) {
   const list = [];
 
   issueVouchers.forEach((v) =>
