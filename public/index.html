@@ -1189,24 +1189,44 @@
            </tr>
        `).join('');
     }
+    
     function updateManageItemsList() {
-        const listContainer = document.getElementById('manageItemsList');
-        if (!currentData.ppeItems || currentData.ppeItems.length === 0) { 
-            listContainer.innerHTML = createEmptyState('ยังไม่มีอุปกรณ์ในระบบ', 'fa-solid fa-box-open'); 
-            return; 
-        }
-        listContainer.innerHTML = [...currentData.ppeItems].sort((a,b) => a.name.localeCompare(b.name)).map(item => `
-            <div class="flex justify-between items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                <div>
-                    <p class="font-medium text-gray-900">${item.name} (${item.code})</p>
-                    <p class="text-sm text-gray-600">คงเหลือ: ${item.stock} ${item.unit} | ยืม: ${item.onLoanQuantity || 0}</p>
-                </div>
-                <button onclick="editItem(${item.id})" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-                    <i class="fas fa-edit"></i>
-                </button>
-            </div>
-        `).join('');
+    const listContainer = document.getElementById('manageItemsList');
+
+    // ถ้าไม่มีข้อมูล PPE เลย
+    if (!currentData.ppeItems || currentData.ppeItems.length === 0) {
+        listContainer.innerHTML = createEmptyState(
+        'ยังไม่มีอุปกรณ์ในระบบ',
+        'fa-solid fa-box-open'
+        );
+        return;
     }
+
+    // มีข้อมูล → เอามา sort ตามชื่อ แล้ว map เป็น HTML
+    listContainer.innerHTML = currentData.ppeItems
+        .slice() // กัน side-effect
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(
+        (item) => `
+            <div class="flex justify-between items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div>
+                <p class="font-medium text-gray-900">${item.name} (${item.code})</p>
+                <p class="text-sm text-gray-600">
+                คงเหลือ: ${item.stock} ${item.unit} | ยืม: ${item.onLoanQuantity || 0}
+                </p>
+            </div>
+            <button
+                onclick="editItem(${item.id})"
+                class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+            >
+                <i class="fas fa-edit"></i>
+            </button>
+            </div>
+        `
+        )
+        .join('');
+    }
+
     function updateOnLoanTable() {
         const tbody = document.getElementById('onLoanTableBody');
         const emptyState = document.getElementById('onLoanEmptyState');
