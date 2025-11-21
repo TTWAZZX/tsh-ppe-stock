@@ -292,8 +292,15 @@
                 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
                     <div class="p-6 border-b border-gray-200">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <h3 class="text-xl font-semibold text-gray-800">รายการอุปกรณ์ PPE</h3>
-                            <div class="flex w-full sm:w-auto space-x-2">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div>
+                                    <h3 class="text-xl font-semibold text-gray-800">รายการอุปกรณ์ PPE</h3>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        พบทั้งหมด <span id="stockCount" class="font-semibold">0</span> รายการ
+                                    </p>
+                                </div>
+                                <div class="flex w-full sm:w-auto space-x-2">
+
                                 <div class="relative flex-1">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                                     <input type="text" id="stockSearch" placeholder="ค้นหาอุปกรณ์..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -327,7 +334,15 @@
 
             <div id="issuePage" class="page hidden">
                  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-6 sm:p-8">
-                    <h3 class="text-xl font-semibold mb-6 text-gray-800">สร้างใบเบิกจ่ายอุปกรณ์</h3>
+                    <div class="mb-6">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-file-export text-teal-600 mr-2"></i>
+                            <h3 class="text-xl font-semibold text-gray-800">สร้างใบเบิกจ่ายอุปกรณ์</h3>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">
+                            กรอกชื่อผู้เบิก แผนก และรายการอุปกรณ์ที่ต้องการ ระบบจะสร้างเลขที่ใบเบิกและส่งไปให้ Admin อนุมัติ
+                        </p>
+                    </div>
                     <form id="issueForm" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -359,7 +374,15 @@
             <div id="loanPage" class="page hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6">
-                        <h3 class="text-xl font-semibold mb-6 text-gray-800">ยืมอุปกรณ์</h3>
+                        <div class="mb-6">
+                            <div class="flex items-center">
+                                <i class="fa-solid fa-hand-holding-hand text-teal-600 mr-2"></i>
+                                <h3 class="text-xl font-semibold text-gray-800">ยืมอุปกรณ์</h3>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">
+                                เลือกอุปกรณ์ที่ต้องการยืม ระบุผู้ยืมและกำหนดวันคืนให้ชัดเจน เพื่อช่วยติดตามการยืม-คืนได้ง่ายขึ้น
+                            </p>
+                        </div>
                         <form id="loanForm" class="space-y-4">
                             <div>
                                 <label for="loanItem" class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
@@ -533,7 +556,16 @@
 
             <div id="receivePage" class="page hidden admin-page">
                 <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border p-6 sm:p-8">
-                    <h3 class="text-xl font-semibold mb-6 text-gray-800">รับของเข้าสต็อก</h3>
+                    <div class="mb-6">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-truck-ramp-box text-teal-600 mr-2"></i>
+                            <h3 class="text-xl font-semibold text-gray-800">รับของเข้าสต็อก</h3>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">
+                            เลือกอุปกรณ์ ระบุจำนวน ประเภทการรับ และผู้รับ เพื่อให้ประวัติการปรับสต็อกชัดเจนและตรวจสอบย้อนหลังได้
+                        </p>
+                    </div>
+
                     <form id="receiveForm" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -1087,12 +1119,23 @@
         const search = document.getElementById('stockSearch').value.toLowerCase();
         const category = document.getElementById('categoryFilter').value;
 
-        let filteredItems = currentData.ppeItems;
-        if (search) filteredItems = filteredItems.filter(item => 
-            (item.name && item.name.toLowerCase().includes(search)) || 
-            (item.code && item.code.toLowerCase().includes(search))
-        );
-        if (category) filteredItems = filteredItems.filter(item => item.category === category);
+        let filteredItems = currentData.ppeItems || [];
+
+        if (search) {
+            filteredItems = filteredItems.filter(item => 
+                (item.name && item.name.toLowerCase().includes(search)) || 
+                (item.code && item.code.toLowerCase().includes(search))
+            );
+        }
+        if (category) {
+            filteredItems = filteredItems.filter(item => item.category === category);
+        }
+
+        // ✅ อัปเดตจำนวนรายการที่พบ
+        const stockCountEl = document.getElementById('stockCount');
+        if (stockCountEl) {
+            stockCountEl.textContent = filteredItems.length;
+        }
         
         if (filteredItems.length === 0) {
             tbody.innerHTML = '';
@@ -1115,18 +1158,23 @@
                 statusColor = 'bg-emerald-100 text-emerald-800';
             }
             return `
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">${item.code}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-800">${item.name}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.category}</td>
-                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${item.stock} <span class="text-gray-500 font-normal">${item.unit}</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">
+                        ${item.stock} <span class="text-gray-500 font-normal">${item.unit}</span>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.onLoanQuantity || 0}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span>
+                        <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">
+                            ${statusText}
+                        </span>
                     </td>
                 </tr>`;
         }).join('');
     }
+
     function getStatusInfo(status) {
         switch (String(status).trim()) {
             case 'pending': return { text: 'รออนุมัติ', color: 'bg-yellow-100 text-yellow-800' };
@@ -1367,7 +1415,7 @@
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
         if (!voucher) return;
 
-        // ✅ รองรับทั้งกรณีเป็น Array และเป็น String
+        // รองรับทั้งกรณี itemsJson เป็น Array และเป็น String
         let items = [];
         try {
             items = Array.isArray(voucher.itemsJson)
@@ -1378,6 +1426,14 @@
             showToast('ไม่สามารถเปิดหน้าต่างอนุมัติได้ (ข้อมูลรายการผิดรูปแบบ)', 'error');
             return;
         }
+
+        const headerHtml = `
+            <div class="mb-4 text-sm text-gray-700 space-y-1">
+                <p><span class="font-semibold">ผู้เบิก:</span> ${voucher.user}</p>
+                <p><span class="font-semibold">แผนก:</span> ${voucher.department}</p>
+                <p><span class="font-semibold">วันที่:</span> ${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>
+            </div>
+        `;
 
         const itemsHtml = items.map(item => {
             const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
@@ -1407,8 +1463,11 @@
         modal.innerHTML = `
             <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md m-4 relative">
                 <button onclick="hideApprovalModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                <h3 class="text-xl font-semibold mb-6 text-gray-800">อนุมัติใบเบิก #${voucher.id}</h3>
-                <div class="mb-6 border rounded-lg bg-gray-50 p-4 max-h-60 overflow-y-auto">${itemsHtml}</div>
+                <h3 class="text-xl font-semibold mb-2 text-gray-800">อนุมัติใบเบิก #${voucher.id}</h3>
+                ${headerHtml}
+                <div class="mb-6 border rounded-lg bg-gray-50 p-4 max-h-60 overflow-y-auto">
+                    ${itemsHtml}
+                </div>
                 <div class="flex justify-end space-x-3 mt-6">
                     <button onclick="rejectVoucher(${voucher.id})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">ปฏิเสธ</button>
                     <button onclick="approveVoucher(${voucher.id})" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">อนุมัติทั้งหมด</button>
@@ -1417,6 +1476,7 @@
             </div>`;
         modal.classList.remove('hidden');
     }
+
 
     function hideApprovalModal() { document.getElementById('approvalModal').classList.add('hidden'); }
     function editItem(itemId) {
@@ -1511,6 +1571,8 @@
      */
     function handleIssueSubmit(e) {
         e.preventDefault();
+        setFormSubmitting('issueForm', true);
+
         const user = document.getElementById('issueUser').value;
         const department = document.getElementById('issueDepartment').value;
         const items = [];
@@ -1525,6 +1587,7 @@
         }
 
         if (items.length === 0) {
+            setFormSubmitting('issueForm', false);
             return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
         }
 
@@ -1534,6 +1597,9 @@
                 showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
                 resetIssueForm();
                 initializeApp(); // Refresh data
+            })
+            .finally(() => {
+                setFormSubmitting('issueForm', false);
             });
     }
 
@@ -1543,6 +1609,8 @@
     function handleManageSubmit(e) {
         e.preventDefault();
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+
+        setFormSubmitting('manageForm', true);
 
         const itemData = {
             id: document.getElementById('editItemId').value || null,
@@ -1560,6 +1628,9 @@
                 showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
                 resetManageForm();
                 initializeApp();
+            })
+            .finally(() => {
+                setFormSubmitting('manageForm', false);
             });
     }
 
@@ -1569,6 +1640,8 @@
     function handleReceiveSubmit(e) {
         e.preventDefault();
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+
+        setFormSubmitting('receiveForm', true);
 
         const transactionData = {
             itemId: Number(document.getElementById('receiveItem').value),
@@ -1583,6 +1656,9 @@
                 showToast('รับของเข้าสต็อกสำเร็จ');
                 resetReceiveForm();
                 initializeApp();
+            })
+            .finally(() => {
+                setFormSubmitting('receiveForm', false);
             });
     }
 
@@ -1591,6 +1667,8 @@
      */
     function handleBorrowSubmit(e) {
         e.preventDefault();
+        setFormSubmitting('loanForm', true);
+
         const borrowData = {
             itemId: Number(document.getElementById('loanItem').value),
             borrowerName: document.getElementById('borrowerName').value,
@@ -1603,9 +1681,23 @@
                 showToast('บันทึกการยืมสำเร็จ');
                 document.getElementById('loanForm').reset();
                 initializeApp();
+            })
+            .finally(() => {
+                setFormSubmitting('loanForm', false);
             });
     }
 
+    function setFormSubmitting(formId, isSubmitting) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (!submitBtn) return;
+
+        submitBtn.disabled = isSubmitting;
+        submitBtn.classList.toggle('opacity-60', isSubmitting);
+        submitBtn.classList.toggle('cursor-not-allowed', isSubmitting);
+    }
+    
     /**
      * Handles saving or updating a category.
      */
