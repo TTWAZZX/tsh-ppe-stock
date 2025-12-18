@@ -2127,7 +2127,7 @@
             const imgUrl = item.image_url || 'https://placehold.co/150x150?text=No+Image'; 
             const isOutOfStock = Number(item.stock) <= 0;
             
-            // กำหนดสีตามสถานะสินค้า
+            // กำหนดสีและไอคอนตามสถานะสินค้า
             const borderClass = isOutOfStock ? 'border-red-200' : 'border-gray-200 hover:border-teal-400';
             const badgeClass = isOutOfStock ? 'bg-red-50 text-red-600 border-red-100' : 'bg-teal-50 text-teal-700 border-teal-100';
             const badgeIcon = isOutOfStock ? 'fa-times-circle' : 'fa-check-circle';
