@@ -533,6 +533,13 @@
                                     <input type="number" id="itemReorderPoint" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
                                 </div>
                             </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                </div>
+
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ราคาต่อหน่วย (บาท)</label>
+                                <input type="number" id="itemPrice" min="0" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="0.00">
+                            </div>
                             <input type="hidden" id="onLoanQuantity" value="0">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">ลิงก์รูปภาพ (URL)</label>
@@ -1170,6 +1177,7 @@
 
         tbody.innerHTML = filteredItems.map(item => {
             let statusText, statusColor;
+            // ... (Logic ตรวจสอบสถานะ ของหมด/ใกล้หมด เหมือนเดิม ไม่ต้องแก้) ...
             if (Number(item.stock) === 0) {
                 statusText = 'ของหมด';
                 statusColor = 'bg-red-100 text-red-800';
@@ -1181,14 +1189,17 @@
                 statusColor = 'bg-emerald-100 text-emerald-800';
             }
 
-            // เพิ่ม Logic แสดงรูปภาพ
+            // 🟢 แก้ไขส่วนแสดงรูปภาพใหม่ ให้มีปุ่มแว่นขยาย
             const imgDisplay = item.image_url 
-                ? `<div class="h-12 w-12 rounded-lg border border-gray-200 overflow-hidden bg-white">
-                     <img src="${item.image_url}" class="h-full w-full object-cover cursor-pointer hover:scale-110 transition-transform" onclick="window.open('${item.image_url}', '_blank')">
-                   </div>`
+                ? `<div class="relative group h-12 w-12">
+                    <img src="${item.image_url}" class="h-full w-full object-cover rounded-lg border border-gray-200 bg-white">
+                    <div class="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center rounded-lg cursor-pointer transition-all" onclick="openImagePreview('${item.image_url}', event)">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i>
+                    </div>
+                </div>`
                 : `<div class="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
-                     <i class="fa-solid fa-image"></i>
-                   </div>`;
+                    <i class="fa-solid fa-image"></i>
+                </div>`;
 
             return `
                 <tr class="hover:bg-gray-50 transition-colors">
@@ -1198,7 +1209,7 @@
                     <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">${item.code}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-800">${item.name}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.category}</td>
-                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800 text-lg">${item.stock} <span class="text-gray-500 font-normal text-sm">${item.unit}</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${item.stock} <span class="text-gray-500 font-normal">${item.unit}</span></td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.onLoanQuantity || 0}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span>
@@ -1206,6 +1217,7 @@
                 </tr>`;
         }).join('');
     }
+
     function getStatusInfo(status) {
         switch (String(status).trim()) {
             case 'pending': return { text: 'รออนุมัติ', color: 'bg-yellow-100 text-yellow-800' };
@@ -1862,18 +1874,21 @@
         e.preventDefault();
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
 
-        const itemData = {
-            id: document.getElementById('editItemId').value || null,
-            // ... (fields เดิม)
-            code: document.getElementById('itemCode').value,
-            name: document.getElementById('itemName').value,
-            category: document.getElementById('itemCategory').value,
-            unit: document.getElementById('itemUnit').value,
-            reorderPoint: Number(document.getElementById('itemReorderPoint').value),
-            stock: Number(document.getElementById('itemStock').value),
-            onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0),
-            imageUrl: document.getElementById('itemImage').value // <--- เพิ่มบรรทัดนี้
-        };
+    const itemData = {
+        id: document.getElementById('editItemId').value || null,
+        code: document.getElementById('itemCode').value,
+        name: document.getElementById('itemName').value,
+        category: document.getElementById('itemCategory').value,
+        unit: document.getElementById('itemUnit').value,
+        reorderPoint: Number(document.getElementById('itemReorderPoint').value),
+        stock: Number(document.getElementById('itemStock').value),
+        onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0),
+        
+        // 🟢 เพิ่มบรรทัดนี้ครับ
+        price: Number(document.getElementById('itemPrice').value || 0), 
+        
+        imageUrl: document.getElementById('itemImage').value
+    };
         
         // ... (ส่วนเรียก API เหมือนเดิม)
         callServerFunction('savePpeItem', itemData)
@@ -1897,7 +1912,7 @@
             document.getElementById('itemReorderPoint').value = item.reorderPoint;
             document.getElementById('itemStock').value = item.stock;
             document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
-            
+            document.getElementById('itemPrice').value = item.price || 0;
             // เพิ่มส่วนรูปภาพ
             document.getElementById('itemImage').value = item.image_url || '';
             previewImageAdmin(); // สั่งให้แสดงรูปด้วยถ้ามี
@@ -2110,26 +2125,41 @@
 
         container.innerHTML = items.map(item => {
             const imgUrl = item.image_url || 'https://placehold.co/150x150?text=No+Image'; 
-            const stockColor = item.stock > 0 ? 'text-teal-600' : 'text-red-500';
+            const isOutOfStock = Number(item.stock) <= 0;
+            // เปลี่ยนสีขอบและพื้นหลังตามสถานะสินค้า
+            const cardBorder = isOutOfStock ? 'border-red-200' : 'border-gray-200 group-hover:border-teal-300';
+            const badgeClass = isOutOfStock ? 'bg-red-100 text-red-700 border-red-200' : 'bg-teal-50 text-teal-700 border-teal-200';
+            const iconClass = isOutOfStock ? 'fa-times-circle' : 'fa-box';
 
             return `
-            <div class="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all transform hover:-translate-y-1 relative">
-                <div class="w-full bg-white relative border-b border-gray-100" style="aspect-ratio: 1/1;">
-                    <img src="${imgUrl}" class="w-full h-full object-contain p-2 cursor-pointer" onclick="selectItemFromGrid(${item.id})">
+            <div class="group bg-white border ${cardBorder} rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative flex flex-col h-full">
+                
+                <div class="relative w-full border-b border-gray-50 bg-gray-50" style="padding-bottom: 100%;"> 
+                    <img src="${imgUrl}" class="absolute inset-0 w-full h-full object-contain p-4 cursor-pointer mix-blend-multiply" onclick="selectItemFromGrid(${item.id})">
                     
-                    <button onclick="openImagePreview('${imgUrl}', event)" class="absolute top-2 right-2 bg-white/90 hover:bg-teal-50 text-gray-600 hover:text-teal-600 p-2 rounded-full shadow-md backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10" title="ดูรูปขยาย">
-                        <i class="fa-solid fa-magnifying-glass-plus text-lg"></i>
+                    <button onclick="openImagePreview('${imgUrl}', event)" class="absolute top-2 right-2 bg-white/90 hover:bg-teal-600 hover:text-white text-gray-500 p-2 rounded-full shadow-sm backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10 w-8 h-8 flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
                     </button>
 
-                    ${item.stock == 0 ? '<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold backdrop-blur-sm pointer-events-none">ของหมด</div>' : ''}
+                    ${isOutOfStock ? '<div class="absolute inset-0 bg-gray-900/10 backdrop-grayscale flex items-center justify-center pointer-events-none"><span class="bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">สินค้าหมด</span></div>' : ''}
                 </div>
                 
-                <div class="p-3 cursor-pointer" onclick="selectItemFromGrid(${item.id})">
-                    <p class="font-bold text-gray-800 text-sm truncate">${item.name}</p>
-                    <p class="text-xs text-gray-500 mb-1">${item.code}</p>
-                    <div class="flex justify-between items-center mt-2">
-                        <span class="text-xs font-semibold ${stockColor}">คงเหลือ: ${item.stock}</span>
-                        <button class="text-teal-600 hover:bg-teal-50 p-1 rounded-full"><i class="fa-solid fa-circle-plus text-lg"></i></button>
+                <div class="p-3 flex flex-col flex-1 justify-between cursor-pointer bg-white" onclick="selectItemFromGrid(${item.id})">
+                    <div>
+                        <div class="flex justify-between items-start gap-2 mb-1">
+                            <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider border border-gray-100 px-1.5 rounded bg-gray-50">${item.code}</span>
+                        </div>
+                        <h4 class="font-bold text-gray-800 text-sm leading-snug line-clamp-2 mb-2 group-hover:text-teal-600 transition-colors" title="${item.name}">${item.name}</h4>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold ${badgeClass}">
+                            <i class="fa-solid ${iconClass}"></i>
+                            <span>${item.stock} ${item.unit}</span>
+                        </div>
+                        <div class="h-8 w-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center group-hover:bg-teal-500 group-hover:text-white transition-all shadow-sm">
+                            <i class="fa-solid fa-plus"></i>
+                        </div>
                     </div>
                 </div>
             </div>
