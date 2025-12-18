@@ -564,7 +564,22 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์</label>
-                                <select id="receiveItem" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+                                <input type="hidden" id="receiveItemId" required>
+                                
+                                <div id="receiveItemDisplay" onclick="openReceiveCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
+                                    <div class="flex items-center gap-3">
+                                        <div id="receiveItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
+                                            <i class="fa-solid fa-box-open text-xl"></i>
+                                        </div>
+                                        <img id="receiveItemImg" src="" class="w-12 h-12 rounded-md object-cover hidden border border-gray-200">
+                                        
+                                        <div class="overflow-hidden">
+                                            <p id="receiveItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
+                                            <p id="receiveItemCode" class="text-xs text-gray-400 hidden"></p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">จำนวน</label>
@@ -931,25 +946,30 @@
             .sort((a,b) => a.name.localeCompare(b.name))
             .map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('');
         
-        document.getElementById('categoryFilter').innerHTML = '<option value="">ทุกหมวดหมู่</option>' + categoryOptions;
-        document.getElementById('itemCategory').innerHTML = '<option value="">เลือกหมวดหมู่</option>' + categoryOptions;
+        // อัปเดต Dropdown หมวดหมู่ (ยังใช้อยู่)
+        const catFilter = document.getElementById('categoryFilter');
+        if (catFilter) catFilter.innerHTML = '<option value="">ทุกหมวดหมู่</option>' + categoryOptions;
+        
+        const itemCat = document.getElementById('itemCategory');
+        if (itemCat) itemCat.innerHTML = '<option value="">เลือกหมวดหมู่</option>' + categoryOptions;
 
+        // เตรียมตัวเลือกสินค้า
         const allItemOptions = currentData.ppeItems
             .sort((a,b) => a.name.localeCompare(b.name))
             .map(item => `<option value="${item.id}">${item.name} (คงเหลือ: ${item.stock})</option>`).join('');
         
+        // อัปเดต Dropdown ในหน้าเบิก (ถ้ายังมีค้างอยู่) และหน้า "รับของเข้า"
         document.querySelectorAll('.item-select').forEach(select => {
             const selectedValue = select.value;
             select.innerHTML = '<option value="">เลือกอุปกรณ์</option>' + allItemOptions;
             if(selectedValue) select.value = selectedValue;
         });
         
-        document.getElementById('receiveItem').innerHTML = '<option value="">เลือกอุปกรณ์</option>' + allItemOptions;
+        const receiveSelect = document.getElementById('receiveItem');
+        if (receiveSelect) receiveSelect.innerHTML = '<option value="">เลือกอุปกรณ์</option>' + allItemOptions;
 
-        const loanableItems = currentData.ppeItems.filter(item => item.stock > 0)
-            .sort((a,b) => a.name.localeCompare(b.name));
-        document.getElementById('loanItem').innerHTML = '<option value="">-- เลือกอุปกรณ์ --</option>' +
-            loanableItems.map(item => `<option value="${item.id}">${item.name} (พร้อมใช้: ${item.stock})</option>`).join('');
+        // ❌ ลบส่วน loanItem ออก เพราะเราเปลี่ยนไปใช้ Visual Selector แล้ว
+        // const loanableItems = ... (ส่วนนี้ลบทิ้งได้เลยครับ)
     }
 
     // ===========================================
@@ -1408,6 +1428,38 @@
         });
     }
 
+    // ฟังก์ชันเปิดแคตตาล็อกหน้า "รับของเข้า"
+    function openReceiveCatalog() {
+        openItemSelector((item) => {
+            // 1. เก็บ ID
+            document.getElementById('receiveItemId').value = item.id;
+            
+            // 2. อัปเดตชื่อ
+            const nameEl = document.getElementById('receiveItemName');
+            nameEl.textContent = item.name;
+            nameEl.classList.remove('text-gray-500');
+            nameEl.classList.add('text-gray-800', 'font-bold');
+            
+            // 3. อัปเดตรหัส
+            const codeEl = document.getElementById('receiveItemCode');
+            codeEl.textContent = `รหัส: ${item.code} | ปัจจุบันมี: ${item.stock}`;
+            codeEl.classList.remove('hidden');
+            
+            // 4. อัปเดตรูป
+            const imgPlaceholder = document.getElementById('receiveItemImgPlaceholder');
+            const img = document.getElementById('receiveItemImg');
+            
+            if (item.image_url) {
+                img.src = item.image_url;
+                img.classList.remove('hidden');
+                imgPlaceholder.classList.add('hidden');
+            } else {
+                img.classList.add('hidden');
+                imgPlaceholder.classList.remove('hidden');
+            }
+        });
+    }
+
     // 2. สร้างแถวรายการสินค้า (พร้อมรูปภาพ) ลงในหน้าเบิก
     function addIssueRow(item) {
         // เช็คก่อนว่ามีรายการนี้อยู่แล้วไหม (ถ้ามีแล้วอาจจะไม่ต้องเพิ่มซ้ำ หรือให้เพิ่มซ้ำได้แล้วแต่ Logic)
@@ -1671,7 +1723,21 @@
         document.getElementById('manageForm').reset();
         document.getElementById('editItemId').value = '';
     }
-    function resetReceiveForm() { document.getElementById('receiveForm').reset(); }
+    
+    function resetReceiveForm() { 
+        document.getElementById('receiveForm').reset(); 
+        
+        // เคลียร์ค่า ID
+        document.getElementById('receiveItemId').value = '';
+        
+        // รีเซ็ตหน้าตาการ์ดกลับเป็นค่าเริ่มต้น
+        document.getElementById('receiveItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+        document.getElementById('receiveItemName').classList.add('text-gray-500');
+        document.getElementById('receiveItemName').classList.remove('text-gray-800', 'font-bold');
+        document.getElementById('receiveItemCode').classList.add('hidden');
+        document.getElementById('receiveItemImg').classList.add('hidden');
+        document.getElementById('receiveItemImgPlaceholder').classList.remove('hidden');
+    }
     function showConfirmationModal(title, message) {
         return new Promise(resolve => {
             const modal = document.getElementById('confirmationModal');
@@ -1858,8 +1924,12 @@
         e.preventDefault();
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
 
+        // ตรวจสอบว่าเลือกของหรือยัง
+        const itemId = document.getElementById('receiveItemId').value;
+        if (!itemId) return showToast('กรุณาเลือกอุปกรณ์', 'error');
+
         const transactionData = {
-            itemId: Number(document.getElementById('receiveItem').value),
+            itemId: Number(itemId), // <-- แก้ตรงนี้ ดึงจาก Hidden ID
             quantity: Number(document.getElementById('receiveQuantity').value),
             type: document.getElementById('receiveType').value,
             user: document.getElementById('receiveUser').value,
@@ -2049,9 +2119,9 @@
 
             return `
             <div onclick="selectItemFromGrid(${item.id})" class="cursor-pointer group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all transform hover:-translate-y-1">
-                <div class="h-32 w-full bg-gray-100 relative">
+                <div class="aspect-square w-full bg-gray-100 relative border-b border-gray-100">
                     <img src="${imgUrl}" class="w-full h-full object-cover">
-                    ${item.stock == 0 ? '<div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">ของหมด</div>' : ''}
+                    ${item.stock == 0 ? '<div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold backdrop-blur-sm">ของหมด</div>' : ''}
                 </div>
                 <div class="p-3">
                     <p class="font-bold text-gray-800 text-sm truncate">${item.name}</p>
