@@ -518,6 +518,16 @@
                                 </div>
                             </div>
                             <input type="hidden" id="onLoanQuantity" value="0">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ลิงก์รูปภาพ (URL)</label>
+                                <div class="flex gap-2">
+                                    <input type="url" id="itemImage" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                    <button type="button" onclick="previewImageAdmin()" class="px-3 py-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200">
+                                        <i class="fa-solid fa-image"></i>
+                                    </button>
+                                </div>
+                                <img id="adminImagePreview" src="" class="mt-2 h-20 w-20 object-cover rounded-md hidden border border-gray-300">
+                            </div>
                             <div class="flex space-x-3 pt-4">
                                 <button type="button" onclick="resetManageForm()" class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">ยกเลิก</button>
                                 <button type="submit" class="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">บันทึก</button>
@@ -1290,19 +1300,82 @@
     function addIssueItem() {
         const container = document.getElementById('issueItems');
         const newItemDiv = document.createElement('div');
-        newItemDiv.className = "issue-item flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border border-gray-200 rounded-lg bg-gray-50";
+        // ปรับ layout ให้รองรับรูปภาพ (ใช้ grid หรือ flex)
+        newItemDiv.className = "issue-item p-4 border border-gray-200 rounded-lg bg-gray-50 mb-3 relative overflow-hidden transition-all duration-300 hover:shadow-md";
+        
+        // HTML ภายในกล่องรายการ (เพิ่ม <img> tag ไว้โชว์รูป)
         newItemDiv.innerHTML = `
-            <select class="item-select flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" required>
-                <option value="">เลือกอุปกรณ์</option>
-            </select>
-            <input type="number" class="item-quantity w-full sm:w-28 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="จำนวน" min="1" required>
-            <button type="button" onclick="removeIssueItem(this)" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors w-full sm:w-auto">
-                <i class="fas fa-trash"></i>
-            </button>
+            <div class="flex items-start gap-4">
+                <div class="hidden item-img-container flex-shrink-0 w-16 h-16 bg-white rounded-lg border border-gray-200 overflow-hidden items-center justify-center">
+                    <img src="" class="item-preview-img w-full h-full object-cover" onerror="this.style.display='none'">
+                    <i class="fa-solid fa-box text-gray-300 text-xl default-icon hidden"></i>
+                </div>
+
+                <div class="flex-1 space-y-3 w-full">
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <select class="item-select flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" required onchange="updateItemPreview(this)">
+                            <option value="">เลือกอุปกรณ์</option>
+                        </select>
+                        
+                        <div class="flex gap-2">
+                            <input type="number" class="item-quantity w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="จำนวน" min="1" required>
+                            <button type="button" onclick="removeIssueItem(this)" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="item-detail-text text-xs text-gray-500 hidden"></div>
+                </div>
+            </div>
         `;
+        
         container.appendChild(newItemDiv);
-        populateAllDropdowns();
+        
+        // Populate Dropdown เหมือนเดิม
+        const select = newItemDiv.querySelector('.item-select');
+        const allItemOptions = currentData.ppeItems
+            .sort((a,b) => a.name.localeCompare(b.name))
+            .map(item => `<option value="${item.id}">${item.name} (คงเหลือ: ${item.stock})</option>`).join('');
+        select.innerHTML = '<option value="">เลือกอุปกรณ์</option>' + allItemOptions;
     }
+
+    // ฟังก์ชันใหม่: อัปเดตรูปเมื่อมีการเลือก Dropdown
+    function updateItemPreview(selectElement) {
+        const itemId = selectElement.value;
+        const row = selectElement.closest('.issue-item');
+        const imgContainer = row.querySelector('.item-img-container');
+        const img = row.querySelector('.item-preview-img');
+        const defaultIcon = row.querySelector('.default-icon');
+        const detailText = row.querySelector('.item-detail-text');
+
+        if (!itemId) {
+            imgContainer.classList.add('hidden');
+            detailText.classList.add('hidden');
+            return;
+        }
+
+        const item = currentData.ppeItems.find(p => p.id == itemId);
+        if (item) {
+            // Show Container
+            imgContainer.classList.remove('hidden');
+            imgContainer.classList.add('flex'); // เพื่อจัดกลาง
+
+            // Handle Image
+            if (item.image_url) {
+                img.src = item.image_url;
+                img.style.display = 'block';
+                defaultIcon.classList.add('hidden');
+            } else {
+                img.style.display = 'none';
+                defaultIcon.classList.remove('hidden'); // โชว์ไอคอนกล่องแทนถ้าไม่มีรูป
+            }
+
+            // Show Detail text (Optional: แสดงรหัสสินค้า)
+            detailText.textContent = `รหัส: ${item.code} | หน่วย: ${item.unit}`;
+            detailText.classList.remove('hidden');
+        }
+    }
+
     function removeIssueItem(button) { button.closest('.issue-item').remove(); }
     function resetIssueForm() {
         document.getElementById('issueForm').reset();
@@ -1537,30 +1610,73 @@
             });
     }
 
-    /**
-     * Handles the submission of the manage/edit item form.
-     */
+    // 1. เพิ่มฟังก์ชัน preview รูปใน admin
+    function previewImageAdmin() {
+        const url = document.getElementById('itemImage').value;
+        const img = document.getElementById('adminImagePreview');
+        if (url) {
+            img.src = url;
+            img.classList.remove('hidden');
+        } else {
+            img.classList.add('hidden');
+        }
+    }
+
+    // 2. แก้ไข handleManageSubmit ให้ส่ง imageUrl ไปด้วย
     function handleManageSubmit(e) {
         e.preventDefault();
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
 
         const itemData = {
             id: document.getElementById('editItemId').value || null,
+            // ... (fields เดิม)
             code: document.getElementById('itemCode').value,
             name: document.getElementById('itemName').value,
             category: document.getElementById('itemCategory').value,
             unit: document.getElementById('itemUnit').value,
             reorderPoint: Number(document.getElementById('itemReorderPoint').value),
             stock: Number(document.getElementById('itemStock').value),
-            onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0)
+            onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0),
+            imageUrl: document.getElementById('itemImage').value // <--- เพิ่มบรรทัดนี้
         };
         
+        // ... (ส่วนเรียก API เหมือนเดิม)
         callServerFunction('savePpeItem', itemData)
-            .then(result => {
-                showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
-                resetManageForm();
-                initializeApp();
-            });
+                .then(result => {
+                    showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
+                    resetManageForm();
+                    initializeApp();
+                });
+    }
+
+    // 3. แก้ไข editItem ให้ดึง url มาใส่ในฟอร์มตอนกดแก้ไข
+    function editItem(itemId) {
+        const item = currentData.ppeItems.find(p => p.id == itemId);
+        if (item) {
+            // ... (fields เดิม)
+            document.getElementById('editItemId').value = item.id;
+            document.getElementById('itemCode').value = item.code;
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemCategory').value = item.category;
+            document.getElementById('itemUnit').value = item.unit;
+            document.getElementById('itemReorderPoint').value = item.reorderPoint;
+            document.getElementById('itemStock').value = item.stock;
+            document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
+            
+            // เพิ่มส่วนรูปภาพ
+            document.getElementById('itemImage').value = item.image_url || '';
+            previewImageAdmin(); // สั่งให้แสดงรูปด้วยถ้ามี
+
+            showToast('กำลังแก้ไข: ' + item.name);
+        }
+    }
+
+    // 4. แก้ไข resetManageForm ให้เคลียร์รูป
+    function resetManageForm() {
+        document.getElementById('manageForm').reset();
+        document.getElementById('editItemId').value = '';
+        document.getElementById('adminImagePreview').classList.add('hidden'); // ซ่อนรูป
+        document.getElementById('adminImagePreview').src = '';
     }
 
     /**

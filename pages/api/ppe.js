@@ -203,38 +203,37 @@ async function deleteCategory(categoryId) {
 async function savePpeItem(itemData) {
   if (!itemData) throw new Error('Missing item data');
 
+  // เตรียม object ข้อมูลที่จะบันทึก (เพิ่ม imageUrl เข้าไป)
+  const payload = {
+    code: itemData.code,
+    name: itemData.name,
+    category: itemData.category,
+    unit: itemData.unit,
+    reorderPoint: itemData.reorderPoint || 0,
+    stock: itemData.stock || 0,
+    onLoanQuantity: itemData.onLoanQuantity || 0,
+    price: itemData.price || 0,
+    image_url: itemData.imageUrl || '', // <--- เพิ่มบรรทัดนี้ครับ
+  };
+
   if (itemData.id) {
+    // กรณี Update
     const { data, error } = await supabase
       .from('ppe_items')
-      .update({
-        code: itemData.code,
-        name: itemData.name,
-        category: itemData.category,
-        unit: itemData.unit,
-        reorderPoint: itemData.reorderPoint,
-        stock: itemData.stock,
-        onLoanQuantity: itemData.onLoanQuantity,
-        price: itemData.price,
-      })
+      .update(payload) // ใช้ payload ตัวเดียวกัน
       .eq('id', itemData.id)
       .select()
       .single();
     if (error) throw error;
     return { item: data, isNew: false };
   } else {
+    // กรณี Insert ใหม่
     const nextId = await getNextId('ppe_items', 'id');
     const { data, error } = await supabase
       .from('ppe_items')
       .insert({
         id: nextId,
-        code: itemData.code,
-        name: itemData.name,
-        category: itemData.category,
-        unit: itemData.unit,
-        reorderPoint: itemData.reorderPoint || 0,
-        stock: itemData.stock || 0,
-        onLoanQuantity: itemData.onLoanQuantity || 0,
-        price: itemData.price || 0,
+        ...payload // Spread payload เข้าไป
       })
       .select()
       .single();
