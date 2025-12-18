@@ -2126,38 +2126,39 @@
         container.innerHTML = items.map(item => {
             const imgUrl = item.image_url || 'https://placehold.co/150x150?text=No+Image'; 
             const isOutOfStock = Number(item.stock) <= 0;
-            // เปลี่ยนสีขอบและพื้นหลังตามสถานะสินค้า
-            const cardBorder = isOutOfStock ? 'border-red-200' : 'border-gray-200 group-hover:border-teal-300';
-            const badgeClass = isOutOfStock ? 'bg-red-100 text-red-700 border-red-200' : 'bg-teal-50 text-teal-700 border-teal-200';
-            const iconClass = isOutOfStock ? 'fa-times-circle' : 'fa-box';
+            
+            // กำหนดสีตามสถานะสินค้า
+            const borderClass = isOutOfStock ? 'border-red-200' : 'border-gray-200 hover:border-teal-400';
+            const badgeClass = isOutOfStock ? 'bg-red-50 text-red-600 border-red-100' : 'bg-teal-50 text-teal-700 border-teal-100';
+            const badgeIcon = isOutOfStock ? 'fa-times-circle' : 'fa-check-circle';
 
             return `
-            <div class="group bg-white border ${cardBorder} rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative flex flex-col h-full">
+            <div class="group bg-white border ${borderClass} rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 relative flex flex-col h-full">
                 
-                <div class="relative w-full border-b border-gray-50 bg-gray-50" style="padding-bottom: 100%;"> 
-                    <img src="${imgUrl}" class="absolute inset-0 w-full h-full object-contain p-4 cursor-pointer mix-blend-multiply" onclick="selectItemFromGrid(${item.id})">
+                <div class="relative w-full bg-gray-50 border-b border-gray-100" style="padding-bottom: 100%;">
+                    <img src="${imgUrl}" class="absolute inset-0 w-full h-full object-contain p-3 cursor-pointer mix-blend-multiply transition-transform duration-300 group-hover:scale-105" onclick="selectItemFromGrid(${item.id})">
                     
-                    <button onclick="openImagePreview('${imgUrl}', event)" class="absolute top-2 right-2 bg-white/90 hover:bg-teal-600 hover:text-white text-gray-500 p-2 rounded-full shadow-sm backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10 w-8 h-8 flex items-center justify-center">
+                    <button onclick="openImagePreview('${imgUrl}', event)" class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-white/90 hover:bg-teal-600 hover:text-white text-gray-500 rounded-full shadow-md backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10" title="ดูรูปขยาย">
                         <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
                     </button>
 
-                    ${isOutOfStock ? '<div class="absolute inset-0 bg-gray-900/10 backdrop-grayscale flex items-center justify-center pointer-events-none"><span class="bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">สินค้าหมด</span></div>' : ''}
+                    ${isOutOfStock ? '<div class="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[1px] pointer-events-none"><span class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">สินค้าหมด</span></div>' : ''}
                 </div>
                 
-                <div class="p-3 flex flex-col flex-1 justify-between cursor-pointer bg-white" onclick="selectItemFromGrid(${item.id})">
-                    <div>
-                        <div class="flex justify-between items-start gap-2 mb-1">
-                            <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider border border-gray-100 px-1.5 rounded bg-gray-50">${item.code}</span>
+                <div class="p-3 flex flex-col flex-1 justify-between bg-white cursor-pointer" onclick="selectItemFromGrid(${item.id})">
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider border border-gray-100 px-1.5 py-0.5 rounded bg-gray-50">${item.code}</span>
                         </div>
-                        <h4 class="font-bold text-gray-800 text-sm leading-snug line-clamp-2 mb-2 group-hover:text-teal-600 transition-colors" title="${item.name}">${item.name}</h4>
+                        <h4 class="font-bold text-gray-800 text-sm leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors" title="${item.name}">${item.name}</h4>
                     </div>
 
-                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold ${badgeClass}">
-                            <i class="fa-solid ${iconClass}"></i>
+                    <div class="flex items-center justify-between pt-2 border-t border-gray-50 mt-auto">
+                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-md border ${badgeClass} text-[11px] font-bold">
+                            <i class="fa-solid ${badgeIcon}"></i>
                             <span>${item.stock} ${item.unit}</span>
                         </div>
-                        <div class="h-8 w-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center group-hover:bg-teal-500 group-hover:text-white transition-all shadow-sm">
+                        <div class="h-8 w-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-all shadow-sm">
                             <i class="fa-solid fa-plus"></i>
                         </div>
                     </div>
