@@ -308,7 +308,7 @@
                         <table class="w-full text-sm">
                             <thead class="bg-gray-50 text-left">
                                 <tr>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
+                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th> <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
                                     <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ชื่ออุปกรณ์</th>
                                     <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">หมวดหมู่</th>
                                     <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">คงเหลือ</th>
@@ -341,11 +341,11 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">รายการอุปกรณ์</label>
-                            <div id="issueItems" class="space-y-3">
-                                <!-- JS will populate the first item row -->
-                            </div>
-                            <button type="button" onclick="addIssueItem()" class="mt-4 px-4 py-2 bg-teal-50 text-teal-700 font-medium rounded-lg hover:bg-teal-100 transition-colors">
-                                <i class="fas fa-plus mr-2"></i>เพิ่มรายการ
+                            <div id="issueItemsContainer" class="space-y-3 mb-3">
+                                </div>
+                            
+                            <button type="button" onclick="openIssueCatalog()" class="w-full py-3 border-2 border-dashed border-teal-300 rounded-lg text-teal-600 hover:bg-teal-50 hover:border-teal-500 transition-colors font-medium">
+                                <i class="fas fa-plus-circle mr-2"></i>เลือกอุปกรณ์จากแคตตาล็อก
                             </button>
                         </div>
                         <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
@@ -362,9 +362,25 @@
                         <h3 class="text-xl font-semibold mb-6 text-gray-800">ยืมอุปกรณ์</h3>
                         <form id="loanForm" class="space-y-4">
                             <div>
-                                <label for="loanItem" class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
-                                <select id="loanItem" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
+                                <input type="hidden" id="loanItemId" required> 
+                                
+                                <div id="loanItemDisplay" onclick="openLoanCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
+                                    <div class="flex items-center gap-3">
+                                        <div id="loanItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
+                                            <i class="fa-solid fa-box-open text-xl"></i>
+                                        </div>
+                                        <img id="loanItemImg" src="" class="w-12 h-12 rounded-md object-cover hidden border border-gray-200">
+                                        
+                                        <div class="overflow-hidden">
+                                            <p id="loanItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
+                                            <p id="loanItemCode" class="text-xs text-gray-400 hidden"></p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
+                                </div>
                             </div>
+
                             <div>
                                 <label for="borrowerName" class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
                                 <input type="text" id="borrowerName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -378,7 +394,7 @@
                                 <textarea id="loanNotes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
                             </div>
                             <div class="flex justify-end pt-2">
-                                <button type="submit" class="w-full px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">บันทึกการยืม</button>
+                                <button type="submit" class="w-full px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm">บันทึกการยืม</button>
                             </div>
                         </form>
                     </div>
@@ -391,7 +407,7 @@
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 text-left">
                                     <tr>
-                                         <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">อุปกรณ์</th>
+                                         <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th> <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">อุปกรณ์</th>
                                          <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้ยืม</th>
                                          <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่ยืม</th>
                                          <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">กำหนดคืน</th>
@@ -667,6 +683,22 @@
         <div id="categoryListContainer" class="space-y-2 max-h-64 overflow-y-auto pr-2 border-t pt-4">
             <!-- JS will render categories here -->
         </div>
+    </div>
+</div>
+
+<div id="itemSelectorModal" class="fixed inset-0 bg-black/60 modal-backdrop flex items-center justify-center z-[60] hidden">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl m-4 flex flex-col max-h-[90vh]">
+        <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-xl">
+            <h3 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-boxes-stacked mr-2 text-teal-600"></i>เลือกอุปกรณ์</h3>
+            <button onclick="closeItemSelector()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        
+        <div class="p-4 border-b border-gray-200 bg-white">
+            <input type="text" id="selectorSearch" onkeyup="renderSelectorItems()" placeholder="ค้นหาชื่อ หรือรหัสอุปกรณ์..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none">
+        </div>
+
+        <div id="selectorGrid" class="flex-1 overflow-y-auto p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 bg-gray-50">
+            </div>
     </div>
 </div>
 
@@ -1124,12 +1156,25 @@
                 statusText = 'ปกติ';
                 statusColor = 'bg-emerald-100 text-emerald-800';
             }
+
+            // เพิ่ม Logic แสดงรูปภาพ
+            const imgDisplay = item.image_url 
+                ? `<div class="h-12 w-12 rounded-lg border border-gray-200 overflow-hidden bg-white">
+                     <img src="${item.image_url}" class="h-full w-full object-cover cursor-pointer hover:scale-110 transition-transform" onclick="window.open('${item.image_url}', '_blank')">
+                   </div>`
+                : `<div class="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                     <i class="fa-solid fa-image"></i>
+                   </div>`;
+
             return `
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${imgDisplay}
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">${item.code}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-800">${item.name}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.category}</td>
-                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${item.stock} <span class="text-gray-500 font-normal">${item.unit}</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800 text-lg">${item.stock} <span class="text-gray-500 font-normal text-sm">${item.unit}</span></td>
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.onLoanQuantity || 0}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span>
@@ -1240,7 +1285,10 @@
     function updateOnLoanTable() {
         const tbody = document.getElementById('onLoanTableBody');
         const emptyState = document.getElementById('onLoanEmptyState');
-        const onLoanItems = currentData.loanTransactions.filter(l => l.status === 'on_loan').sort((a, b) => new Date(a.borrowDate) - new Date(b.borrowDate));
+        const onLoanItems = currentData.loanTransactions
+            .filter(l => l.status === 'on_loan')
+            .sort((a, b) => new Date(a.borrowDate) - new Date(b.borrowDate));
+
         if (onLoanItems.length === 0) {
             tbody.innerHTML = '';
             emptyState.innerHTML = createEmptyState('ไม่มีอุปกรณ์ที่กำลังถูกยืม', 'fa-solid fa-people-carry-box');
@@ -1248,21 +1296,37 @@
             return;
         }
         emptyState.classList.add('hidden');
+
         tbody.innerHTML = onLoanItems.map(loan => {
             const item = currentData.ppeItems.find(p => p.id == loan.itemId);
             const today = new Date(); today.setHours(0, 0, 0, 0);
             const isOverdue = new Date(loan.dueDate) < today;
+            
+            // Logic รูปภาพ (ถ้าไม่มีของ หรือไม่มีรูป ให้ใช้ placeholder)
+            const imgHtml = (item && item.image_url) 
+                ? `<div class="h-10 w-10 rounded-md border border-gray-200 overflow-hidden bg-white"><img src="${item.image_url}" class="h-full w-full object-cover"></div>`
+                : `<div class="h-10 w-10 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400"><i class="fa-solid fa-box"></i></div>`;
+
             return `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item ? item.name : 'N/A'}</td>
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${imgHtml}
+                    </td>
+                    
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        ${item ? item.name : '<span class="text-red-500">ไม่พบข้อมูล</span>'}
+                        ${item ? `<div class="text-xs text-gray-500 font-normal">${item.code}</div>` : ''}
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${loan.borrowerName}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(loan.borrowDate).toLocaleDateString('th-TH')}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}">
                         ${new Date(loan.dueDate).toLocaleDateString('th-TH')}
-                        ${isOverdue ? '<span class="ml-2 text-xs">(เกินกำหนด)</span>' : ''}
+                        ${isOverdue ? '<span class="ml-2 inline-block px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">เกินกำหนด</span>' : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <button onclick="handleReturnItem(${loan.loanId})" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">รับคืน</button>
+                        <button onclick="handleReturnItem(${loan.loanId})" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm">
+                            <i class="fa-solid fa-undo mr-1"></i> รับคืน
+                        </button>
                     </td>
                 </tr>`;
         }).join('');
@@ -1292,6 +1356,100 @@
                     </td>
                 </tr>`;
         }).join('');
+    }
+
+    // ==========================================
+    // ฟังก์ชันจัดการรายการเบิกแบบใหม่ (New Issue Logic)
+    // ==========================================
+
+    // 1. เปิดหน้าต่างแคตตาล็อกสินค้า
+    function openIssueCatalog() {
+        // เรียกใช้ Modal เลือกของ (ต้องมีฟังก์ชัน openItemSelector จากขั้นตอนก่อนหน้านี้แล้ว)
+        openItemSelector((selectedItem) => {
+            addIssueRow(selectedItem); // เมื่อเลือกเสร็จ ให้ส่งของที่เลือกมาสร้างแถว
+        });
+    }
+
+    // ==========================================
+    // ฟังก์ชันสำหรับหน้ายืม-คืน (Loan Logic)
+    // ==========================================
+
+    function openLoanCatalog() {
+        // เรียกใช้ Modal Item Selector
+        openItemSelector((item) => {
+            // 1. อัปเดต ID ลงใน Hidden Input
+            document.getElementById('loanItemId').value = item.id;
+            
+            // 2. อัปเดตชื่ออุปกรณ์ (เปลี่ยนสีตัวอักษรให้เข้มขึ้น)
+            const nameEl = document.getElementById('loanItemName');
+            nameEl.textContent = item.name;
+            nameEl.classList.remove('text-gray-500');
+            nameEl.classList.add('text-gray-800', 'font-bold');
+            
+            // 3. อัปเดตรหัสและจำนวนคงเหลือ
+            const codeEl = document.getElementById('loanItemCode');
+            codeEl.textContent = `รหัส: ${item.code} | พร้อมใช้: ${item.stock} ${item.unit}`;
+            codeEl.classList.remove('hidden');
+            
+            // 4. อัปเดตรูปภาพ
+            const imgPlaceholder = document.getElementById('loanItemImgPlaceholder');
+            const img = document.getElementById('loanItemImg');
+            
+            if (item.image_url) {
+                // กรณีมีรูป: โชว์รูป ซ่อนกล่องเปล่า
+                img.src = item.image_url;
+                img.classList.remove('hidden');
+                imgPlaceholder.classList.add('hidden');
+            } else {
+                // กรณีไม่มีรูป: ซ่อนรูป โชว์กล่องเปล่า
+                img.classList.add('hidden');
+                imgPlaceholder.classList.remove('hidden');
+            }
+        });
+    }
+
+    // 2. สร้างแถวรายการสินค้า (พร้อมรูปภาพ) ลงในหน้าเบิก
+    function addIssueRow(item) {
+        // เช็คก่อนว่ามีรายการนี้อยู่แล้วไหม (ถ้ามีแล้วอาจจะไม่ต้องเพิ่มซ้ำ หรือให้เพิ่มซ้ำได้แล้วแต่ Logic)
+        const existingRow = document.querySelector(`#issueItemsContainer input[value="${item.id}"]`);
+        if (existingRow) {
+            showToast('รายการนี้ถูกเลือกไปแล้ว', 'error');
+            return;
+        }
+
+        const container = document.getElementById('issueItemsContainer');
+        const rowId = 'issue-row-' + Date.now(); // สร้าง ID สุ่มให้แถวไม่ซ้ำกัน
+        
+        // ใช้รูป Placeholder กรณีไม่มีรูปจริง
+        const imgUrl = item.image_url || 'https://placehold.co/100x100?text=No+Img';
+
+        const html = `
+        <div id="${rowId}" class="issue-item flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-lg shadow-sm transition-all hover:border-teal-400">
+            <input type="hidden" class="item-select-value" value="${item.id}">
+            
+            <div class="h-16 w-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
+                <img src="${imgUrl}" class="h-full w-full object-cover">
+            </div>
+            
+            <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-gray-800 text-sm truncate">${item.name}</h4>
+                <p class="text-xs text-gray-500">รหัส: ${item.code} | คงเหลือ: ${item.stock} ${item.unit}</p>
+            </div>
+
+            <div class="flex flex-col items-end gap-1">
+                <div class="flex items-center gap-2">
+                    <input type="number" class="item-quantity w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold text-gray-700" value="1" min="1" max="${item.stock}">
+                    <span class="text-xs text-gray-500 w-8">${item.unit}</span>
+                </div>
+            </div>
+
+            <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-gray-400 hover:text-red-600 p-2 transition-colors" title="ลบรายการ">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', html);
     }
 
     // ===========================================
@@ -1379,8 +1537,11 @@
     function removeIssueItem(button) { button.closest('.issue-item').remove(); }
     function resetIssueForm() {
         document.getElementById('issueForm').reset();
-        document.getElementById('issueItems').innerHTML = '';
-        addIssueItem();
+        
+        // เคลียร์รายการสินค้าในกล่องใหม่ให้หมด
+        document.getElementById('issueItemsContainer').innerHTML = '';
+        
+        // *ไม่ต้อง* เรียก addIssueItem() แล้ว เพราะเราไม่ได้ใช้ Dropdown เริ่มต้น
     }
 
     function showVoucherDetails(voucherId) {
@@ -1587,15 +1748,26 @@
         const user = document.getElementById('issueUser').value;
         const department = document.getElementById('issueDepartment').value;
         const items = [];
-        const itemRows = document.querySelectorAll('#issueItems .issue-item');
+        
+        // --- จุดที่เปลี่ยน ---
+        // ดึงรายการจาก Container ใหม่
+        const itemRows = document.querySelectorAll('#issueItemsContainer .issue-item');
 
-        for (let row of itemRows) {
-            const itemId = row.querySelector('.item-select').value;
-            const quantity = row.querySelector('.item-quantity').value;
-            if (itemId && quantity > 0) {
-                items.push({ itemId: Number(itemId), quantity: Number(quantity) });
+        itemRows.forEach(row => {
+            // หา ID จาก class .item-select-value (Input type hidden)
+            const itemIdInput = row.querySelector('.item-select-value');
+            const quantityInput = row.querySelector('.item-quantity');
+            
+            if (itemIdInput && quantityInput) {
+                const itemId = itemIdInput.value;
+                const quantity = quantityInput.value;
+                
+                if (itemId && quantity > 0) {
+                    items.push({ itemId: Number(itemId), quantity: Number(quantity) });
+                }
             }
-        }
+        });
+        // -------------------
 
         if (items.length === 0) {
             return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
@@ -1606,7 +1778,7 @@
             .then(newVoucher => {
                 showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
                 resetIssueForm();
-                initializeApp(); // Refresh data
+                initializeApp(); 
             });
     }
 
@@ -1707,8 +1879,16 @@
      */
     function handleBorrowSubmit(e) {
         e.preventDefault();
+        
+        // ดึงค่าจาก Hidden Input
+        const itemId = document.getElementById('loanItemId').value;
+        
+        if (!itemId) {
+            return showToast('กรุณาเลือกอุปกรณ์ที่ต้องการยืม', 'error');
+        }
+
         const borrowData = {
-            itemId: Number(document.getElementById('loanItem').value),
+            itemId: Number(itemId),
             borrowerName: document.getElementById('borrowerName').value,
             dueDate: document.getElementById('loanDueDate').value,
             notes: document.getElementById('loanNotes').value,
@@ -1717,7 +1897,19 @@
         callServerFunction('borrowItem', borrowData)
             .then(() => {
                 showToast('บันทึกการยืมสำเร็จ');
+                
+                // Reset Form
                 document.getElementById('loanForm').reset();
+                document.getElementById('loanItemId').value = ''; // เคลียร์ ID
+                
+                // Reset UI การ์ดเลือกของกลับเป็นค่าเริ่มต้น
+                document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+                document.getElementById('loanItemName').classList.add('text-gray-500');
+                document.getElementById('loanItemName').classList.remove('text-gray-800', 'font-bold');
+                document.getElementById('loanItemCode').classList.add('hidden');
+                document.getElementById('loanItemImg').classList.add('hidden');
+                document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+
                 initializeApp();
             });
     }
@@ -1817,6 +2009,69 @@
                 hideApprovalModal();
                 initializeApp();
             });
+    }
+
+    // ==========================================
+    // ITEM SELECTOR LOGIC (เพิ่มใหม่)
+    // ==========================================
+    let onItemSelectedCallback = null; // ตัวแปรเก็บฟังก์ชัน callback ว่าเลือกเสร็จแล้วให้ไปทำอะไร
+
+    function openItemSelector(callback) {
+        onItemSelectedCallback = callback;
+        document.getElementById('itemSelectorModal').classList.remove('hidden');
+        document.getElementById('selectorSearch').value = ''; // เคลียร์ช่องค้นหา
+        renderSelectorItems(); // วาดรายการสินค้า
+    }
+
+    function closeItemSelector() {
+        document.getElementById('itemSelectorModal').classList.add('hidden');
+        onItemSelectedCallback = null;
+    }
+
+    function renderSelectorItems() {
+        const container = document.getElementById('selectorGrid');
+        const searchText = document.getElementById('selectorSearch').value.toLowerCase();
+        
+        // กรองสินค้า (และต้องมีสต็อก > 0 ถึงจะเลือกได้ หรือแล้วแต่เงื่อนไข)
+        const items = currentData.ppeItems.filter(item => 
+            (item.name.toLowerCase().includes(searchText) || item.code.toLowerCase().includes(searchText))
+        );
+
+        if (items.length === 0) {
+            container.innerHTML = `<div class="col-span-full text-center text-gray-400 py-10">ไม่พบสินค้า</div>`;
+            return;
+        }
+
+        container.innerHTML = items.map(item => {
+            // ใช้รูป placeholder ถ้าไม่มีรูปจริง
+            const imgUrl = item.image_url || 'https://placehold.co/150x150?text=No+Image'; 
+            const stockColor = item.stock > 0 ? 'text-teal-600' : 'text-red-500';
+
+            return `
+            <div onclick="selectItemFromGrid(${item.id})" class="cursor-pointer group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="h-32 w-full bg-gray-100 relative">
+                    <img src="${imgUrl}" class="w-full h-full object-cover">
+                    ${item.stock == 0 ? '<div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">ของหมด</div>' : ''}
+                </div>
+                <div class="p-3">
+                    <p class="font-bold text-gray-800 text-sm truncate">${item.name}</p>
+                    <p class="text-xs text-gray-500 mb-1">${item.code}</p>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-xs font-semibold ${stockColor}">คงเหลือ: ${item.stock}</span>
+                        <button class="text-teal-600 hover:bg-teal-50 p-1 rounded-full"><i class="fa-solid fa-circle-plus text-lg"></i></button>
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function selectItemFromGrid(itemId) {
+        const item = currentData.ppeItems.find(i => i.id == itemId);
+        if (item && onItemSelectedCallback) {
+            onItemSelectedCallback(item); // ส่งค่า item กลับไปให้ฟังก์ชันที่เรียก
+            closeItemSelector();
+        }
     }
 
 </script>
