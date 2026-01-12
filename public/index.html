@@ -143,52 +143,28 @@
 
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 sm:p-6 lg:p-8 page-container relative">
             <div id="dashboardPage" class="page">
-                <div id="dashboardContent">
+                
+                <div id="adminDashboardPanel">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">อุปกรณ์ทั้งหมด</p>
-                                <p id="totalItems" class="text-3xl font-bold text-gray-800">0</p>
-                            </div>
-                            <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
-                                <i class="fas fa-boxes text-xl text-teal-600"></i>
-                            </div>
+                            <div><p class="text-sm font-medium text-gray-500">อุปกรณ์ทั้งหมด</p><p id="totalItems" class="text-3xl font-bold text-gray-800">0</p></div>
+                            <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center"><i class="fas fa-boxes text-xl text-teal-600"></i></div>
                         </div>
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">ใกล้หมดสต็อก</p>
-                                <p id="lowStockItems" class="text-3xl font-bold text-orange-500">0</p>
-                            </div>
-                             <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                                <i class="fas fa-exclamation-triangle text-xl text-orange-500"></i>
-                            </div>
+                            <div><p class="text-sm font-medium text-gray-500">ใกล้หมดสต็อก</p><p id="lowStockItems" class="text-3xl font-bold text-orange-500">0</p></div>
+                             <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center"><i class="fas fa-exclamation-triangle text-xl text-orange-500"></i></div>
                         </div>
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">ของหมด</p>
-                                <p id="outOfStockItems" class="text-3xl font-bold text-red-600">0</p>
-                            </div>
-                             <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                                <i class="fas fa-times-circle text-xl text-red-600"></i>
-                            </div>
+                            <div><p class="text-sm font-medium text-gray-500">ของหมด</p><p id="outOfStockItems" class="text-3xl font-bold text-red-600">0</p></div>
+                             <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center"><i class="fas fa-times-circle text-xl text-red-600"></i></div>
                         </div>
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">รออนุมัติ</p>
-                                <p id="pendingVouchers" class="text-3xl font-bold text-amber-500">0</p>
-                            </div>
-                             <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-                                <i class="fas fa-clock text-xl text-amber-500"></i>
-                            </div>
+                            <div><p class="text-sm font-medium text-gray-500">รออนุมัติ</p><p id="pendingVouchers" class="text-3xl font-bold text-amber-500">0</p></div>
+                             <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center"><i class="fas fa-clock text-xl text-amber-500"></i></div>
                         </div>
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">มูลค่าสต็อกรวม</p>
-                                <p id="totalStockValue" class="text-2xl font-bold text-gray-800">฿0.00</p>
-                            </div>
-                            <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                                <i class="fas fa-dollar-sign text-xl text-emerald-600"></i>
-                            </div>
+                            <div><p class="text-sm font-medium text-gray-500">มูลค่าสต็อกรวม</p><p id="totalStockValue" class="text-2xl font-bold text-gray-800">฿0.00</p></div>
+                            <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center"><i class="fas fa-dollar-sign text-xl text-emerald-600"></i></div>
                         </div>
                     </div>
 
@@ -197,80 +173,43 @@
                              <h3 class="text-lg font-semibold mb-4 text-gray-800">การดำเนินการด่วน</h3>
                              <div class="space-y-3">
                                 <button onclick="showPage('issue')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
-                                    <i class="fa-solid fa-file-export text-teal-600 text-lg"></i>
-                                    <span class="font-medium text-gray-700">สร้างใบเบิกใหม่</span>
+                                    <i class="fa-solid fa-file-export text-teal-600 text-lg"></i><span class="font-medium text-gray-700">สร้างใบเบิกใหม่</span>
                                 </button>
                                 <button onclick="showPage('receive')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
-                                    <i class="fa-solid fa-truck-ramp-box text-teal-600 text-lg"></i>
-                                    <span class="font-medium text-gray-700">รับของเข้าสต็อก</span>
+                                    <i class="fa-solid fa-truck-ramp-box text-teal-600 text-lg"></i><span class="font-medium text-gray-700">รับของเข้าสต็อก</span>
                                 </button>
                                 <button onclick="showPage('loan')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
-                                    <i class="fa-solid fa-hand-holding-hand text-teal-600 text-lg"></i>
-                                    <span class="font-medium text-gray-700">ยืม-คืนอุปกรณ์</span>
+                                    <i class="fa-solid fa-hand-holding-hand text-teal-600 text-lg"></i><span class="font-medium text-gray-700">ยืม-คืนอุปกรณ์</span>
                                 </button>
                              </div>
                         </div>
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
                             <h3 class="text-lg font-semibold mb-4 text-gray-800">ศูนย์ปฏิบัติการ (Action Center)</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <h4 class="font-semibold text-gray-700 mb-3">รายการใกล้หมด / ของหมด</h4>
-                                    <div id="lowStockList" class="space-y-2 max-h-60 overflow-y-auto pr-2"></div>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-gray-700 mb-3">อุปกรณ์ยืมเกินกำหนด</h4>
-                                    <div id="overdueLoansList" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div>
-                                </div>
+                                <div><h4 class="font-semibold text-gray-700 mb-3">รายการใกล้หมด / ของหมด</h4><div id="lowStockList" class="space-y-2 max-h-60 overflow-y-auto pr-2"></div></div>
+                                <div><h4 class="font-semibold text-gray-700 mb-3">อุปกรณ์ยืมเกินกำหนด</h4><div id="overdueLoansList" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">สต็อกตามหมวดหมู่</h3>
-                            <div class="relative h-64 md:h-72">
-                                <canvas id="categoryChart"></canvas>
-                            </div>
+                            <h3 class="text-lg font-semibold mb-4">สต็อกตามหมวดหมู่</h3><div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
                         </div>
                         <div class="lg:col-span-3 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์ที่ถูกเบิกจ่ายบ่อยที่สุด</h3>
-                            <div class="relative h-64 md:h-72">
-                                <canvas id="topIssuedItemsChart"></canvas>
-                            </div>
+                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์ที่ถูกเบิกจ่ายบ่อยที่สุด</h3><div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
                         </div>
                     </div>
                     
                     <div class="bg-white p-6 rounded-xl border border-gray-200">
-                         <h3 class="text-lg font-semibold mb-4 text-gray-800">กิจกรรมล่าสุด</h3>
-                         <div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+                         <h3 class="text-lg font-semibold mb-4 text-gray-800">กิจกรรมล่าสุด</h3><div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
                     </div>
                 </div>
 
+                <div id="userDashboardPanel" class="hidden"></div>
+
                 <div id="dashboardSkeleton" class="hidden">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                        <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
-                        <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
-                        <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
-                        <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
-                        <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
-                    </div>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="lg:col-span-1 bg-white p-6 rounded-xl border animate-pulse">
-                            <div class="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
-                            <div class="space-y-3">
-                                <div class="h-14 bg-gray-200 rounded-lg"></div>
-                                <div class="h-14 bg-gray-200 rounded-lg"></div>
-                                <div class="h-14 bg-gray-200 rounded-lg"></div>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl border animate-pulse">
-                            <div class="h-6 bg-gray-200 rounded w-1/3 mb-6"></div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="space-y-2"><div class="h-10 bg-gray-200 rounded"></div><div class="h-10 bg-gray-200 rounded"></div><div class="h-10 bg-gray-200 rounded"></div></div>
-                                <div class="space-y-2"><div class="h-10 bg-gray-200 rounded"></div><div class="h-10 bg-gray-200 rounded"></div><div class="h-10 bg-gray-200 rounded"></div></div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="animate-pulse flex space-x-4"><div class="flex-1 space-y-6 py-1"><div class="h-2 bg-slate-200 rounded"></div><div class="space-y-3"><div class="grid grid-cols-3 gap-4"><div class="h-2 bg-slate-200 rounded col-span-2"></div><div class="h-2 bg-slate-200 rounded col-span-1"></div></div><div class="h-2 bg-slate-200 rounded"></div></div></div></div>
                 </div>
             </div>
 
@@ -843,7 +782,24 @@
 
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
-        updateDashboard();
+        
+        // --- ส่วนที่แก้ไข: สลับการแสดงผล Dashboard ---
+        const adminPanel = document.getElementById('adminDashboardPanel');
+        const userPanel = document.getElementById('userDashboardPanel');
+        
+        if (isAdmin) {
+            // โหมดแอดมิน: โชว์กราฟ ซ่อนหน้า User
+            if(adminPanel) adminPanel.classList.remove('hidden');
+            if(userPanel) userPanel.classList.add('hidden');
+            updateDashboard(); // เรียกฟังก์ชันวาดกราฟเดิม
+        } else {
+            // โหมดผู้ใช้: ซ่อนกราฟ โชว์หน้า User
+            if(adminPanel) adminPanel.classList.add('hidden');
+            if(userPanel) userPanel.classList.remove('hidden');
+            renderUserDashboard(); // เรียกฟังก์ชันวาดหน้า User ใหม่
+        }
+        // ------------------------------------------
+
         updateAllTablesAndLists();
         populateAllDropdowns();
         updateAdminUI();
@@ -940,8 +896,16 @@
             .then(isValid => {
                 if (isValid) {
                     isAdmin = true;
+                    // --- ส่วนที่เพิ่ม: เปิด Sidebar และ Header คืนมา ---
+                    document.querySelector('aside').classList.remove('hidden');
+                    document.querySelector('header').classList.remove('hidden');
+                    document.getElementById('adminMenuMobile').classList.remove('hidden');
+                    // ---------------------------------------------
+                    
                     updateAdminUI();
+                    updateUI(); // เรียก updateUI เพื่อสลับ Dashboard เป็น Admin Panel
                     hideLoginModal();
+                    showPage('dashboard'); // เด้งไปหน้าแรก
                     showToast('เข้าสู่ระบบสำเร็จ');
                 } else {
                     showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
@@ -1625,8 +1589,9 @@
     }
 
     function renderUserDashboard() {
-        const div = document.getElementById('dashboardContent');
-        if(!div) return;
+        // --- เปลี่ยน ID ตรงนี้ ---
+        const dashboardDiv = document.getElementById('userDashboardPanel'); 
+        if (!dashboardDiv) return;
         
         const name = (liffProfile && liffProfile.displayName) ? liffProfile.displayName : 'พนักงาน';
         const pic = (liffProfile && liffProfile.pictureUrl) ? liffProfile.pictureUrl : null;
@@ -1868,27 +1833,46 @@
         });
     }
 
-    // --- Form Handlers ---
     function handleIssueSubmit(e) {
         e.preventDefault();
         const user = document.getElementById('issueUser').value;
         const department = document.getElementById('issueDepartment').value;
         const items = [];
+        
+        // ดึงรายการสินค้า
         document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
             const itemIdInput = row.querySelector('.item-select-value');
             const quantityInput = row.querySelector('.item-quantity');
+            
             if (itemIdInput && quantityInput) {
                 const itemId = itemIdInput.value;
                 const quantity = quantityInput.value;
-                if (itemId && quantity > 0) items.push({ itemId: Number(itemId), quantity: Number(quantity) });
+                
+                if (itemId && quantity > 0) {
+                    items.push({ itemId: Number(itemId), quantity: Number(quantity) });
+                }
             }
         });
-        if (items.length === 0) return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
-        callServerFunction('addNewVoucher', { user, department, items }).then(newVoucher => {
-            showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
-            resetIssueForm();
-            initializeApp();
-        });
+
+        if (items.length === 0) {
+            return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
+        }
+
+        const voucherData = { user, department, items };
+        
+        callServerFunction('addNewVoucher', voucherData)
+            .then(newVoucher => {
+                showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
+                resetIssueForm();
+                
+                // --- ส่วนที่แก้ไข: โหลดข้อมูลใหม่แล้วเด้งกลับ Dashboard ---
+                showLoading(); // แสดง loading ระหว่างรอข้อมูล
+                callServerFunction('getInitialData').then(data => {
+                    onDataLoaded(data);     // อัปเดตข้อมูลในตัวแปรและหน้าจอ
+                    showPage('dashboard');  // สลับไปหน้า Dashboard ทันที
+                });
+                // -----------------------------------------------------
+            });
     }
 
     function previewImageAdmin() {
@@ -1964,26 +1948,52 @@
 
     function handleBorrowSubmit(e) {
         e.preventDefault();
+        
         const itemId = document.getElementById('loanItemId').value;
-        if (!itemId) return showToast('กรุณาเลือกอุปกรณ์ที่ต้องการยืม', 'error');
+        
+        if (!itemId) {
+            return showToast('กรุณาเลือกอุปกรณ์ที่ต้องการยืม', 'error');
+        }
+
         const borrowData = {
             itemId: Number(itemId),
             borrowerName: document.getElementById('borrowerName').value,
             dueDate: document.getElementById('loanDueDate').value,
             notes: document.getElementById('loanNotes').value,
         };
-        callServerFunction('borrowItem', borrowData).then(() => {
-            showToast('บันทึกการยืมสำเร็จ');
-            document.getElementById('loanForm').reset();
-            document.getElementById('loanItemId').value = '';
-            document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
-            document.getElementById('loanItemName').classList.add('text-gray-500');
-            document.getElementById('loanItemName').classList.remove('text-gray-800', 'font-bold');
-            document.getElementById('loanItemCode').classList.add('hidden');
-            document.getElementById('loanItemImg').classList.add('hidden');
-            document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
-            initializeApp();
-        });
+
+        callServerFunction('borrowItem', borrowData)
+            .then(() => {
+                showToast('บันทึกการยืมสำเร็จ');
+                
+                // Reset Form
+                document.getElementById('loanForm').reset();
+                document.getElementById('loanItemId').value = ''; 
+                
+                // Reset UI การ์ดเลือกของกลับเป็นค่าเริ่มต้น
+                const nameEl = document.getElementById('loanItemName');
+                if(nameEl) {
+                    nameEl.textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+                    nameEl.classList.add('text-gray-500');
+                    nameEl.classList.remove('text-gray-800', 'font-bold');
+                }
+                const codeEl = document.getElementById('loanItemCode');
+                if(codeEl) codeEl.classList.add('hidden');
+                
+                const img = document.getElementById('loanItemImg');
+                if(img) img.classList.add('hidden');
+                
+                const placeholder = document.getElementById('loanItemImgPlaceholder');
+                if(placeholder) placeholder.classList.remove('hidden');
+
+                // --- ส่วนที่แก้ไข: โหลดข้อมูลใหม่แล้วเด้งกลับ Dashboard ---
+                showLoading();
+                callServerFunction('getInitialData').then(data => {
+                    onDataLoaded(data);
+                    showPage('dashboard');
+                });
+                 // -----------------------------------------------------
+            });
     }
 
     function handleSaveCategory(e) {
