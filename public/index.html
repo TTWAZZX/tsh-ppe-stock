@@ -144,7 +144,7 @@
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 sm:p-6 lg:p-8 page-container relative">
             <div id="dashboardPage" class="page">
                 
-                <div id="adminDashboardPanel">
+                <div id="adminDashboardPanel" class="hidden">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
                             <div><p class="text-sm font-medium text-gray-500">อุปกรณ์ทั้งหมด</p><p id="totalItems" class="text-3xl font-bold text-gray-800">0</p></div>
@@ -170,7 +170,7 @@
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-200">
-                             <h3 class="text-lg font-semibold mb-4 text-gray-800">การดำเนินการด่วน</h3>
+                             <h3 class="text-lg font-semibold mb-4 text-gray-800">เมนูด่วน (Admin)</h3>
                              <div class="space-y-3">
                                 <button onclick="showPage('issue')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
                                     <i class="fa-solid fa-file-export text-teal-600 text-lg"></i><span class="font-medium text-gray-700">สร้างใบเบิกใหม่</span>
@@ -178,38 +178,38 @@
                                 <button onclick="showPage('receive')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
                                     <i class="fa-solid fa-truck-ramp-box text-teal-600 text-lg"></i><span class="font-medium text-gray-700">รับของเข้าสต็อก</span>
                                 </button>
-                                <button onclick="showPage('loan')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
-                                    <i class="fa-solid fa-hand-holding-hand text-teal-600 text-lg"></i><span class="font-medium text-gray-700">ยืม-คืนอุปกรณ์</span>
+                                <button onclick="showPage('pending')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
+                                    <i class="fa-solid fa-hourglass-half text-yellow-600"></i><span class="font-medium text-gray-700">อนุมัติคำขอ</span>
                                 </button>
                              </div>
                         </div>
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4 text-gray-800">ศูนย์ปฏิบัติการ (Action Center)</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div><h4 class="font-semibold text-gray-700 mb-3">รายการใกล้หมด / ของหมด</h4><div id="lowStockList" class="space-y-2 max-h-60 overflow-y-auto pr-2"></div></div>
-                                <div><h4 class="font-semibold text-gray-700 mb-3">อุปกรณ์ยืมเกินกำหนด</h4><div id="overdueLoansList" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">สต็อกตามหมวดหมู่</h3><div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
-                        </div>
-                        <div class="lg:col-span-3 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์ที่ถูกเบิกจ่ายบ่อยที่สุด</h3><div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
+                            <h3 class="text-lg font-semibold mb-4">สัดส่วนหมวดหมู่</h3>
+                            <div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
                         </div>
                     </div>
                     
-                    <div class="bg-white p-6 rounded-xl border border-gray-200">
-                         <h3 class="text-lg font-semibold mb-4 text-gray-800">กิจกรรมล่าสุด</h3><div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                         <div class="bg-white p-6 rounded-xl border border-gray-200">
+                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์เบิกสูงสุด</h3>
+                            <div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl border border-gray-200">
+                            <h3 class="text-lg font-semibold mb-4">กิจกรรมล่าสุด</h3>
+                            <div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="userDashboardPanel" class="hidden"></div>
+                <div id="userDashboardPanel">
+                    </div>
 
                 <div id="dashboardSkeleton" class="hidden">
-                    <div class="animate-pulse flex space-x-4"><div class="flex-1 space-y-6 py-1"><div class="h-2 bg-slate-200 rounded"></div><div class="space-y-3"><div class="grid grid-cols-3 gap-4"><div class="h-2 bg-slate-200 rounded col-span-2"></div><div class="h-2 bg-slate-200 rounded col-span-1"></div></div><div class="h-2 bg-slate-200 rounded"></div></div></div></div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-white p-5 rounded-xl border h-32 animate-pulse"></div>
+                        <div class="bg-white p-5 rounded-xl border h-32 animate-pulse"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border h-64 animate-pulse"></div>
                 </div>
             </div>
 
@@ -783,27 +783,44 @@
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
         
-        // --- ส่วนที่แก้ไข: สลับการแสดงผล Dashboard ---
         const adminPanel = document.getElementById('adminDashboardPanel');
         const userPanel = document.getElementById('userDashboardPanel');
-        
+        const sidebar = document.querySelector('aside');
+        const header = document.querySelector('header');
+        const adminMenuMobile = document.getElementById('adminMenuMobile');
+        const mobileNav = document.querySelector('nav.lg\\:hidden');
+
+        // ถ้าเป็น Admin -> โชว์กราฟ, โชว์ Sidebar
         if (isAdmin) {
-            // โหมดแอดมิน: โชว์กราฟ ซ่อนหน้า User
             if(adminPanel) adminPanel.classList.remove('hidden');
             if(userPanel) userPanel.classList.add('hidden');
-            updateDashboard(); // เรียกฟังก์ชันวาดกราฟเดิม
-        } else {
-            // โหมดผู้ใช้: ซ่อนกราฟ โชว์หน้า User
+            
+            if(sidebar) {
+                sidebar.classList.remove('hidden', 'lg:hidden'); 
+                sidebar.classList.add('flex');
+            }
+            if(header) header.classList.remove('hidden');
+            if(adminMenuMobile) adminMenuMobile.classList.remove('hidden');
+            if(mobileNav) mobileNav.classList.add('hidden'); // ซ่อนเมนู User
+
+            updateDashboard(); // วาดกราฟ Admin
+        } 
+        // ถ้าเป็น User (ค่าเริ่มต้น) -> โชว์หน้า User, ซ่อน Sidebar
+        else {
             if(adminPanel) adminPanel.classList.add('hidden');
             if(userPanel) userPanel.classList.remove('hidden');
-            renderUserDashboard(); // เรียกฟังก์ชันวาดหน้า User ใหม่
+            
+            if(sidebar) sidebar.classList.add('hidden');
+            if(header) header.classList.add('hidden');
+            if(adminMenuMobile) adminMenuMobile.classList.add('hidden');
+            if(mobileNav) mobileNav.classList.remove('hidden'); // โชว์เมนู User
+
+            renderUserDashboard(); // วาดหน้า User
         }
-        // ------------------------------------------
 
         updateAllTablesAndLists();
         populateAllDropdowns();
-        updateAdminUI();
-        renderCategoryList();
+        if(typeof renderCategoryList === 'function') renderCategoryList();
     }
 
     function setupEventListeners() {
@@ -824,13 +841,20 @@
     // ===========================================
     function showLoading() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
     function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+    // แก้ไขไม่ให้ Error ถ้าหา Element ไม่เจอ
     function showDashboardSkeleton() {
-        document.getElementById('dashboardContent').classList.add('hidden');
-        document.getElementById('dashboardSkeleton').classList.remove('hidden');
+        const adminPanel = document.getElementById('adminDashboardPanel');
+        const userPanel = document.getElementById('userDashboardPanel');
+        const skeleton = document.getElementById('dashboardSkeleton');
+        
+        if(adminPanel) adminPanel.classList.add('hidden');
+        if(userPanel) userPanel.classList.add('hidden');
+        if(skeleton) skeleton.classList.remove('hidden');
     }
+
     function hideDashboardSkeleton() {
-        document.getElementById('dashboardContent').classList.remove('hidden');
-        document.getElementById('dashboardSkeleton').classList.add('hidden');
+        const skeleton = document.getElementById('dashboardSkeleton');
+        if(skeleton) skeleton.classList.add('hidden');
     }
     function showToast(message, type = 'success') {
         const toastContainer = document.getElementById('toastContainer');
@@ -892,29 +916,30 @@
         e.preventDefault();
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
+        
+        showLoading();
         callServerFunction('checkAdminCredentials', { username, password })
             .then(isValid => {
+                hideLoading();
                 if (isValid) {
-                    isAdmin = true;
-                    // --- ส่วนที่เพิ่ม: เปิด Sidebar และ Header คืนมา ---
-                    document.querySelector('aside').classList.remove('hidden');
-                    document.querySelector('header').classList.remove('hidden');
-                    document.getElementById('adminMenuMobile').classList.remove('hidden');
-                    // ---------------------------------------------
-                    
-                    updateAdminUI();
-                    updateUI(); // เรียก updateUI เพื่อสลับ Dashboard เป็น Admin Panel
+                    isAdmin = true; // ตั้งค่าเป็น Admin
                     hideLoginModal();
-                    showPage('dashboard'); // เด้งไปหน้าแรก
-                    showToast('เข้าสู่ระบบสำเร็จ');
+                    updateUI(); // *** บรรทัดสำคัญ: สั่งให้สลับหน้าจอทันที ***
+                    showPage('dashboard');
+                    showToast('เข้าสู่ระบบ Admin สำเร็จ');
                 } else {
                     showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
                 }
+            })
+            .catch(err => {
+                hideLoading();
+                showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
             });
     }
+
     function logout() {
-        isAdmin = false;
-        updateAdminUI();
+        isAdmin = false; // กลับเป็น User
+        updateUI(); // *** บรรทัดสำคัญ: สั่งให้สลับหน้าจอทันที ***
         showPage('dashboard');
         showToast('ออกจากระบบแล้ว');
     }
@@ -1575,68 +1600,53 @@
     // ==========================================
     // 5. User Interface Setup (Line LIFF)
     // ==========================================
+    // ฟังก์ชันนี้เรียกใช้เมื่อเปิดเว็บ (User Mode เสมอ จนกว่าจะ Login)
     function setupUserInterface() {
-        document.querySelector('aside').classList.add('hidden');
-        document.querySelector('header').classList.add('hidden');
-        const adminMenuMobile = document.getElementById('adminMenuMobile');
-        if(adminMenuMobile) adminMenuMobile.classList.add('hidden');
-        
-        const nav = document.querySelector('nav.lg\\:hidden');
-        if(nav) nav.classList.remove('hidden');
-        
-        renderUserDashboard();
+        // ไม่ต้องทำอะไรพิเศษ เพราะ updateUI จัดการให้แล้วตามค่า isAdmin = false
+        updateUI();
         autoFillUserIdentity();
     }
 
+    // ฟังก์ชันวาดหน้า User (ต้องชี้ไปที่ ID userDashboardPanel)
     function renderUserDashboard() {
-        // --- เปลี่ยน ID ตรงนี้ ---
         const dashboardDiv = document.getElementById('userDashboardPanel'); 
         if (!dashboardDiv) return;
-        
-        const name = (liffProfile && liffProfile.displayName) ? liffProfile.displayName : 'พนักงาน';
-        const pic = (liffProfile && liffProfile.pictureUrl) ? liffProfile.pictureUrl : null;
-        const picHtml = pic ? `<img src="${pic}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm">` : `<div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center"><i class="fa-solid fa-user text-gray-400"></i></div>`;
 
-        // Filter data
-        const myLoans = currentData.loanTransactions.filter(l => l.borrowerName === name && l.status === 'on_loan');
-        const myReqs = currentData.issueVouchers.filter(v => v.user === name && v.status === 'pending');
+        const displayName = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'พนักงาน';
+        const pictureUrl = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.pictureUrl : null;
+        const profileImgHtml = pictureUrl 
+            ? `<img src="${pictureUrl}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">`
+            : `<div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-2 border-white shadow-sm"><i class="fa-solid fa-user"></i></div>`;
 
-        div.innerHTML = `
-        <div class="px-2 pt-4 pb-24 max-w-md mx-auto">
-            <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl border border-teal-100 shadow-sm bg-gradient-to-r from-teal-50 to-white">
-                <div><h2 class="text-xl font-bold text-gray-800">สวัสดี, ${name}</h2><p class="text-xs text-gray-500">ขอให้วันนี้ปลอดภัย :)</p></div>
-                ${picHtml}
-            </div>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div onclick="showPage('loan')" class="card-calm p-4 text-center cursor-pointer active:scale-95 transition-transform"><div class="w-10 h-10 mx-auto bg-teal-100 rounded-full flex items-center justify-center mb-2 text-teal-600"><i class="fa-solid fa-hand-holding-box"></i></div><span class="text-3xl font-bold text-gray-800 block">${myLoans.length}</span><span class="text-xs text-gray-500">ของที่ยืมอยู่</span></div>
-                <div onclick="showPage('allHistory')" class="card-calm p-4 text-center cursor-pointer active:scale-95 transition-transform"><div class="w-10 h-10 mx-auto bg-orange-100 rounded-full flex items-center justify-center mb-2 text-orange-600"><i class="fa-solid fa-clock"></i></div><span class="text-3xl font-bold text-gray-800 block">${myReqs.length}</span><span class="text-xs text-gray-500">รออนุมัติ</span></div>
-            </div>
-            <h3 class="font-bold text-gray-700 mb-3 px-1">เมนูด่วน</h3>
-            <div class="space-y-3">
-                <button onclick="showPage('issue')" class="w-full card-calm p-4 flex items-center gap-4 hover:shadow-md transition-shadow"><div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class="fa-solid fa-box-open"></i></div><div class="text-left"><p class="font-bold text-gray-800 text-sm">เบิกอุปกรณ์</p><p class="text-[10px] text-gray-400">ใช้แล้วหมดไป (หน้ากาก, ถุงมือ)</p></div><i class="fa-solid fa-chevron-right ml-auto text-gray-300"></i></button>
-                <button onclick="showPage('loan')" class="w-full card-calm p-4 flex items-center gap-4 hover:shadow-md transition-shadow"><div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl"><i class="fa-solid fa-screwdriver-wrench"></i></div><div class="text-left"><p class="font-bold text-gray-800 text-sm">ยืม-คืน เครื่องมือ</p><p class="text-[10px] text-gray-400">สว่าน, เครื่องวัด, ชุดเซฟตี้</p></div><i class="fa-solid fa-chevron-right ml-auto text-gray-300"></i></button>
-            </div>
-            
-            ${myLoans.length > 0 ? `
-            <h3 class="font-bold text-gray-700 mt-6 mb-3 px-1">รายการที่ต้องคืน</h3>
-            <div class="space-y-3">
-                ${myLoans.map(l => {
-                    const item = currentData.ppeItems.find(i => i.id == l.itemId);
-                    const due = new Date(l.dueDate);
-                    const isLate = due < new Date();
-                    return `<div class="bg-white p-3 rounded-xl border ${isLate?'border-red-300 bg-red-50':'border-gray-200'} flex items-center gap-3">
-                        <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border">${item?.image_url ? `<img src="${item.image_url}" class="w-full h-full object-cover">` : '<i class="fa-solid fa-box m-auto text-gray-400"></i>'}</div>
-                        <div class="flex-1"><p class="text-sm font-bold text-gray-800">${item?.name||'Unknown'}</p><p class="text-xs ${isLate?'text-red-500 font-bold':'text-gray-500'}">คืน: ${due.toLocaleDateString('th-TH')}</p></div>
-                        <button onclick="showPage('loan')" class="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600">คืน</button>
-                    </div>`
-                }).join('')}
-            </div>` : ''}
+        const myLoans = currentData.loanTransactions.filter(l => l.borrowerName === displayName && l.status === 'on_loan');
+        const myRequests = currentData.issueVouchers.filter(v => v.user === displayName && v.status === 'pending');
 
-            <div class="mt-10 text-center">
-                <button onclick="window.location.reload()" class="text-xs text-gray-400 underline">รีโหลดระบบ</button>
-                <button onclick="showLoginModal()" class="ml-4 text-xs text-gray-300">Admin</button>
+        dashboardDiv.innerHTML = `
+            <div class="px-2 pt-4 pb-24 max-w-md mx-auto">
+                <div class="flex items-center justify-between mb-8 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800">สวัสดี, คุณ${displayName}</h2>
+                        <p class="text-gray-500 text-xs mt-1">ขอให้วันนี้เป็นวันที่ปลอดภัย :)</p>
+                    </div>
+                    ${profileImgHtml}
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
+                        <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg mb-1"><i class="fa-solid fa-hand-holding-box"></i></div>
+                        <div class="text-center"><span class="block text-2xl font-bold text-gray-800">${myLoans.length}</span><span class="text-xs text-gray-500 font-medium">อุปกรณ์ที่ยืมอยู่</span></div>
+                    </div>
+                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
+                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg mb-1"><i class="fa-solid fa-clock"></i></div>
+                        <div class="text-center"><span class="block text-2xl font-bold text-gray-800">${myRequests.length}</span><span class="text-xs text-gray-500 font-medium">รออนุมัติ</span></div>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center pb-8">
+                    <button onclick="window.location.reload()" class="text-xs text-gray-300 hover:text-gray-500">รีโหลดระบบ</button>
+                    <button onclick="showLoginModal()" class="ml-2 text-xs text-gray-300 hover:text-teal-600">Admin Login</button>
+                </div>
             </div>
-        </div>`;
+        `;
     }
 
     function autoFillUserIdentity() {
