@@ -1056,7 +1056,6 @@
 
     function setupEventListeners() {
         document.getElementById('loginForm').addEventListener('submit', handleLogin);
-        document.getElementById('issueForm').addEventListener('submit', handleIssueSubmit);
         document.getElementById('manageForm').addEventListener('submit', handleManageSubmit);
         document.getElementById('receiveForm').addEventListener('submit', handleReceiveSubmit);
         document.getElementById('loanForm').addEventListener('submit', handleBorrowSubmit);
@@ -2226,48 +2225,6 @@
         });
     }
 
-    function handleIssueSubmit(e) {
-        e.preventDefault();
-        const user = document.getElementById('issueUser').value;
-        const department = document.getElementById('issueDepartment').value;
-        const items = [];
-        
-        // ดึงรายการสินค้า
-        document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
-            const itemIdInput = row.querySelector('.item-select-value');
-            const quantityInput = row.querySelector('.item-quantity');
-            
-            if (itemIdInput && quantityInput) {
-                const itemId = itemIdInput.value;
-                const quantity = quantityInput.value;
-                
-                if (itemId && quantity > 0) {
-                    items.push({ itemId: Number(itemId), quantity: Number(quantity) });
-                }
-            }
-        });
-
-        if (items.length === 0) {
-            return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
-        }
-
-        const voucherData = { user, department, items };
-        
-        callServerFunction('addNewVoucher', voucherData)
-            .then(newVoucher => {
-                showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
-                resetIssueForm();
-                
-                // --- ส่วนที่แก้ไข: โหลดข้อมูลใหม่แล้วเด้งกลับ Dashboard ---
-                showLoading(); // แสดง loading ระหว่างรอข้อมูล
-                callServerFunction('getInitialData').then(data => {
-                    onDataLoaded(data);     // อัปเดตข้อมูลในตัวแปรและหน้าจอ
-                    showPage('dashboard');  // สลับไปหน้า Dashboard ทันที
-                });
-                // -----------------------------------------------------
-            });
-    }
-
     function previewImageAdmin() {
         const url = document.getElementById('itemImage').value;
         const img = document.getElementById('adminImagePreview');
@@ -2451,169 +2408,6 @@
     // USER DASHBOARD LOGIC (ส่วนที่เพิ่มใหม่)
     // ===========================================
 
-    // ฟังก์ชันจัดหน้าจอสำหรับ User ทั่วไป (เรียกใช้เมื่อ Login สำเร็จและไม่ใช่ Admin)
-    function setupUserInterface() {
-        // 1. ซ่อน Element ของ Admin/Desktop เดิม
-        const sidebar = document.querySelector('aside');
-        if (sidebar) sidebar.classList.add('hidden');
-        
-        const header = document.querySelector('header');
-        if (header) header.classList.add('hidden');
-
-        // ซ่อน Admin Menu ใน Mobile Bottom Nav (ถ้ามี)
-        const adminMenuMobile = document.getElementById('adminMenuMobile');
-        if (adminMenuMobile) adminMenuMobile.classList.add('hidden');
-
-        // 2. ปรับ Dashboard ให้เป็น User Dashboard
-        renderUserDashboard();
-        
-        // 3. แสดง Bottom Nav (Nav ตัวเดิมที่มีอยู่แล้ว)
-        // แก้ไขบรรทัดนี้: เติม \\ หน้า : เพื่อแก้ SyntaxError
-        const mobileNav = document.querySelector('nav.lg\\:hidden'); 
-        if (mobileNav) mobileNav.classList.remove('hidden');
-
-        // 4. Auto-fill ชื่อ
-        autoFillUserIdentity();
-    }
-
-function renderUserDashboard() {
-        const dashboardDiv = document.getElementById('userDashboardPanel'); 
-        if (!dashboardDiv) return;
-
-        dashboardDiv.classList.remove('hidden');
-
-        // 1. ดึงข้อมูล User (ชื่อ + รูป)
-        const displayName = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'พนักงาน';
-        const pictureUrl = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.pictureUrl : null;
-        
-        const profileImgHtml = pictureUrl 
-            ? `<img src="${pictureUrl}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">`
-            : `<div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-2 border-white shadow-sm"><i class="fa-solid fa-user"></i></div>`;
-
-        // 2. คำนวณสถิติ
-        const myLoans = currentData.loanTransactions?.filter(l => l.borrowerName === displayName && l.status === 'on_loan') || [];
-        const myRequests = currentData.issueVouchers?.filter(v => v.user === displayName && v.status === 'pending') || [];
-
-        // -------------------------------------------------------------
-        // 3. ส่วนคำนวณ Timeline (ต้องมีส่วนนี้ Timeline ถึงจะขึ้น)
-        // -------------------------------------------------------------
-        const lastVoucher = currentData.issueVouchers
-            ?.filter(v => v.user === displayName) // กรองเอาเฉพาะของ user นี้
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]; // เรียงเอาใบล่าสุด
-
-        let timelineHtml = ''; // ค่าเริ่มต้นเป็นว่าง
-        
-        if (lastVoucher) {
-            // กำหนดสีและสถานะ
-            let statusColor = 'bg-gray-300';
-            let statusText = 'รอดำเนินการ';
-            let step2Class = 'opacity-50'; 
-            let step3Class = 'opacity-50'; 
-
-            if (lastVoucher.status === 'pending') {
-                statusColor = 'bg-yellow-400 animate-pulse';
-                statusText = 'กำลังรออนุมัติ';
-                step2Class = ''; 
-            } else if (lastVoucher.status === 'approved') {
-                statusColor = 'bg-teal-500';
-                statusText = 'อนุมัติแล้ว';
-                step2Class = '';
-                step3Class = ''; 
-            } else if (lastVoucher.status === 'rejected') {
-                statusColor = 'bg-red-500';
-                statusText = 'ถูกปฏิเสธ';
-                step2Class = '';
-            }
-
-            // สร้าง HTML ของ Timeline
-            timelineHtml = `
-            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6 mx-2 animate-fade-in-up">
-                
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="text-sm font-bold text-gray-700">คำขอล่าสุด #${lastVoucher.id}</h3>
-                        <span class="text-[10px] text-gray-400">
-                            <i class="fa-regular fa-calendar mr-1"></i>${new Date(lastVoucher.timestamp).toLocaleDateString('th-TH')}
-                        </span>
-                    </div>
-                    
-                    <button onclick="showTimelineDetails(${lastVoucher.id})" class="text-xs bg-teal-50 text-teal-600 px-3 py-1.5 rounded-lg font-bold hover:bg-teal-100 transition-colors active:scale-95 border border-teal-100 shadow-sm">
-                        <i class="fa-solid fa-list-ul mr-1"></i> ดูของที่เบิก
-                    </button>
-                </div>
-                
-                <div class="relative pl-4 border-l-2 border-gray-200 space-y-6">
-                    <div class="relative">
-                        <div class="absolute -left-[21px] bg-teal-500 h-4 w-4 rounded-full border-2 border-white"></div>
-                        <p class="text-xs text-gray-500">ส่งคำขอเรียบร้อย</p>
-                    </div>
-
-                    <div class="relative ${step2Class}">
-                        <div class="absolute -left-[21px] ${statusColor} h-4 w-4 rounded-full border-2 border-white"></div>
-                        <p class="text-sm font-bold text-gray-800">${statusText}</p>
-                        ${lastVoucher.status === 'rejected' ? '<p class="text-xs text-red-400">กรุณาติดต่อแอดมิน</p>' : ''}
-                    </div>
-
-                    <div class="relative ${step3Class}">
-                        <div class="absolute -left-[21px] ${lastVoucher.status === 'approved' ? 'bg-teal-500' : 'bg-gray-200'} h-4 w-4 rounded-full border-2 border-white"></div>
-                        <p class="text-xs text-gray-500">รับของที่จุดจ่าย</p>
-                    </div>
-                </div>
-            </div>`;
-        }
-        // -------------------------------------------------------------
-
-        // 4. แสดงผล HTML (ส่วนที่คุณส่งมาถาม)
-        dashboardDiv.innerHTML = `
-            <div class="pt-4 pb-24 max-w-md mx-auto animate-fade-in">
-                <div class="px-2 flex items-center justify-between mb-6 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm mx-2">
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-800">สวัสดี, คุณ${displayName}</h2>
-                        <p class="text-gray-500 text-xs mt-1">ขอให้วันนี้เป็นวันที่ปลอดภัย :)</p>
-                    </div>
-                    ${profileImgHtml}
-                </div>
-
-                ${timelineHtml}
-
-                <div class="grid grid-cols-2 gap-3 mb-6 px-2">
-                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg"><i class="fa-solid fa-hand-holding-box"></i></div>
-                        <div class="text-center">
-                            <span class="block text-2xl font-bold text-gray-800">${myLoans.length}</span>
-                            <span class="text-xs text-gray-500 font-medium">อุปกรณ์ที่ยืมอยู่</span>
-                        </div>
-                    </div>
-                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg"><i class="fa-solid fa-clock"></i></div>
-                        <div class="text-center">
-                            <span class="block text-2xl font-bold text-gray-800">${myRequests.length}</span>
-                            <span class="text-xs text-gray-500 font-medium">รออนุมัติ</span>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 class="text-sm font-bold text-gray-700 mb-3 px-3">เมนูด่วน</h3>
-                <div class="space-y-3 mb-8 px-2">
-                     <button onclick="showPage('issue')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class="fa-solid fa-box-open"></i></div>
-                            <div class="text-left"><p class="font-bold text-gray-800 text-sm">เบิกอุปกรณ์</p><p class="text-[10px] text-gray-400">หน้ากาก, ถุงมือ, ชุด PPE</p></div>
-                        </div>
-                        <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-blue-500"></i>
-                    </button>
-                     <button onclick="showPage('loan')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl"><i class="fa-solid fa-screwdriver-wrench"></i></div>
-                            <div class="text-left"><p class="font-bold text-gray-800 text-sm">ยืม-คืน เครื่องมือ</p><p class="text-[10px] text-gray-400">สว่าน, เครื่องวัด, อุปกรณ์เซฟตี้</p></div>
-                        </div>
-                        <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-purple-500"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
     // ฟังก์ชันเสริมสำหรับ Auto-fill ชื่อ (เรียกใช้ใน setupUserInterface)
     function autoFillUserIdentity() {
         if (typeof liffProfile !== 'undefined' && liffProfile) {
@@ -2654,57 +2448,103 @@ function renderUserDashboard() {
         if(userLinks) userLinks.classList.remove('hidden');
     }
 
-    // ฟังก์ชันบันทึกการเบิก (Issue)
+    // ฟังก์ชันบันทึกการเบิก (Issue) - ฉบับแก้ไข Logic Cart
     async function saveIssueVoucher() {
-        // 1. รับค่าจากฟอร์ม (รวมถึง ID ใหม่ที่เพิ่งเพิ่ม)
-        const userName = document.getElementById('issueUser').value;
-        const empId = document.getElementById('employeeId').value; // 🆕 รหัสพนักงาน
-        const dept = document.getElementById('userDepartment').value; // 🆕 แผนก (Dropdown)
-        
-        // 2. ตรวจสอบข้อมูล (Validation)
-        // ตรวจสอบตะกร้าสินค้า (ต้องมีตัวแปร cart ประกาศไว้ด้านบน global)
-        if (!cart || cart.length === 0) {
-            alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ');
-            return;
-        }
-        
-        if (!userName || !empId || !dept) {
-            alert('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, รหัสพนักงาน, แผนก)');
-            return;
-        }
+        try {
+            // 1. สร้างตัวแปร cart โดยการดึงข้อมูลจากหน้าจอ HTML
+            let cart = [];
+            document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
+                const itemIdInput = row.querySelector('.item-select-value');
+                const quantityInput = row.querySelector('.item-quantity');
+                
+                if (itemIdInput && quantityInput) {
+                    const itemId = itemIdInput.value;
+                    const quantity = quantityInput.value;
+                    
+                    if (itemId && quantity > 0) {
+                        cart.push({ itemId: Number(itemId), quantity: Number(quantity) });
+                    }
+                }
+            });
 
-        // 3. สร้าง Object ใบเบิกใหม่
-        const newVoucher = {
-            id: currentData.issueVouchers.length > 0 ? Math.max(...currentData.issueVouchers.map(v => v.id)) + 1 : 1, // Auto ID
-            user: userName,
-            employeeId: empId, // 🆕 บันทึกรหัสพนักงาน
-            department: dept,  // 🆕 บันทึกแผนก
-            itemsJson: JSON.stringify(cart), // แปลงตะกร้าเป็น JSON String (ตามที่แก้ไปรอบก่อน)
-            reason: 'เบิกทั่วไป', // หรือจะเพิ่มช่องเหตุผลในฟอร์มก็ได้
-            status: 'pending', // สถานะเริ่มต้น = รออนุมัติ
-            timestamp: new Date().toISOString()
-        };
+            // 2. รับค่าจากฟอร์ม
+            const nameInput = document.getElementById('issueUser');
+            const empIdInput = document.getElementById('employeeId');
+            const deptInput = document.getElementById('userDepartment');
 
-        // 4. บันทึกลงตัวแปรหลัก (และส่งขึ้น Server ถ้ามีระบบ Backend)
-        currentData.issueVouchers.push(newVoucher);
-        
-        // 5. แจ้งเตือนไลน์ Admin (ตามโจทย์ข้อ 3)
-        // (ฟังก์ชัน sendLineNotify ต้องมีอยู่แล้วตามที่คุยกันรอบก่อน)
-        if(typeof sendLineNotify === 'function') {
-            await sendLineNotify(`🔔 มีคำขอเบิกใหม่!\nโดย: ${userName} (${dept})\nรายการ: ${cart.length} อย่าง`);
+            const userName = nameInput ? nameInput.value : '';
+            const empId = empIdInput ? empIdInput.value : '';
+            const dept = deptInput ? deptInput.value : '';
+
+            // 3. ตรวจสอบข้อมูล (Validation)
+            if (cart.length === 0) {
+                alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ');
+                return;
+            }
+
+            if (!userName || !empId || !dept) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, รหัสพนักงาน, แผนก)');
+                return;
+            }
+
+            // 4. ดึง UserID จาก LIFF
+            const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
+
+            // 5. สร้าง ID ใหม่
+            let newId = 1;
+            if (currentData.issueVouchers && currentData.issueVouchers.length > 0) {
+                newId = Math.max(...currentData.issueVouchers.map(v => v.id)) + 1;
+            }
+
+            // 6. สร้าง Object ใบเบิก
+            const newVoucher = {
+                id: newId,
+                user: userName,
+                employeeId: empId,
+                department: dept,
+                userId: currentUserId,
+                itemsJson: JSON.stringify(cart), // ส่ง cart ที่เพิ่งสร้างไป
+                reason: 'เบิกทั่วไป',
+                status: 'pending',
+                timestamp: new Date().toISOString()
+            };
+
+            // 7. บันทึกลงตัวแปรหลัก (และส่ง API)
+            // หมายเหตุ: ตรงนี้ถ้าใช้ API จริง ให้ใช้ callServerFunction('addNewVoucher', newVoucher) แทนการ push ดื้อๆ
+            // แต่ถ้าจะ Push ดื้อๆ เพื่อเทส UI ก่อน ก็ใช้แบบนี้ได้ครับ
+            if (!currentData.issueVouchers) currentData.issueVouchers = [];
+            currentData.issueVouchers.push(newVoucher);
+
+            // *ถ้าจะส่งเข้า Server จริง ให้เปิดบรรทัดนี้แทน*
+            /*
+            await callServerFunction('addNewVoucher', {
+                user: userName, employeeId: empId, department: dept, userId: currentUserId, items: cart
+            });
+            */
+
+            // 8. แจ้งเตือนไลน์ Admin
+            if (typeof sendLineNotify === 'function') {
+                const msg = `\n🔔 มีการเบิกของใหม่!\n👤 โดย: ${userName} (รหัส: ${empId})\n🏢 แผนก: ${dept}\n📦 จำนวน: ${cart.length} รายการ`;
+                await sendLineNotify(msg);
+            }
+
+            // 9. อัปเดตหน้าจอและเคลียร์ค่า
+            alert('สร้างใบเบิกสำเร็จ! กรุณารอการอนุมัติ');
+
+            document.getElementById('issueForm').reset();
+            document.getElementById('issueItemsContainer').innerHTML = '';
+            
+            // เติมชื่อกลับเข้าไปใหม่
+            if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
+
+            // กลับไปหน้า Dashboard
+            if (typeof updateUI === 'function') updateUI();
+            if (typeof showPage === 'function') showPage('userDashboard');
+
+        } catch (error) {
+            console.error("เกิดข้อผิดพลาดในการบันทึก:", error);
+            alert("เกิดข้อผิดพลาด: " + error.message);
         }
-
-        // 6. อัปเดตหน้าจอและล้างฟอร์ม
-        alert('สร้างใบเบิกสำเร็จ! กรุณารอการอนุมัติ');
-        
-        // ล้างค่าในฟอร์ม
-        document.getElementById('issueForm').reset();
-        document.getElementById('issueItemsContainer').innerHTML = '';
-        cart = []; // ล้างตะกร้า
-        
-        // กลับไปหน้า Dashboard หรือหน้ารายการ
-        updateUI(); 
-        showPage('userDashboard'); // หรือหน้า history ก็ได้
     }
 
     // ฟังก์ชันบันทึกการยืม (Loan)
@@ -2759,6 +2599,22 @@ function renderUserDashboard() {
         // อัปเดตตารางและหน้าจอ
         updateUI();
         // showPage('loan'); // อยู่หน้าเดิมเพื่อให้เห็นตารางอัปเดต
+    }
+
+    // ฟังก์ชันส่งไลน์ (เรียกใช้ API ที่เราเพิ่งสร้าง)
+    async function sendLineNotify(msg) {
+        try {
+            await fetch('/api/notify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: msg }) // ส่งข้อความไปให้หลังบ้าน
+            });
+            console.log('ส่งไลน์เรียบร้อย');
+        } catch (error) {
+            console.error('ส่งไลน์ไม่ผ่าน:', error);
+        }
     }
 
 </script>
