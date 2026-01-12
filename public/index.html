@@ -84,6 +84,54 @@
                 padding-right: 0 !important;
             }
         }
+
+        /* --- Mobile Card View for Pending Page --- */
+        @media (max-width: 640px) {
+            /* ซ่อนหัวตาราง */
+            .pending-card-table thead { display: none; }
+            
+            /* เปลี่ยนแถวให้เป็นกล่องการ์ด */
+            .pending-card-table tr {
+                display: flex;
+                flex-direction: column;
+                background: white;
+                margin-bottom: 1rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 1rem; /* ขอบมน */
+                padding: 1rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            }
+
+            /* จัด layout ข้างในการ์ด */
+            .pending-card-table td {
+                display: block;
+                padding: 0.25rem 0;
+                border: none;
+                text-align: left;
+            }
+
+            /* จัดส่วนหัวการ์ด (ID และ วันที่) */
+            .pending-card-table td:nth-child(1) { font-weight: bold; color: #0d9488; font-size: 1.1rem; margin-bottom: 0.5rem; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.5rem; }
+            .pending-card-table td:nth-child(2) { font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem; }
+            .pending-card-table td:nth-child(3) { font-weight: 600; color: #374151; } /* ชื่อคนเบิก */
+            
+            /* ส่วนปุ่มกด (Action Buttons) */
+            .pending-card-table td:last-child {
+                margin-top: 1rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid #f3f4f6;
+                display: flex;
+                gap: 0.75rem;
+            }
+            /* ขยายปุ่มให้เต็มจอ กดง่าย */
+            .pending-card-table td:last-child button {
+                flex: 1; /* ขยายเต็มพื้นที่ */
+                padding: 0.75rem;
+                justify-content: center;
+                border-radius: 0.5rem;
+                font-size: 0.95rem;
+            }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -422,7 +470,7 @@
                         <h3 class="text-xl font-semibold text-gray-800">รายการรออนุมัติ</h3>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                        <table class="w-full text-sm pending-card-table">
                             <thead class="bg-gray-50 text-left">
                                 <tr>
                                     <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">เลขที่ใบเบิก</th>
@@ -582,31 +630,35 @@
                     <i class="fa-solid fa-bars text-xl mb-1"></i> <span>เมนู</span>
                 </a>
                 
-                <div id="mobileMoreMenu" class="hidden absolute bottom-16 right-2 bg-white border border-gray-200 rounded-xl shadow-2xl w-48 p-2 space-y-1 z-50 animate-fade-in-up">
-                    <a onclick="showPage('allHistory'); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
-                        <i class="fa-solid fa-clock-rotate-left mr-3 text-teal-500"></i> ประวัติทั้งหมด
-                    </a>
+                <div id="mobileMoreMenu" class="hidden absolute bottom-16 right-2 bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
                     
+                    <a onclick="showPage('allHistory'); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-clock-rotate-left mr-3 text-teal-500 w-5 text-center"></i> ประวัติทั้งหมด
+                    </a>
+
                     <div id="adminMobileLinks" class="hidden border-t pt-2 mt-2">
-                        <p class="px-2 text-[10px] text-gray-400 font-bold uppercase mb-1">ผู้ดูแลระบบ</p>
-                        <a onclick="showPage('pending'); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-yellow-50 text-yellow-700 rounded-lg flex items-center">
-                            <i class="fa-solid fa-hourglass-half mr-3"></i> อนุมัติคำขอ
+                        <p class="px-4 text-[10px] text-gray-400 font-bold uppercase mb-2">เครื่องมือ Admin</p>
+                        <a onclick="showPage('pending'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-yellow-50 text-gray-700 hover:text-yellow-700 rounded-lg flex items-center cursor-pointer">
+                            <i class="fa-solid fa-hourglass-half mr-3 text-yellow-500 w-5 text-center"></i> อนุมัติคำขอ
                         </a>
-                        <a onclick="showPage('receive'); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-teal-50 text-teal-700 rounded-lg flex items-center">
-                            <i class="fa-solid fa-truck-ramp-box mr-3"></i> รับของเข้า
+                        <a onclick="showPage('receive'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-teal-50 text-gray-700 hover:text-teal-700 rounded-lg flex items-center cursor-pointer">
+                            <i class="fa-solid fa-truck-ramp-box mr-3 text-teal-500 w-5 text-center"></i> รับของเข้า
                         </a>
-                        <a onclick="showPage('manage'); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-gray-50 text-gray-700 rounded-lg flex items-center">
-                            <i class="fa-solid fa-gear mr-3"></i> จัดการของ
-                        </a>
-                        <a onclick="logout(); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-red-50 text-red-600 rounded-lg mt-2 border-t flex items-center">
-                            <i class="fa-solid fa-right-from-bracket mr-3"></i> ออกจากระบบ
+                        <a onclick="showPage('manage'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-blue-50 text-gray-700 hover:text-blue-700 rounded-lg flex items-center cursor-pointer">
+                            <i class="fa-solid fa-gear mr-3 text-blue-500 w-5 text-center"></i> จัดการของ
                         </a>
                     </div>
 
-                    <div id="userMobileLinks" class="border-t pt-2 mt-2">
-                         <a onclick="showLoginModal(); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-teal-50 text-teal-600 rounded-lg font-medium flex items-center">
-                            <i class="fa-solid fa-user-shield mr-3"></i> Admin Login
-                         </a>
+                    <div class="border-t pt-2 mt-2">
+                        <div id="userMobileLinks">
+                            <a onclick="showLoginModal(); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-teal-50 text-teal-600 rounded-lg font-medium flex items-center cursor-pointer">
+                                <i class="fa-solid fa-user-shield mr-3 w-5 text-center"></i> Admin Login
+                            </a>
+                        </div>
+                        
+                        <a id="mobileLogoutBtn" onclick="logout(); toggleMobileAdminMenu()" class="hidden block px-4 py-3 hover:bg-red-50 text-red-600 rounded-lg font-medium flex items-center cursor-pointer">
+                            <i class="fa-solid fa-right-from-bracket mr-3 w-5 text-center"></i> ออกจากระบบ
+                        </a>
                     </div>
                 </div>
             </div>
@@ -823,7 +875,7 @@
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
         
-        // ประกาศตัวแปร
+        // ประกาศตัวแปร Element ต่างๆ
         const adminPanel = document.getElementById('adminDashboardPanel');
         const userPanel = document.getElementById('userDashboardPanel');
         const sidebar = document.querySelector('aside');
@@ -833,6 +885,9 @@
         const mobileNav = document.getElementById('mobileNav');
         const adminMobileLinks = document.getElementById('adminMobileLinks');
         const userMobileLinks = document.getElementById('userMobileLinks');
+        
+        // --- 1. เพิ่มตัวแปรปุ่ม Logout ตรงนี้ครับ ---
+        const mobileLogoutBtn = document.getElementById('mobileLogoutBtn'); 
         
         // ตัวแปรเมนู Sidebar Admin
         const adminMenu = document.getElementById('adminMenu');
@@ -844,24 +899,25 @@
             if(adminPanel) adminPanel.classList.remove('hidden');
             if(userPanel) userPanel.classList.add('hidden');
 
-            // 2. จัดการ Sidebar & Header (Desktop)
-            // ให้ Sidebar เป็น hidden บนมือถือ และ flex บน Desktop (lg:flex)
+            // 2. จัดการ Sidebar & Header
             if(sidebar) {
-                sidebar.classList.remove('hidden'); // ลบ hidden ที่อาจค้างอยู่
-                sidebar.classList.add('hidden', 'lg:flex'); // บังคับใช้คลาส responsive
+                sidebar.classList.remove('hidden'); 
+                sidebar.classList.add('hidden', 'lg:flex'); 
             }
-            if(header) header.classList.remove('hidden'); // Header บน Desktop โชว์ปกติ
+            if(header) header.classList.remove('hidden'); 
 
             // 3. เปิดเมนูใน Sidebar
             if(adminMenu) adminMenu.classList.remove('hidden');
 
-            // 4. *** จัดการเมนูมือถือ (จุดสำคัญที่แก้) ***
-            // ให้แสดงเมนูล่างบนมือถือด้วย (Tailwind lg:hidden จะซ่อนมันเองบน Desktop)
+            // 4. จัดการเมนูมือถือ
             if(mobileNav) mobileNav.classList.remove('hidden');
             
             // 5. สลับไส้ในเมนูมือถือ เป็นของ Admin
             if(adminMobileLinks) adminMobileLinks.classList.remove('hidden');
             if(userMobileLinks) userMobileLinks.classList.add('hidden');
+
+            // --- 2. สั่งเปิดปุ่ม Logout (สำหรับ Admin) ---
+            if(mobileLogoutBtn) mobileLogoutBtn.classList.remove('hidden');
 
             updateDashboard();
 
@@ -872,7 +928,7 @@
             if(adminPanel) adminPanel.classList.add('hidden');
             if(userPanel) userPanel.classList.remove('hidden');
 
-            // 2. ปิด Sidebar & Header Admin เสมอ
+            // 2. ปิด Sidebar & Header Admin
             if(sidebar) sidebar.classList.add('hidden'); 
             if(header) header.classList.add('hidden');
 
@@ -882,6 +938,9 @@
             // 4. สลับไส้ในเมนูมือถือ เป็นของ User
             if(adminMobileLinks) adminMobileLinks.classList.add('hidden');
             if(userMobileLinks) userMobileLinks.classList.remove('hidden');
+
+            // --- 3. สั่งปิดปุ่ม Logout (สำหรับ User) ---
+            if(mobileLogoutBtn) mobileLogoutBtn.classList.add('hidden');
 
             renderUserDashboard();
         }
@@ -1330,28 +1389,60 @@
                 </tr>`;
         }).join('');
     }
+    
     function updatePendingTable() { 
-       const tbody = document.getElementById('pendingTableBody');
-       const emptyState = document.getElementById('pendingEmptyState');
-       const pendingVouchers = currentData.issueVouchers.filter(v => v.status === 'pending').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-       if (pendingVouchers.length === 0) {
-           tbody.innerHTML = '';
-           emptyState.innerHTML = createEmptyState('ไม่มีรายการรออนุมัติ', 'fa-solid fa-inbox');
-           emptyState.classList.remove('hidden');
-           return;
-       }
-       emptyState.classList.add('hidden');
-       tbody.innerHTML = pendingVouchers.map(voucher => `
-           <tr class="hover:bg-gray-50">
-               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${voucher.id}</td>
-               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</td>
-               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${voucher.user}</td>
-               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${voucher.department}</td>
-               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                   <button onclick="showApprovalModal(${voucher.id})" class="px-4 py-2 bg-yellow-400 text-yellow-900 rounded-lg hover:bg-yellow-500 font-semibold transition-colors">ดำเนินการ</button>
-               </td>
-           </tr>
-       `).join('');
+        const tbody = document.getElementById('pendingTableBody');
+        const emptyState = document.getElementById('pendingEmptyState');
+        
+        // กรองเฉพาะสถานะ pending และเรียงตามวันที่ (เก่า -> ใหม่)
+        const pendingVouchers = currentData.issueVouchers
+            .filter(v => v.status === 'pending')
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        // กรณีไม่มีข้อมูล
+        if (pendingVouchers.length === 0) {
+            if(tbody) tbody.innerHTML = '';
+            if(emptyState) {
+                emptyState.innerHTML = createEmptyState('ไม่มีรายการรออนุมัติ', 'fa-solid fa-inbox');
+                emptyState.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if(emptyState) emptyState.classList.add('hidden');
+        if(!tbody) return;
+
+        // --- จุดที่แก้ไข: ปรับโครงสร้าง HTML ให้รองรับ Mobile Card ---
+        tbody.innerHTML = pendingVouchers.map(voucher => `
+            <tr class="hover:bg-gray-50 transition-colors border-b">
+                
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-bold text-teal-600">#${voucher.id}</div>
+                    <div class="text-xs text-gray-500">
+                        <i class="fa-regular fa-calendar mr-1"></i>
+                        ${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}
+                    </div>
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">${voucher.user}</div>
+                    <div class="text-xs text-gray-500">${voucher.department || '-'}</div>
+                </td>
+
+                <td class="px-6 py-4 text-sm text-gray-500">
+                    <div>${voucher.reason || 'เบิกทั่วไป'}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">
+                        <i class="fa-solid fa-box-open mr-1"></i> ${voucher.items.length} รายการ
+                    </div>
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                    <button onclick="showApprovalModal(${voucher.id})" class="w-full sm:w-auto px-4 py-2 bg-yellow-400 text-yellow-900 rounded-lg hover:bg-yellow-500 font-bold shadow-sm transition-transform active:scale-95 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-clipboard-check"></i> ตรวจสอบ / อนุมัติ
+                    </button>
+                </td>
+            </tr>
+        `).join('');
     }
 
     function updateManageItemsList() {
