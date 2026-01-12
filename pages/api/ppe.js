@@ -237,8 +237,13 @@ async function savePpeItem(itemData) {
   }
 }
 
-// ✅ แก้ไข: เพิ่มการบันทึก employeeId และ userId
+// ในไฟล์ pages/api/ppe.js ตรงฟังก์ชัน addNewVoucher
+
 async function addNewVoucher(voucherData) {
+  // --- เพิ่มบรรทัดนี้เพื่อเช็ค Log ---
+  console.log("🔥 Debug addNewVoucher Payload:", JSON.stringify(voucherData)); 
+  // --------------------------------
+
   const nextId = await getNextId('issue_vouchers', 'id');
   const { data, error } = await supabase
     .from('issue_vouchers')
@@ -246,8 +251,8 @@ async function addNewVoucher(voucherData) {
       id: nextId,
       timestamp: new Date().toISOString(),
       user: voucherData.user,
-      employeeId: voucherData.employeeId || '', // เพิ่มบรรทัดนี้
-      userId: voucherData.userId || '',         // เพิ่มบรรทัดนี้
+      employeeId: voucherData.employeeId || '', // เช็คว่าบรรทัดนี้ยังอยู่
+      userId: voucherData.userId || '',         // เช็คว่าบรรทัดนี้ยังอยู่
       department: voucherData.department,
       status: 'pending',
       adminNotes: '',
