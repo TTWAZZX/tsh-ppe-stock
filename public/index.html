@@ -1060,7 +1060,7 @@
     // 🎨 FLEX MESSAGE GENERATORS (เพิ่มใหม่)
     // ===========================================
 
-    // Template 1: สำหรับ "ใบเบิกใหม่" (มีรูปประกอบ) - ใช้ตอนผู้ใช้กดเบิก
+    // 1. Template สำหรับ "ผู้ใช้เบิกของ" (โชว์รูป + ชื่อ + แผนก)
     function createIssueFlex(voucherId, user, dept, items, status = 'รออนุมัติ') {
         const itemContents = items.map(item => {
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
@@ -1072,7 +1072,7 @@
                 contents: [
                     { type: "image", url: imgUrl, flex: 1, aspectRatio: "1:1", aspectMode: "cover" },
                     { type: "box", layout: "vertical", flex: 4, contents: [
-                        { type: "text", text: itemName, size: "sm", color: "#333333", wrap: true },
+                        { type: "text", text: itemName, size: "sm", color: "#333333", wrap: true, weight: "bold" },
                         { type: "text", text: `จำนวน: ${item.quantity}`, size: "xs", color: "#999999" }
                     ]}
                 ]
@@ -1089,6 +1089,10 @@
                     type: "box", layout: "vertical", spacing: "md",
                     contents: [
                         { type: "text", text: `#${voucherId}`, weight: "bold", size: "xl", align: "center" },
+                        { type: "box", layout: "vertical", spacing: "xs", contents: [
+                            { type: "text", text: `👤 ผู้เบิก: ${user}`, size: "xs", color: "#666666" },
+                            { type: "text", text: `🏢 แผนก: ${dept}`, size: "xs", color: "#666666" }
+                        ]},
                         { type: "separator", margin: "md" },
                         { type: "box", layout: "vertical", contents: itemContents }
                     ]
@@ -1098,11 +1102,12 @@
         };
     }
 
-    // 2. Template สำหรับ "การยืม (Loan)"
+    // 2. Template สำหรับ "ผลอนุมัติ/ปฏิเสธ" (โชว์ชื่อ + แผนก + รายการข้อความ)
     function createStatusFlex(title, voucher, items, colorCode) {
-        if (!items || !Array.isArray(items)) items = [];
-
-        // ส่วนของรายการสินค้า
+        // voucher ในที่นี้คือก้อน object ข้อมูลใบเบิกจาก currentData
+        const userName = voucher.user || "ไม่ระบุชื่อ";
+        const department = voucher.department || "-";
+        
         const itemSummary = items.map(item => {
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
@@ -1126,18 +1131,17 @@
                         { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
                         { type: "text", text: `ใบเบิกเลขที่: #${voucher.id}`, size: "sm", weight: "bold" },
                         { type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
-                            { type: "text", text: `ผู้เบิก: ${voucher.user}`, size: "xs", color: "#888888" },
-                            { type: "text", text: `แผนก: ${voucher.department || '-'}`, size: "xs", color: "#888888" }
+                            { type: "text", text: `👤 ผู้เบิก: ${userName}`, size: "xs", color: "#888888" },
+                            { type: "text", text: `🏢 แผนก: ${department}`, size: "xs", color: "#888888" }
                         ]},
                         { type: "separator", margin: "sm" },
-                        { type: "text", text: "รายการที่ดำเนินการ:", size: "xs", weight: "bold", color: "#555555", margin: "sm" },
                         { type: "box", layout: "vertical", contents: itemSummary }
                     ]
                 }
             }
         };
     }
-
+    
     // 3. Template สำหรับ "ผลอนุมัติ/ปฏิเสธ/คืนของ"
     function createStatusFlex(title, message, colorCode, icon = '✅') {
         return {
