@@ -1060,11 +1060,9 @@
     // 🎨 FLEX MESSAGE GENERATORS (เพิ่มใหม่)
     // ===========================================
 
-    // 1. Template สำหรับ "การเบิก (Issue)"
+    // Template 1: สำหรับ "ใบเบิกใหม่" (มีรูปประกอบ) - ใช้ตอนผู้ใช้กดเบิก
     function createIssueFlex(voucherId, user, dept, items, status = 'รออนุมัติ') {
-        // สร้างรายการสินค้าที่จะโชว์ใน Flex
         const itemContents = items.map(item => {
-            // ค้นหาข้อมูลสินค้าจาก currentData เพื่อเอารูปและชื่อ
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : 'ไม่ระบุชื่อ';
             const imgUrl = (ppe && ppe.image_url) ? ppe.image_url : 'https://placehold.co/100?text=No+Img';
@@ -1091,17 +1089,43 @@
                     type: "box", layout: "vertical", spacing: "md",
                     contents: [
                         { type: "text", text: `#${voucherId}`, weight: "bold", size: "xl", align: "center" },
-                        { type: "box", layout: "vertical", spacing: "xs", contents: [
-                            { type: "text", text: `ผู้เบิก: ${user}`, size: "xs", color: "#888888" },
-                            { type: "text", text: `แผนก: ${dept}`, size: "xs", color: "#888888" }
-                        ]},
                         { type: "separator", margin: "md" },
-                        { type: "text", text: "รายการที่เบิก:", size: "sm", weight: "bold", margin: "md" },
-                        { type: "box", layout: "vertical", contents: itemContents }, // รายการสินค้าพร้อมรูป
-                        { type: "separator", margin: "md" }
+                        { type: "box", layout: "vertical", contents: itemContents }
                     ]
                 },
                 footer: { type: "box", layout: "vertical", contents: [{ type: "text", text: `สถานะ: ${status}`, color: "#aaaaaa", size: "xs", align: "center" }] }
+            }
+        };
+    }
+
+    // Template 2: สำหรับ "ผลการอนุมัติ" (ไม่มีรูป - เน้นข้อความ) - ใช้ตอนแอดมินกด
+    function createStatusFlex(title, voucherId, items, colorCode) {
+        const itemSummary = items.map(item => {
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
+            return {
+                type: "box", layout: "horizontal", margin: "xs",
+                contents: [
+                    { type: "text", text: `• ${itemName}`, size: "xs", color: "#666666", flex: 4, wrap: true },
+                    { type: "text", text: `x${item.quantity}`, size: "xs", color: "#333333", flex: 1, align: "end", weight: "bold" }
+                ]
+            };
+        });
+
+        return {
+            type: "flex",
+            altText: title,
+            contents: {
+                type: "bubble",
+                body: {
+                    type: "box", layout: "vertical", spacing: "sm",
+                    contents: [
+                        { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
+                        { type: "text", text: `ใบเบิกเลขที่: #${voucherId}`, size: "sm", weight: "bold" },
+                        { type: "separator", margin: "sm" },
+                        { type: "box", layout: "vertical", contents: itemSummary }
+                    ]
+                }
             }
         };
     }
@@ -2261,28 +2285,22 @@
     }
     function hideApprovalModal() { document.getElementById('approvalModal').classList.add('hidden'); }
 
-    // 3. อนุมัติทั้งหมด (แจ้งเตือน User)
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
             if (!voucher) return;
-
             const targetUserId = voucher.userid || voucher.userId;
             
-            // 🔍 ดึงรายการสินค้าอย่างละเอียด
             let items = [];
             try {
                 items = voucher.items || (voucher.itemsJson ? (typeof voucher.itemsJson === 'string' ? JSON.parse(voucher.itemsJson) : voucher.itemsJson) : []);
-            } catch (e) { console.error("Parse items error", e); }
+            } catch (e) { items = []; }
 
             callServerFunction('approveVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucher, items, '#10B981');
-                    fetch('/api/push', { 
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json'}, 
-                        body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
-                    }).catch(err => console.error("Push API Error:", err));
+                    // ✅ ส่งรายการแบบข้อความ ไม่มีรูป
+                    const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucherId, items, '#10B981');
+                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('อนุมัติสำเร็จ');
                 hideApprovalModal();
@@ -2291,28 +2309,22 @@
         }
     }
 
-    // 4. ปฏิเสธ (แจ้งเตือน User)
     async function rejectVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการปฏิเสธ', 'ต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
             if (!voucher) return;
-
             const targetUserId = voucher.userid || voucher.userId;
-            
-            // 🔍 ดึงรายการสินค้าอย่างละเอียด
+
             let items = [];
             try {
                 items = voucher.items || (voucher.itemsJson ? (typeof voucher.itemsJson === 'string' ? JSON.parse(voucher.itemsJson) : voucher.itemsJson) : []);
-            } catch (e) { console.error("Parse items error", e); }
+            } catch (e) { items = []; }
 
             callServerFunction('rejectVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher, items, '#EF4444');
-                    fetch('/api/push', { 
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json'}, 
-                        body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
-                    }).catch(err => console.error("Push API Error:", err));
+                    // ✅ ส่งรายการแบบข้อความ ไม่มีรูป
+                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucherId, items, '#EF4444');
+                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('ปฏิเสธคำขอแล้ว');
                 hideApprovalModal();
@@ -2321,8 +2333,8 @@
         }
     }
 
-    // 5. อนุมัติบางส่วน (แจ้งเตือน User)
     function handlePartialApprove(voucherId) {
+        // 1. รวบรวมรายการสินค้าและจำนวนที่ "แอดมินแก้ไข" ในหน้าจอ
         const items = [];
         document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
             items.push({ 
@@ -2336,18 +2348,24 @@
         
         const targetUserId = voucher.userid || voucher.userId;
 
+        // 2. ส่งข้อมูลไปบันทึกที่ Server
         callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
+            
+            // 3. ✅ ส่งแจ้งเตือน Flex Message แบบข้อความ (ไม่มีรูป)
             if (targetUserId) {
-                const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher, items, '#F59E0B');
+                // ใช้หัวข้อ 'อนุมัติบางส่วน ⚠️' และส่งรายการที่ได้รับอนุมัติจริงไปโชว์
+                const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucherId, items, '#F59E0B'); // สีเหลือง/ส้ม
+                
                 fetch('/api/push', { 
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
                     body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
                 }).catch(err => console.error("Push API Error:", err));
             }
+
             showToast('อนุมัติบางส่วนสำเร็จ');
             hideApprovalModal();
-            initializeApp();
+            initializeApp(); // โหลดข้อมูลใหม่
         });
     }
 
