@@ -1414,33 +1414,24 @@
 
         tbody.innerHTML = pendingVouchers.map(voucher => {
             
-            // --- แก้ไข: ระบบตรวจสอบข้อมูลแบบละเอียด (Debug Mode) ---
-            let itemCount = 0;
-            let debugType = typeof voucher.items;
+            // --- แก้ไข: ดึงข้อมูลจาก itemsJson (ชื่อที่ถูกต้องใน Database ของคุณ) ---
+            // ใช้ || เพื่อกันเหนียว (ถ้าอนาคตเปลี่ยนชื่อกลับเป็น items ก็ยังทำงานได้)
+            const rawItems = voucher.itemsJson || voucher.items; 
             
-            // สั่งปริ้นท์ค่าออกมาดูใน Console (กด F12 ดูได้)
-            console.log(`Voucher #${voucher.id} items:`, voucher.items, `(Type: ${debugType})`);
-
-            if (voucher.items) {
-                if (Array.isArray(voucher.items)) {
-                    // กรณีเป็น Array ปกติ
-                    itemCount = voucher.items.length;
-                } else if (typeof voucher.items === 'string') {
-                    // กรณีเป็นข้อความ (String) ลองแปลงเป็น Array
+            let itemCount = 0;
+            if (rawItems) {
+                if (Array.isArray(rawItems)) {
+                    itemCount = rawItems.length;
+                } else if (typeof rawItems === 'string') {
                     try {
-                        const parsed = JSON.parse(voucher.items);
+                        const parsed = JSON.parse(rawItems);
                         itemCount = Array.isArray(parsed) ? parsed.length : 0;
                     } catch (e) {
-                        console.error('Parse Error:', e);
                         itemCount = 0;
                     }
-                } else if (typeof voucher.items === 'object') {
-                    // กรณีเป็น Object (เช่น Supabase ส่งมาเป็น JSON Object)
-                    // ให้นับจำนวน Key เอา
-                    itemCount = Object.keys(voucher.items).length;
                 }
             }
-            // ------------------------------------------------------
+            // -------------------------------------------------------------------
             
             const reasonText = voucher.reason || 'เบิกทั่วไป';
 
