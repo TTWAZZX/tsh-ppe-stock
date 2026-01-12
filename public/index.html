@@ -1061,6 +1061,9 @@
         document.getElementById('loanForm').addEventListener('submit', handleBorrowSubmit);
         document.getElementById('categoryForm').addEventListener('submit', handleSaveCategory);
         
+        // 👇👇 เพิ่มบรรทัดนี้เข้าไปครับ (สำคัญมาก!) 👇👇
+        document.getElementById('issueForm').addEventListener('submit', saveIssueVoucher);
+        
         const debouncedFilterStock = debounce(filterStock, 300);
         document.getElementById('stockSearch').addEventListener('input', debouncedFilterStock);
         document.getElementById('categoryFilter').addEventListener('change', filterStock);
@@ -2448,8 +2451,10 @@
         if(userLinks) userLinks.classList.remove('hidden');
     }
 
-    // ฟังก์ชันบันทึกการเบิก (Issue) - อัปเดตให้แจ้งเตือนเข้าส่วนตัว (OA)
-    async function saveIssueVoucher() {
+    // ฟังก์ชันบันทึกการเบิก (Issue)
+    async function saveIssueVoucher(e) { // 👈 เพิ่ม e ตรงนี้
+        if(e) e.preventDefault(); // 👈 เพิ่มบรรทัดนี้ เพื่อกันหน้าเว็บรีเฟรช
+        
         try {
             // 1. ดึงรายการสินค้าที่เลือก (Cart)
             let cart = [];
@@ -2475,59 +2480,47 @@
             const empId = empIdInput ? empIdInput.value : '';
             const dept = deptInput ? deptInput.value : '';
 
-            // 3. Validation ตรวจสอบความถูกต้อง
+            // 3. Validation
             if (cart.length === 0) { alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ'); return; }
             if (!userName || !empId || !dept) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-            // 4. ดึง UserID จาก LIFF
+            // 4. ดึง UserID
             const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
             
-            // เตรียมข้อมูลส่งให้ Backend
             const payload = {
                 user: userName,
                 employeeId: empId,
                 department: dept,
-                userId: currentUserId, // ส่ง userId ไปด้วย
+                userId: currentUserId,
                 items: cart
             };
 
-            // แสดง Loading
             if(typeof showLoading === 'function') showLoading();
 
-            // 5. 🚀 ส่งข้อมูลไปที่ Server (API)
+            // 5. ส่งข้อมูล
             const newVoucher = await callServerFunction('addNewVoucher', payload);
 
-            // ------------------------------------------------------------------
-            // 6. ✅ แจ้งเตือนกลับไปหา "ผู้เบิก" ผ่าน LINE OA (Push Message)
-            // ------------------------------------------------------------------
+            // 6. แจ้งเตือน LINE OA
             if (currentUserId) {
                 const itemsCount = cart.length;
                 const msg = `✅ ได้รับใบเบิกแล้วครับ!\n📄 ใบเบิกเลขที่: #${newVoucher.id}\n📦 จำนวน: ${itemsCount} รายการ\n⏳ สถานะ: รอตรวจสอบ\n\nโปรดรอแอดมินอนุมัติสักครู่นะครับ`;
                 
                 try {
-                    // เรียกใช้ API Push ของเราเอง
                     await fetch('/api/push', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId: currentUserId, message: msg })
                     });
-                    console.log('Push notification sent');
-                } catch (err) {
-                    console.error('Push Error:', err);
-                }
+                } catch (err) { console.error('Push Error:', err); }
             }
-            // ------------------------------------------------------------------
 
             if(typeof hideLoading === 'function') hideLoading();
             alert('บันทึกใบเบิกเรียบร้อยแล้ว!');
 
-            // Reset Form และหน้าจอ
             document.getElementById('issueForm').reset();
             document.getElementById('issueItemsContainer').innerHTML = '';
-            
             if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
-            // โหลดข้อมูลใหม่และกลับหน้า Dashboard
             if(typeof callServerFunction === 'function' && typeof onDataLoaded === 'function') {
                 const updatedData = await callServerFunction('getInitialData');
                 onDataLoaded(updatedData);
