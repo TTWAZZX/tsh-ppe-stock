@@ -1394,7 +1394,9 @@
         const tbody = document.getElementById('pendingTableBody');
         const emptyState = document.getElementById('pendingEmptyState');
         
-        // กรองเฉพาะสถานะ pending และเรียงตามวันที่ (เก่า -> ใหม่)
+        // ตรวจสอบข้อมูลก่อนกรอง (ป้องกัน Error ถ้าข้อมูลยังไม่มา)
+        if (!currentData || !currentData.issueVouchers) return;
+
         const pendingVouchers = currentData.issueVouchers
             .filter(v => v.status === 'pending')
             .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -1412,8 +1414,13 @@
         if(emptyState) emptyState.classList.add('hidden');
         if(!tbody) return;
 
-        // --- จุดที่แก้ไข: ปรับโครงสร้าง HTML ให้รองรับ Mobile Card ---
-        tbody.innerHTML = pendingVouchers.map(voucher => `
+        tbody.innerHTML = pendingVouchers.map(voucher => {
+            // --- ส่วนที่แก้ไข: ป้องกัน Error ถ้าไม่มี items ---
+            const itemCount = (voucher.items && Array.isArray(voucher.items)) ? voucher.items.length : 0;
+            const reasonText = voucher.reason || 'เบิกทั่วไป';
+            // ---------------------------------------------
+
+            return `
             <tr class="hover:bg-gray-50 transition-colors border-b">
                 
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -1430,9 +1437,9 @@
                 </td>
 
                 <td class="px-6 py-4 text-sm text-gray-500">
-                    <div>${voucher.reason || 'เบิกทั่วไป'}</div>
+                    <div>${reasonText}</div>
                     <div class="text-xs text-gray-400 mt-0.5">
-                        <i class="fa-solid fa-box-open mr-1"></i> ${voucher.items.length} รายการ
+                        <i class="fa-solid fa-box-open mr-1"></i> ${itemCount} รายการ
                     </div>
                 </td>
 
@@ -1442,7 +1449,8 @@
                     </button>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     }
 
     function updateManageItemsList() {
