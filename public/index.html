@@ -5,13 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPE Stock Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter & Sarabun -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
@@ -55,9 +52,8 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 6px; }
         ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-
-        /* เพิ่ม CSS สำหรับ User Mode ให้ดู Clean ขึ้น */
-        .user-mode-bg { background-color: #F3F4F6; } /* Soft Gray */
+        
+        /* User Mode Styles */
         .card-calm { 
             background: white; 
             border-radius: 16px; 
@@ -68,7 +64,6 @@
 </head>
 <body class="antialiased">
 
-<!-- Loading Overlay -->
 <div id="loadingOverlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] hidden">
     <div class="text-center">
         <i class="fas fa-spinner fa-spin text-4xl text-teal-600"></i>
@@ -76,13 +71,9 @@
     </div>
 </div>
 
-<!-- Toast Notification Container -->
 <div id="toastContainer" class="fixed top-5 right-5 z-[90] space-y-3"></div>
 
 <div class="flex h-screen bg-gray-50">
-    <!-- =========================================== -->
-    <!-- SIDEBAR (Desktop)                         -->
-    <!-- =========================================== -->
     <aside class="hidden lg:flex lg:flex-col w-64 bg-white border-r border-gray-200">
         <div class="h-16 flex items-center px-6 border-b border-gray-200">
             <img src="/logo.png" alt="Company Logo" class="h-9 w-9 rounded-full mr-3" onerror="this.style.display='none'">
@@ -133,9 +124,6 @@
     </aside>
 
     <div class="flex flex-col flex-1 overflow-hidden">
-        <!-- =========================================== -->
-        <!-- TOP HEADER (Mobile)                       -->
-        <!-- =========================================== -->
         <header class="lg:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4">
              <div class="flex items-center">
                 <img src="/logo.png" alt="Company Logo" class="h-9 w-9 rounded-full mr-3" onerror="this.style.display='none'">
@@ -153,16 +141,10 @@
             </div>
         </header>
 
-        <!-- =========================================== -->
-        <!-- MAIN CONTENT AREA                         -->
-        <!-- =========================================== -->
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 sm:p-6 lg:p-8 page-container relative">
             <div id="dashboardPage" class="page">
-                <!-- Dashboard Content -->
                 <div id="dashboardContent">
-                    <!-- Row 1: KPI Cards -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                        <!-- KPI Card Template -->
                         <div class="bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-500">อุปกรณ์ทั้งหมด</p>
@@ -210,7 +192,6 @@
                         </div>
                     </div>
 
-                    <!-- Row 2: Quick Actions & Action Center -->
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-200">
                              <h3 class="text-lg font-semibold mb-4 text-gray-800">การดำเนินการด่วน</h3>
@@ -244,7 +225,6 @@
                         </div>
                     </div>
 
-                    <!-- Row 3: Main Charts -->
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
                             <h3 class="text-lg font-semibold mb-4">สต็อกตามหมวดหมู่</h3>
@@ -260,16 +240,13 @@
                         </div>
                     </div>
                     
-                    <!-- Row 4: Recent Activities -->
                     <div class="bg-white p-6 rounded-xl border border-gray-200">
                          <h3 class="text-lg font-semibold mb-4 text-gray-800">กิจกรรมล่าสุด</h3>
                          <div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
                     </div>
                 </div>
 
-                <!-- Skeleton Loader for Dashboard -->
                 <div id="dashboardSkeleton" class="hidden">
-                    <!-- Skeleton for Stat Cards -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                         <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
                         <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
@@ -277,7 +254,6 @@
                         <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
                         <div class="bg-white p-5 rounded-xl border animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2"></div></div>
                     </div>
-                    <!-- Skeleton for Main Content -->
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl border animate-pulse">
                             <div class="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
@@ -327,8 +303,7 @@
                                 </tr>
                             </thead>
                             <tbody id="stockTableBody" class="bg-white divide-y divide-gray-200">
-                                <!-- JS will populate this -->
-                            </tbody>
+                                </tbody>
                         </table>
                         <div id="stockEmptyState" class="hidden"></div>
                     </div>
@@ -482,7 +457,6 @@
                 </div>
             </div>
 
-            <!-- Admin Pages -->
             <div id="pendingPage" class="page hidden admin-page">
                 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
                     <div class="p-6 border-b border-gray-200">
@@ -630,9 +604,6 @@
 
         </main>
         
-        <!-- =========================================== -->
-        <!-- BOTTOM NAVIGATION (Mobile)                -->
-        <!-- =========================================== -->
         <nav class="lg:hidden bg-white border-t border-gray-200 p-2 flex justify-around">
              <a href="#" onclick="showPage('dashboard')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
                 <i class="fa-solid fa-chart-pie text-xl"></i>
@@ -664,7 +635,6 @@
     </div>
 </div>
 
-<!-- Modals -->
 <div id="loginModal" class="fixed inset-0 bg-black/50 modal-backdrop flex items-center justify-center z-50 hidden">
     <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-sm m-4 relative">
         <h3 class="text-xl font-semibold mb-6 text-gray-800">เข้าสู่ระบบ Admin</h3>
@@ -697,23 +667,19 @@
     </div>
 </div>
 
-<!-- NEW: Category Management Modal -->
 <div id="categoryManagementModal" class="fixed inset-0 bg-black/50 modal-backdrop flex items-center justify-center z-50 hidden">
     <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md m-4 relative">
         <button onclick="hideCategoryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
         <h3 class="text-xl font-semibold mb-6 text-gray-800">จัดการหมวดหมู่</h3>
         
-        <!-- Form for Add/Edit Category -->
         <form id="categoryForm" class="mb-6 flex items-center gap-3">
             <input type="hidden" id="editCategoryId">
             <input type="text" id="categoryNameInput" placeholder="ชื่อหมวดหมู่ใหม่..." required class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
             <button type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">บันทึก</button>
         </form>
 
-        <!-- List of Categories -->
         <div id="categoryListContainer" class="space-y-2 max-h-64 overflow-y-auto pr-2 border-t pt-4">
-            <!-- JS will render categories here -->
-        </div>
+            </div>
     </div>
 </div>
 
@@ -835,6 +801,7 @@
         }
     }
 
+    // ฟังก์ชันจัดหน้าจอสำหรับ User ทั่วไป
     function setupUserInterface() {
         // 1. ซ่อน Element ของ Admin/Desktop เดิม
         const sidebar = document.querySelector('aside');
@@ -850,7 +817,10 @@
         // 2. ปรับ Dashboard ให้เป็น User Dashboard
         renderUserDashboard();
         
-        // 3. (ลบส่วน Mobile Nav ออกได้เลย เพราะมันโชว์อยู่แล้ว)
+        // 3. แสดง Bottom Nav (Nav ตัวเดิมที่มีอยู่แล้ว)
+        // แก้ไขบรรทัดนี้: เติม \\ หน้า : เพื่อแก้ SyntaxError
+        const mobileNav = document.querySelector('nav.lg\\:hidden'); 
+        if (mobileNav) mobileNav.classList.remove('hidden');
 
         // 4. Auto-fill ชื่อ
         autoFillUserIdentity();
@@ -1047,6 +1017,8 @@
     // Dashboard Rendering
     // ===========================================
     function updateDashboard() {
+        // เช็คก่อนว่ามี Element ของ Dashboard แบบ Admin อยู่ไหม
+        // ถ้าไม่มี (แปลว่าเป็น User Mode) ให้จบฟังก์ชันเลย ไม่ต้องทำต่อ
         if (!document.getElementById('totalItems')) return; 
 
         const { ppeItems, issueVouchers, dashboardMetrics } = currentData;
@@ -1578,690 +1550,10 @@
     }
 
     // ===========================================
-    // Form & Modal Logic
-    // ===========================================
-    function addIssueItem() {
-        const container = document.getElementById('issueItems');
-        const newItemDiv = document.createElement('div');
-        // ปรับ layout ให้รองรับรูปภาพ (ใช้ grid หรือ flex)
-        newItemDiv.className = "issue-item p-4 border border-gray-200 rounded-lg bg-gray-50 mb-3 relative overflow-hidden transition-all duration-300 hover:shadow-md";
-        
-        // HTML ภายในกล่องรายการ (เพิ่ม <img> tag ไว้โชว์รูป)
-        newItemDiv.innerHTML = `
-            <div class="flex items-start gap-4">
-                <div class="hidden item-img-container flex-shrink-0 w-16 h-16 bg-white rounded-lg border border-gray-200 overflow-hidden items-center justify-center">
-                    <img src="" class="item-preview-img w-full h-full object-cover" onerror="this.style.display='none'">
-                    <i class="fa-solid fa-box text-gray-300 text-xl default-icon hidden"></i>
-                </div>
-
-                <div class="flex-1 space-y-3 w-full">
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <select class="item-select flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" required onchange="updateItemPreview(this)">
-                            <option value="">เลือกอุปกรณ์</option>
-                        </select>
-                        
-                        <div class="flex gap-2">
-                            <input type="number" class="item-quantity w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="จำนวน" min="1" required>
-                            <button type="button" onclick="removeIssueItem(this)" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="item-detail-text text-xs text-gray-500 hidden"></div>
-                </div>
-            </div>
-        `;
-        
-        container.appendChild(newItemDiv);
-        
-        // Populate Dropdown เหมือนเดิม
-        const select = newItemDiv.querySelector('.item-select');
-        const allItemOptions = currentData.ppeItems
-            .sort((a,b) => a.name.localeCompare(b.name))
-            .map(item => `<option value="${item.id}">${item.name} (คงเหลือ: ${item.stock})</option>`).join('');
-        select.innerHTML = '<option value="">เลือกอุปกรณ์</option>' + allItemOptions;
-    }
-
-    // ฟังก์ชันใหม่: อัปเดตรูปเมื่อมีการเลือก Dropdown
-    function updateItemPreview(selectElement) {
-        const itemId = selectElement.value;
-        const row = selectElement.closest('.issue-item');
-        const imgContainer = row.querySelector('.item-img-container');
-        const img = row.querySelector('.item-preview-img');
-        const defaultIcon = row.querySelector('.default-icon');
-        const detailText = row.querySelector('.item-detail-text');
-
-        if (!itemId) {
-            imgContainer.classList.add('hidden');
-            detailText.classList.add('hidden');
-            return;
-        }
-
-        const item = currentData.ppeItems.find(p => p.id == itemId);
-        if (item) {
-            // Show Container
-            imgContainer.classList.remove('hidden');
-            imgContainer.classList.add('flex'); // เพื่อจัดกลาง
-
-            // Handle Image
-            if (item.image_url) {
-                img.src = item.image_url;
-                img.style.display = 'block';
-                defaultIcon.classList.add('hidden');
-            } else {
-                img.style.display = 'none';
-                defaultIcon.classList.remove('hidden'); // โชว์ไอคอนกล่องแทนถ้าไม่มีรูป
-            }
-
-            // Show Detail text (Optional: แสดงรหัสสินค้า)
-            detailText.textContent = `รหัส: ${item.code} | หน่วย: ${item.unit}`;
-            detailText.classList.remove('hidden');
-        }
-    }
-
-    function removeIssueItem(button) { button.closest('.issue-item').remove(); }
-    function resetIssueForm() {
-        document.getElementById('issueForm').reset();
-        
-        // เคลียร์รายการสินค้าในกล่องใหม่ให้หมด
-        document.getElementById('issueItemsContainer').innerHTML = '';
-        
-        // *ไม่ต้อง* เรียก addIssueItem() แล้ว เพราะเราไม่ได้ใช้ Dropdown เริ่มต้น
-    }
-
-    function showVoucherDetails(voucherId) {
-        const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-        if (!voucher) return;
-
-        // ✅ รองรับทั้งกรณีเป็น Array และเป็น String
-        let items = [];
-        try {
-            items = Array.isArray(voucher.itemsJson)
-                ? voucher.itemsJson
-                : JSON.parse(voucher.itemsJson || '[]');
-        } catch (e) {
-            console.error('Error parsing itemsJson in showVoucherDetails:', voucher.itemsJson, e);
-            showToast('ไม่สามารถแสดงรายละเอียดใบเบิกได้ (ข้อมูลรายการผิดรูปแบบ)', 'error');
-            return;
-        }
-
-        const itemsHtml = items.map(item => {
-            const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
-            return `<li class="flex justify-between">
-                        <span>${ppeItem ? ppeItem.name : 'N/A'}</span>
-                        <span class="font-medium">${item.quantity} ${ppeItem ? ppeItem.unit : ''}</span>
-                    </li>`;
-        }).join('');
-
-        const status = getStatusInfo(voucher.status);
-        const modal = document.getElementById('voucherModal');
-        modal.innerHTML = `
-            <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-lg m-4 relative">
-                <button onclick="hideVoucherModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                <h3 class="text-xl font-semibold mb-2 text-gray-800">รายละเอียดใบเบิก #${voucher.id}</h3>
-                <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${status.color}">${status.text}</span>
-                <div class="mt-6 space-y-4 text-gray-700">
-                    <div class="grid grid-cols-2 gap-4">
-                        <p><strong>ผู้เบิก:</strong> ${voucher.user}</p>
-                        <p><strong>แผนก:</strong> ${voucher.department}</p>
-                        <p><strong>วันที่เบิก:</strong> ${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>
-                    </div>
-                    <div>
-                        <p class="font-semibold mb-2">รายการอุปกรณ์:</p>
-                        <ul class="space-y-1 bg-gray-50 p-4 rounded-lg">${itemsHtml}</ul>
-                    </div>
-                </div>
-                <div class="mt-6 text-right">
-                    <button onclick="hideVoucherModal()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100">ปิด</button>
-                </div>
-            </div>`;
-        modal.classList.remove('hidden');
-    }
-
-    function hideVoucherModal() { document.getElementById('voucherModal').classList.add('hidden'); }
-    
-    function showApprovalModal(voucherId) {
-        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
-
-        const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-        if (!voucher) return;
-
-        // ✅ รองรับทั้งกรณีเป็น Array และเป็น String
-        let items = [];
-        try {
-            items = Array.isArray(voucher.itemsJson)
-                ? voucher.itemsJson
-                : JSON.parse(voucher.itemsJson || '[]');
-        } catch (e) {
-            console.error('Error parsing itemsJson in showApprovalModal:', voucher.itemsJson, e);
-            showToast('ไม่สามารถเปิดหน้าต่างอนุมัติได้ (ข้อมูลรายการผิดรูปแบบ)', 'error');
-            return;
-        }
-
-        const itemsHtml = items.map(item => {
-            const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
-            const maxApprove = Math.min(item.quantity, ppeItem ? ppeItem.stock : 0);
-            return `
-                <div class="flex items-center space-x-3 p-3 border-b item-approval-row"
-                    data-item-id="${item.itemId}"
-                    data-item-name="${ppeItem ? ppeItem.name : ''}">
-                    <div class="flex-1">
-                        <p class="font-medium text-gray-800">${ppeItem ? ppeItem.name : 'N/A'}</p>
-                        <p class="text-sm text-gray-600">
-                            ขอ: ${item.quantity} | สต็อก: ${ppeItem ? ppeItem.stock : 0}
-                        </p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">อนุมัติ:</label>
-                        <input type="number"
-                            value="${maxApprove}"
-                            min="0"
-                            max="${maxApprove}"
-                            class="approved-quantity w-20 px-2 py-1 border rounded focus:outline-none focus:ring-1 focus:ring-teal-500">
-                    </div>
-                </div>`;
-        }).join('');
-
-        const modal = document.getElementById('approvalModal');
-        modal.innerHTML = `
-            <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md m-4 relative">
-                <button onclick="hideApprovalModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                <h3 class="text-xl font-semibold mb-6 text-gray-800">อนุมัติใบเบิก #${voucher.id}</h3>
-                <div class="mb-6 border rounded-lg bg-gray-50 p-4 max-h-60 overflow-y-auto">${itemsHtml}</div>
-                <div class="flex justify-end space-x-3 mt-6">
-                    <button onclick="rejectVoucher(${voucher.id})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">ปฏิเสธ</button>
-                    <button onclick="approveVoucher(${voucher.id})" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">อนุมัติทั้งหมด</button>
-                    <button onclick="handlePartialApprove(${voucher.id})" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">อนุมัติตามจำนวน</button>
-                </div>
-            </div>`;
-        modal.classList.remove('hidden');
-    }
-
-    function hideApprovalModal() { document.getElementById('approvalModal').classList.add('hidden'); }
-    function editItem(itemId) {
-        const item = currentData.ppeItems.find(p => p.id == itemId);
-        if (item) {
-            document.getElementById('editItemId').value = item.id;
-            document.getElementById('itemCode').value = item.code;
-            document.getElementById('itemName').value = item.name;
-            document.getElementById('itemCategory').value = item.category;
-            document.getElementById('itemUnit').value = item.unit;
-            document.getElementById('itemReorderPoint').value = item.reorderPoint;
-            document.getElementById('itemStock').value = item.stock;
-            document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
-            showToast('กำลังแก้ไข: ' + item.name);
-        }
-    }
-    function resetManageForm() {
-        document.getElementById('manageForm').reset();
-        document.getElementById('editItemId').value = '';
-    }
-
-    function resetReceiveForm() { 
-        document.getElementById('receiveForm').reset(); 
-        document.getElementById('receiveItemId').value = '';
-        
-        document.getElementById('receiveItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
-        document.getElementById('receiveItemName').classList.add('text-gray-500');
-        document.getElementById('receiveItemName').classList.remove('text-gray-800', 'font-bold');
-        document.getElementById('receiveItemCode').classList.add('hidden');
-        document.getElementById('receiveItemImg').classList.add('hidden');
-        document.getElementById('receiveItemImgPlaceholder').classList.remove('hidden');
-    }
-
-    function showConfirmationModal(title, message) {
-        return new Promise(resolve => {
-            const modal = document.getElementById('confirmationModal');
-            document.getElementById('confirmationTitle').textContent = title;
-            document.getElementById('confirmationMessage').textContent = message;
-            modal.classList.remove('hidden');
-            const confirmBtn = document.getElementById('confirmProceedBtn');
-            const cancelBtn = document.getElementById('confirmCancelBtn');
-            const newConfirmBtn = confirmBtn.cloneNode(true);
-            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-            const newCancelBtn = cancelBtn.cloneNode(true);
-            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-            const cleanup = () => {
-                modal.classList.add('hidden');
-                newConfirmBtn.removeEventListener('click', handleConfirm);
-                newCancelBtn.removeEventListener('click', handleCancel);
-            };
-            const handleConfirm = () => { cleanup(); resolve(true); };
-            const handleCancel = () => { cleanup(); resolve(false); };
-            newConfirmBtn.addEventListener('click', handleConfirm);
-            newCancelBtn.addEventListener('click', handleCancel);
-        });
-    }
-
-    // ===========================================
-    // Category Management Logic
-    // ===========================================
-    function showCategoryModal() {
-        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
-        document.getElementById('categoryManagementModal').classList.remove('hidden');
-        resetCategoryForm();
-        renderCategoryList();
-    }
-    function hideCategoryModal() {
-        document.getElementById('categoryManagementModal').classList.add('hidden');
-    }
-    function renderCategoryList() {
-        const container = document.getElementById('categoryListContainer');
-        const sortedCategories = [...currentData.categories].sort((a,b) => a.name.localeCompare(b.name));
-        if (sortedCategories.length === 0) {
-            container.innerHTML = createEmptyState('ยังไม่มีหมวดหมู่', 'fa-solid fa-tags');
-            return;
-        }
-        container.innerHTML = sortedCategories.map(cat => `
-            <div class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-50">
-                <span class="text-gray-800">${cat.name}</span>
-                <div class="space-x-2">
-                    <button onclick="editCategory(${cat.id}, '${cat.name}')" class="text-gray-500 hover:text-teal-600"><i class="fas fa-edit"></i></button>
-                    <button onclick="handleDeleteCategory(${cat.id})" class="text-gray-500 hover:text-red-600"><i class="fas fa-trash"></i></button>
-                </div>
-            </div>
-        `).join('');
-    }
-    function editCategory(id, name) {
-        document.getElementById('editCategoryId').value = id;
-        document.getElementById('categoryNameInput').value = name;
-        document.getElementById('categoryNameInput').focus();
-    }
-    function resetCategoryForm() {
-        document.getElementById('categoryForm').reset();
-        document.getElementById('editCategoryId').value = '';
-    }
-
-    // ===========================================
-    // >>>>>>>> โค้ดส่วนที่เพิ่มเข้ามา <<<<<<<<<<
-    // Form Submission Handlers
-    // ===========================================
-
-    /**
-     * Handles the submission of the issue form.
-     */
-    function handleIssueSubmit(e) {
-        e.preventDefault();
-        const user = document.getElementById('issueUser').value;
-        const department = document.getElementById('issueDepartment').value;
-        const items = [];
-        
-        // --- จุดที่เปลี่ยน ---
-        // ดึงรายการจาก Container ใหม่
-        const itemRows = document.querySelectorAll('#issueItemsContainer .issue-item');
-
-        itemRows.forEach(row => {
-            // หา ID จาก class .item-select-value (Input type hidden)
-            const itemIdInput = row.querySelector('.item-select-value');
-            const quantityInput = row.querySelector('.item-quantity');
-            
-            if (itemIdInput && quantityInput) {
-                const itemId = itemIdInput.value;
-                const quantity = quantityInput.value;
-                
-                if (itemId && quantity > 0) {
-                    items.push({ itemId: Number(itemId), quantity: Number(quantity) });
-                }
-            }
-        });
-        // -------------------
-
-        if (items.length === 0) {
-            return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
-        }
-
-        const voucherData = { user, department, items };
-        callServerFunction('addNewVoucher', voucherData)
-            .then(newVoucher => {
-                showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
-                resetIssueForm();
-                initializeApp(); 
-            });
-    }
-
-    // 1. เพิ่มฟังก์ชัน preview รูปใน admin
-    function previewImageAdmin() {
-        const url = document.getElementById('itemImage').value;
-        const img = document.getElementById('adminImagePreview');
-        if (url) {
-            img.src = url;
-            img.classList.remove('hidden');
-        } else {
-            img.classList.add('hidden');
-        }
-    }
-
-    // 2. แก้ไข handleManageSubmit ให้ส่ง imageUrl ไปด้วย
-    function handleManageSubmit(e) {
-        e.preventDefault();
-        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
-
-    const itemData = {
-        id: document.getElementById('editItemId').value || null,
-        code: document.getElementById('itemCode').value,
-        name: document.getElementById('itemName').value,
-        category: document.getElementById('itemCategory').value,
-        unit: document.getElementById('itemUnit').value,
-        reorderPoint: Number(document.getElementById('itemReorderPoint').value),
-        stock: Number(document.getElementById('itemStock').value),
-        onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0),
-        
-        // 🟢 เพิ่มบรรทัดนี้ครับ
-        price: Number(document.getElementById('itemPrice').value || 0), 
-        
-        imageUrl: document.getElementById('itemImage').value
-    };
-        
-        // ... (ส่วนเรียก API เหมือนเดิม)
-        callServerFunction('savePpeItem', itemData)
-                .then(result => {
-                    showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
-                    resetManageForm();
-                    initializeApp();
-                });
-    }
-
-    // 3. แก้ไข editItem ให้ดึง url มาใส่ในฟอร์มตอนกดแก้ไข
-    function editItem(itemId) {
-        const item = currentData.ppeItems.find(p => p.id == itemId);
-        if (item) {
-            // ... (fields เดิม)
-            document.getElementById('editItemId').value = item.id;
-            document.getElementById('itemCode').value = item.code;
-            document.getElementById('itemName').value = item.name;
-            document.getElementById('itemCategory').value = item.category;
-            document.getElementById('itemUnit').value = item.unit;
-            document.getElementById('itemReorderPoint').value = item.reorderPoint;
-            document.getElementById('itemStock').value = item.stock;
-            document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
-            document.getElementById('itemPrice').value = item.price || 0;
-            // เพิ่มส่วนรูปภาพ
-            document.getElementById('itemImage').value = item.image_url || '';
-            previewImageAdmin(); // สั่งให้แสดงรูปด้วยถ้ามี
-
-            showToast('กำลังแก้ไข: ' + item.name);
-        }
-    }
-
-    // 4. แก้ไข resetManageForm ให้เคลียร์รูป
-    function resetManageForm() {
-        document.getElementById('manageForm').reset();
-        document.getElementById('editItemId').value = '';
-        document.getElementById('adminImagePreview').classList.add('hidden'); // ซ่อนรูป
-        document.getElementById('adminImagePreview').src = '';
-    }
-
-    /**
-     * Handles the submission of the receive stock form.
-     */
-    function handleReceiveSubmit(e) {
-        e.preventDefault();
-        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
-
-        // ดึงค่าจาก Hidden Input แทน
-        const itemId = document.getElementById('receiveItemId').value;
-        if (!itemId) return showToast('กรุณาเลือกอุปกรณ์', 'error');
-
-        const transactionData = {
-            itemId: Number(itemId), 
-            quantity: Number(document.getElementById('receiveQuantity').value),
-            type: document.getElementById('receiveType').value,
-            user: document.getElementById('receiveUser').value,
-            department: document.getElementById('receiveDepartment').value,
-        };
-
-        callServerFunction('addReceiveTransaction', transactionData)
-            .then(() => {
-                showToast('รับของเข้าสต็อกสำเร็จ');
-                resetReceiveForm();
-                initializeApp();
-            });
-    }
-
-    /**
-     * Handles the submission of the borrow/loan form.
-     */
-    function handleBorrowSubmit(e) {
-        e.preventDefault();
-        
-        // ดึงค่าจาก Hidden Input
-        const itemId = document.getElementById('loanItemId').value;
-        
-        if (!itemId) {
-            return showToast('กรุณาเลือกอุปกรณ์ที่ต้องการยืม', 'error');
-        }
-
-        const borrowData = {
-            itemId: Number(itemId),
-            borrowerName: document.getElementById('borrowerName').value,
-            dueDate: document.getElementById('loanDueDate').value,
-            notes: document.getElementById('loanNotes').value,
-        };
-
-        callServerFunction('borrowItem', borrowData)
-            .then(() => {
-                showToast('บันทึกการยืมสำเร็จ');
-                
-                // Reset Form
-                document.getElementById('loanForm').reset();
-                document.getElementById('loanItemId').value = ''; // เคลียร์ ID
-                
-                // Reset UI การ์ดเลือกของกลับเป็นค่าเริ่มต้น
-                document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
-                document.getElementById('loanItemName').classList.add('text-gray-500');
-                document.getElementById('loanItemName').classList.remove('text-gray-800', 'font-bold');
-                document.getElementById('loanItemCode').classList.add('hidden');
-                document.getElementById('loanItemImg').classList.add('hidden');
-                document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
-
-                initializeApp();
-            });
-    }
-
-    /**
-     * Handles saving or updating a category.
-     */
-    function handleSaveCategory(e) {
-        e.preventDefault();
-        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
-
-        const categoryData = {
-            id: document.getElementById('editCategoryId').value || null,
-            name: document.getElementById('categoryNameInput').value,
-        };
-
-        callServerFunction('saveCategory', categoryData)
-            .then(() => {
-                showToast('บันทึกหมวดหมู่สำเร็จ');
-                resetCategoryForm();
-                initializeApp(); // This will re-render the list
-            });
-    }
-
-    /**
-     * Handles deleting a category after confirmation.
-     */
-    async function handleDeleteCategory(categoryId) {
-        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
-        
-        const confirmed = await showConfirmationModal('ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่นี้? การกระทำนี้ไม่สามารถย้อนกลับได้');
-        if (confirmed) {
-            callServerFunction('deleteCategory', { categoryId })
-                .then(() => {
-                    showToast('ลบหมวดหมู่สำเร็จ');
-                    initializeApp();
-                });
-        }
-    }
-
-    /**
-     * Handles returning a loaned item.
-     */
-    async function handleReturnItem(loanId) {
-        const confirmed = await showConfirmationModal('ยืนยันการรับคืน', 'คุณต้องการบันทึกการรับคืนอุปกรณ์นี้ใช่หรือไม่?');
-        if (confirmed) {
-            callServerFunction('returnItem', { loanId })
-                .then(() => {
-                    showToast('รับคืนอุปกรณ์สำเร็จ');
-                    initializeApp();
-                });
-        }
-    }
-
-    // ===========================================
-    // Voucher Approval Handlers
-    // ===========================================
-
-    async function approveVoucher(voucherId) {
-        const confirmed = await showConfirmationModal('ยืนยันการอนุมัติ', 'คุณต้องการอนุมัติใบเบิกนี้ทั้งหมดใช่หรือไม่? สต็อกจะถูกตัดทันที');
-        if (confirmed) {
-            callServerFunction('approveVoucher', { voucherId })
-                .then(() => {
-                    showToast(`อนุมัติใบเบิก #${voucherId} สำเร็จ`);
-                    hideApprovalModal();
-                    initializeApp();
-                });
-        }
-    }
-
-    async function rejectVoucher(voucherId) {
-        const confirmed = await showConfirmationModal('ยืนยันการปฏิเสธ', 'คุณต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?');
-        if (confirmed) {
-            callServerFunction('rejectVoucher', { voucherId })
-                .then(() => {
-                    showToast(`ปฏิเสธใบเบิก #${voucherId} แล้ว`);
-                    hideApprovalModal();
-                    initializeApp();
-                });
-        }
-    }
-
-    function handlePartialApprove(voucherId) {
-        const items = [];
-        document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
-            items.push({
-                itemId: Number(row.dataset.itemId),
-                itemName: row.dataset.itemName,
-                quantity: Number(row.querySelector('.approved-quantity').value)
-            });
-        });
-
-        const approvalData = { voucherId, items };
-        callServerFunction('approvePartialVoucher', approvalData)
-            .then(() => {
-                showToast(`อนุมัติใบเบิก #${voucherId} บางส่วนสำเร็จ`);
-                hideApprovalModal();
-                initializeApp();
-            });
-    }
-
-    // ==========================================
-    // ITEM SELECTOR LOGIC (เพิ่มใหม่)
-    // ==========================================
-    let onItemSelectedCallback = null; // ตัวแปรเก็บฟังก์ชัน callback ว่าเลือกเสร็จแล้วให้ไปทำอะไร
-
-    function openItemSelector(callback) {
-        onItemSelectedCallback = callback;
-        document.getElementById('itemSelectorModal').classList.remove('hidden');
-        document.getElementById('selectorSearch').value = ''; // เคลียร์ช่องค้นหา
-        renderSelectorItems(); // วาดรายการสินค้า
-    }
-
-    function closeItemSelector() {
-        document.getElementById('itemSelectorModal').classList.add('hidden');
-        onItemSelectedCallback = null;
-    }
-
-    function renderSelectorItems() {
-        const container = document.getElementById('selectorGrid');
-        const searchText = document.getElementById('selectorSearch').value.toLowerCase();
-        
-        const items = currentData.ppeItems.filter(item => 
-            (item.name.toLowerCase().includes(searchText) || item.code.toLowerCase().includes(searchText))
-        );
-
-        if (items.length === 0) {
-            container.innerHTML = `<div class="col-span-full text-center text-gray-400 py-10">ไม่พบสินค้า</div>`;
-            return;
-        }
-
-        container.innerHTML = items.map(item => {
-            const imgUrl = item.image_url || 'https://placehold.co/150x150?text=No+Image'; 
-            const isOutOfStock = Number(item.stock) <= 0;
-            
-            const borderClass = isOutOfStock ? 'border-red-200 bg-red-50/50' : 'border-gray-200 bg-white hover:border-teal-400 hover:shadow-md';
-            const badgeClass = isOutOfStock ? 'bg-red-100 text-red-700' : 'bg-teal-50 text-teal-700';
-            const iconClass = isOutOfStock ? 'fa-times-circle' : 'fa-box';
-
-            return `
-            <div class="flex border ${borderClass} rounded-xl overflow-hidden transition-all duration-200 cursor-pointer h-32 group relative" onclick="selectItemFromGrid(${item.id})">
-                
-                <div class="w-32 h-32 flex-shrink-0 bg-white border-r border-gray-100 relative">
-                    <img src="${imgUrl}" class="absolute inset-0 w-full h-full object-contain p-2 mix-blend-multiply group-hover:scale-105 transition-transform duration-300">
-                    
-                    <button onclick="openImagePreview('${imgUrl}', event)" class="absolute top-1 left-1 bg-black/50 hover:bg-teal-600 text-white p-1.5 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10 w-7 h-7 flex items-center justify-center">
-                        <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
-                    </button>
-
-                    ${isOutOfStock ? '<div class="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">สินค้าหมด</span></div>' : ''}
-                </div>
-
-                <div class="flex-1 p-3 flex flex-col justify-between min-w-0">
-                    <div>
-                        <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-bold text-gray-400 border border-gray-200 px-1.5 rounded bg-white">${item.code}</span>
-                        </div>
-                        <h4 class="font-bold text-gray-800 text-sm mt-1 leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors" title="${item.name}">${item.name}</h4>
-                    </div>
-
-                    <div class="flex items-center justify-between mt-2">
-                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold border border-transparent ${badgeClass}">
-                            <i class="fa-solid ${iconClass}"></i>
-                            <span>${item.stock} ${item.unit}</span>
-                        </div>
-                        
-                        <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            `;
-        }).join('');
-    }
-
-    function selectItemFromGrid(itemId) {
-        const item = currentData.ppeItems.find(i => i.id == itemId);
-        if (item && onItemSelectedCallback) {
-            onItemSelectedCallback(item); // ส่งค่า item กลับไปให้ฟังก์ชันที่เรียก
-            closeItemSelector();
-        }
-    }
-
-    // ==========================================
-    // ฟังก์ชันดูรูปภาพขยาย (Image Preview)
-    // ==========================================
-    function openImagePreview(url, e) {
-        if(e) e.stopPropagation(); // ป้องกันไม่ให้ไปกดเลือกสินค้า
-        
-        const img = document.getElementById('previewImage');
-        img.src = url;
-        img.classList.remove('animate-pulse'); // รีเซ็ต animation
-        void img.offsetWidth; // trigger reflow
-        img.classList.add('animate-pulse'); // เล่น animation
-        
-        document.getElementById('imagePreviewModal').classList.remove('hidden');
-    }
-
-    function closeImagePreview() {
-        document.getElementById('imagePreviewModal').classList.add('hidden');
-        document.getElementById('previewImage').src = '';
-    }
-
-    // ===========================================
     // USER DASHBOARD LOGIC (ส่วนที่เพิ่มใหม่)
     // ===========================================
 
+    // ฟังก์ชันจัดหน้าจอสำหรับ User ทั่วไป (เรียกใช้เมื่อ Login สำเร็จและไม่ใช่ Admin)
     function setupUserInterface() {
         // 1. ซ่อน Element ของ Admin/Desktop เดิม
         const sidebar = document.querySelector('aside');
@@ -2270,7 +1562,7 @@
         const header = document.querySelector('header');
         if (header) header.classList.add('hidden');
 
-        // ซ่อนปุ่ม Admin ในเมนูมือถือ
+        // ซ่อน Admin Menu ใน Mobile Bottom Nav (ถ้ามี)
         const adminMenuMobile = document.getElementById('adminMenuMobile');
         if (adminMenuMobile) adminMenuMobile.classList.add('hidden');
 
@@ -2278,8 +1570,8 @@
         renderUserDashboard();
         
         // 3. แสดง Bottom Nav (Nav ตัวเดิมที่มีอยู่แล้ว)
-        // บรรทัดนี้จริงๆ ไม่ต้องมีก็ได้เพราะ Nav มันแสดงอยู่แล้ว แต่ถ้ากันเหนียวให้ใช้ selector นี้:
-        const mobileNav = document.querySelector('nav.lg:hidden');
+        // แก้ไขบรรทัดนี้: เติม \\ หน้า : เพื่อแก้ SyntaxError
+        const mobileNav = document.querySelector('nav.lg\\:hidden'); 
         if (mobileNav) mobileNav.classList.remove('hidden');
 
         // 4. Auto-fill ชื่อ
