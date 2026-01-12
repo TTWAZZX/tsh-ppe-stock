@@ -1979,7 +1979,10 @@
     function showTimelineDetails(voucherId) {
         // 1. หาข้อมูลใบเบิก
         const voucher = currentData.issueVouchers.find(v => v.id === voucherId);
-        if (!voucher) return;
+        if (!voucher) {
+            console.error("ไม่พบใบเบิก ID:", voucherId);
+            return;
+        }
 
         // 2. แปลงรายการสินค้า
         let items = [];
@@ -1991,20 +1994,39 @@
             items = rawItems;
         }
 
-        // 3. สร้างรายการ HTML
         const listContainer = document.getElementById('timelineItemsList');
         if (!listContainer) return;
 
+        console.log(`--- กำลังตรวจสอบใบเบิก #${voucherId} ---`);
+
         listContainer.innerHTML = items.map((item, index) => {
-            // --- แก้ไขจุดที่ 1: เทียบรหัสสินค้าแบบแปลงเป็น String ทั้งคู่ (กันพลาด) ---
-            const product = currentData.ppeItems.find(p => String(p.code) === String(item.itemId)) 
-                            || { name: 'ไม่พบข้อมูลสินค้า', unit: 'หน่วย', image: null };
+            // แปลงรหัสในใบเบิกเป็น String และตัดช่องว่าง
+            const targetId = String(item.itemId).trim();
             
+            console.log(`รายการที่ ${index + 1}: กำลังค้นหา ID [${targetId}]`);
+
+            // ค้นหาใน Stock (เทียบแบบยืดหยุ่น)
+            const product = currentData.ppeItems.find(p => {
+                const dbId = String(p.id).trim();     // แปลง ID ในฐานข้อมูล
+                const dbCode = String(p.code).trim(); // แปลง Code ในฐานข้อมูล
+                
+                // เทียบกันดู (ถ้าเจอจะหยุดค้นหาทันที)
+                return dbId === targetId || dbCode === targetId;
+            }) || { name: 'ไม่พบข้อมูลสินค้า', unit: 'หน่วย', image: null, code: targetId };
+            
+            if (product.name === 'ไม่พบข้อมูลสินค้า') {
+                console.warn(`❌ หาไม่เจอ! ลองเทียบ ${targetId} ใน Stock แล้วไม่ตรงกับรายการใดเลย`);
+            } else {
+                console.log(`✅ เจอแล้ว! คือ ${product.name} (ID: ${product.id})`);
+            }
+
             const pName = product.name;
-            // --- แก้ไขจุดที่ 2: ใช้รูปจากระบบ หรือถ้าไม่มีให้ใช้ไอคอนแทน (เลิกใช้ placeholder เว็บนอก) ---
+            const pCode = product.code || item.itemId; // ถ้าไม่มี Code ให้โชว์ ID เดิม
+            
+            // รูปภาพ
             const pImgHtml = product.image 
                 ? `<img src="${product.image}" class="w-full h-full object-cover">` 
-                : `<div class="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400"><i class="fa-solid fa-box"></i></div>`;
+                : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400"><i class="fa-solid fa-box"></i></div>`;
 
             return `
             <div class="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
@@ -2013,7 +2035,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold text-gray-800 truncate">${pName}</p>
-                    <p class="text-xs text-gray-500">รหัส: ${item.itemId}</p>
+                    <p class="text-xs text-gray-500">รหัส: ${pCode}</p>
                 </div>
                 <div class="bg-teal-50 px-3 py-1 rounded-lg border border-teal-100">
                     <span class="text-sm font-bold text-teal-700">x${item.quantity}</span>
@@ -2021,7 +2043,7 @@
             </div>`;
         }).join('');
 
-        // 4. เปิด Modal
+        // เปิด Modal
         const modal = document.getElementById('timelineDetailModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
