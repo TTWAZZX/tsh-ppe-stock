@@ -1102,13 +1102,17 @@
         };
     }
 
-    // 2. Template สำหรับ "ผลอนุมัติ/ปฏิเสธ" (โชว์ชื่อ + แผนก + รายการข้อความ)
+    // ✅ Template สำหรับแจ้งสถานะ (อนุมัติ/ปฏิเสธ/บางส่วน) - ชุดที่สมบูรณ์ที่สุด
     function createStatusFlex(title, voucher, items, colorCode) {
-        // voucher ในที่นี้คือก้อน object ข้อมูลใบเบิกจาก currentData
-        const userName = voucher.user || "ไม่ระบุชื่อ";
-        const department = voucher.department || "-";
+        // ดึงข้อมูลพื้นฐาน ป้องกันกรณีข้อมูลมาไม่ครบ
+        const vId = voucher.id || "-";
+        const vUser = voucher.user || "ไม่ระบุชื่อ";
+        const vDept = voucher.department || "-";
         
-        const itemSummary = items.map(item => {
+        // ตรวจสอบรายการสินค้า
+        const safeItems = Array.isArray(items) ? items : [];
+
+        const itemSummary = safeItems.map(item => {
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
             return {
@@ -1129,19 +1133,19 @@
                     type: "box", layout: "vertical", spacing: "sm",
                     contents: [
                         { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
-                        { type: "text", text: `ใบเบิกเลขที่: #${voucher.id}`, size: "sm", weight: "bold" },
+                        { type: "text", text: `ใบเบิกเลขที่: #${vId}`, size: "sm", weight: "bold" },
                         { type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
-                            { type: "text", text: `👤 ผู้เบิก: ${userName}`, size: "xs", color: "#888888" },
-                            { type: "text", text: `🏢 แผนก: ${department}`, size: "xs", color: "#888888" }
+                            { type: "text", text: `👤 ผู้เบิก: ${vUser}`, size: "xs", color: "#888888" },
+                            { type: "text", text: `🏢 แผนก: ${vDept}`, size: "xs", color: "#888888" }
                         ]},
                         { type: "separator", margin: "sm" },
-                        { type: "box", layout: "vertical", contents: itemSummary }
+                        { type: "box", layout: "vertical", margin: "sm", contents: itemSummary.length > 0 ? itemSummary : [{ type: "text", text: "ไม่พบรายการ", size: "xs", color: "#aaaaaa" }] }
                     ]
                 }
             }
         };
     }
-    
+
     // 3. Template สำหรับ "ผลอนุมัติ/ปฏิเสธ/คืนของ"
     function createStatusFlex(title, message, colorCode, icon = '✅') {
         return {
@@ -2320,7 +2324,6 @@
 
             callServerFunction('approveVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    // ✅ ส่งก้อน voucher เข้าไปแทน voucherId
                     const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucher, items, '#10B981');
                     fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
@@ -2344,7 +2347,6 @@
 
             callServerFunction('rejectVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    // ✅ ส่งก้อน voucher เข้าไปแทน voucherId
                     const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher, items, '#EF4444');
                     fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
@@ -2370,7 +2372,6 @@
 
         callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
             if (targetUserId) {
-                // ✅ ส่งก้อน voucher เข้าไปแทน voucherId
                 const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher, items, '#F59E0B');
                 fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
             }
