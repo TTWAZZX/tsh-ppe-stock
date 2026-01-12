@@ -93,7 +93,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
 
-    return res.status(200).json({ status: 'success', data: result });
+    // ส่ง version กลับไปเพื่อเช็คว่า Server อัปเดตโค้ดแล้ว
+    return res.status(200).json({ status: 'success', data: result, version: '1.3-fix-lowercase' });
   } catch (err) {
     console.error('API Error:', err);
     return res.status(500).json({ status: 'error', message: err.message });
@@ -237,12 +238,10 @@ async function savePpeItem(itemData) {
   }
 }
 
-// ในไฟล์ pages/api/ppe.js ตรงฟังก์ชัน addNewVoucher
-
+// ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
 async function addNewVoucher(voucherData) {
-  // --- เพิ่มบรรทัดนี้เพื่อเช็ค Log ---
-  console.log("🔥 Debug addNewVoucher Payload:", JSON.stringify(voucherData)); 
-  // --------------------------------
+  // Debug Log
+  console.log("🔥 [addNewVoucher] Payload:", JSON.stringify(voucherData));
 
   const nextId = await getNextId('issue_vouchers', 'id');
   const { data, error } = await supabase
@@ -251,16 +250,22 @@ async function addNewVoucher(voucherData) {
       id: nextId,
       timestamp: new Date().toISOString(),
       user: voucherData.user,
-      employeeId: voucherData.employeeId || '', // เช็คว่าบรรทัดนี้ยังอยู่
-      userId: voucherData.userId || '',         // เช็คว่าบรรทัดนี้ยังอยู่
-      department: voucherData.department,
+      department: voucherData.department, // แผนก
+      
+      // *** เปลี่ยนเป็นตัวพิมพ์เล็กให้ตรงกับ Supabase ***
+      employeeid: voucherData.employeeId || '', 
+      userid: voucherData.userId || '',         
+      
       status: 'pending',
       adminNotes: '',
       itemsJson: voucherData.items,
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+      console.error("🔥 [addNewVoucher] Error:", error);
+      throw error;
+  }
   return data;
 }
 
@@ -379,10 +384,12 @@ async function addReceiveTransactionAndUpdateStock(tx) {
   return { updatedStockItems };
 }
 
-// ✅ แก้ไข: เพิ่ม userId เพื่อใช้ส่งแจ้งเตือนไลน์ส่วนตัว
+// ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
 async function borrowItem(borrowData) {
-  const nextId = await getNextId('loan_transactions', 'loanId');
+  // Debug Log
+  console.log("🔥 [borrowItem] Payload:", JSON.stringify(borrowData));
 
+  const nextId = await getNextId('loan_transactions', 'loanId');
   const updatedItem = await updateLoanableStock(borrowData.itemId, 'borrow');
 
   const { data, error } = await supabase
@@ -391,9 +398,12 @@ async function borrowItem(borrowData) {
       loanId: nextId,
       itemId: borrowData.itemId,
       borrowerName: borrowData.borrowerName,
-      employeeId: borrowData.employeeId || '',
+      
+      // *** เปลี่ยนเป็นตัวพิมพ์เล็ก ***
+      employeeid: borrowData.employeeId || '', 
       department: borrowData.department || '',
-      userId: borrowData.userId || '', // 👈 เพิ่มบรรทัดนี้ครับ
+      userid: borrowData.userId || '', 
+      
       borrowDate: new Date().toISOString(),
       dueDate: borrowData.dueDate || null,
       returnDate: null,
