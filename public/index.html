@@ -813,6 +813,8 @@
     // API Configuration
     // ===========================================
     const WEB_APP_URL = "/api/ppe";
+    const ADMIN_USER_ID = 'Ucadb3c0f63ada96c0432a0aede267ff9';
+    
 
     /**
      * Central function to call the Google Apps Script API.
@@ -1801,44 +1803,10 @@
         // ถ้าเป็น User ให้เติมชื่อกลับเข้าไป (ถ้ามีฟังก์ชันนี้)
         if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
     }
-    
-    // ฟังก์ชันดูรูปขยาย (Image Preview)
-    function openImagePreview(url, e) {
-        if(e) e.stopPropagation();
-        const img = document.getElementById('previewImage');
-        if(img) {
-            img.src = url;
-            document.getElementById('imagePreviewModal').classList.remove('hidden');
-        }
-    }
-    
-    function closeImagePreview() {
-        document.getElementById('imagePreviewModal').classList.add('hidden');
-    }
-
-    // ==========================================
-    // 4. ฟังก์ชันดูรูป (Image Preview)
-    // ==========================================
-    function openImagePreview(url, e) {
-        if(e) e.stopPropagation();
-        const img = document.getElementById('previewImage');
-        img.src = url;
-        document.getElementById('imagePreviewModal').classList.remove('hidden');
-    }
-    function closeImagePreview() {
-        document.getElementById('imagePreviewModal').classList.add('hidden');
-        document.getElementById('previewImage').src = '';
-    }
 
     // ==========================================
     // 5. User Interface Setup (Line LIFF)
     // ==========================================
-    // ฟังก์ชันนี้เรียกใช้เมื่อเปิดเว็บ (User Mode เสมอ จนกว่าจะ Login)
-    function setupUserInterface() {
-        // ไม่ต้องทำอะไรพิเศษ เพราะ updateUI จัดการให้แล้วตามค่า isAdmin = false
-        updateUI();
-        autoFillUserIdentity();
-    }
 
     function renderUserDashboard() {
         const dashboardDiv = document.getElementById('userDashboardPanel'); 
@@ -2192,97 +2160,62 @@
     }
     function hideApprovalModal() { document.getElementById('approvalModal').classList.add('hidden'); }
 
+    // 3. อนุมัติทั้งหมด (แจ้งเตือน User)
     async function approveVoucher(voucherId) {
-        const confirmed = await showConfirmationModal('ยืนยันการอนุมัติ', 'คุณต้องการอนุมัติใบเบิกนี้ทั้งหมดใช่หรือไม่? สต็อกจะถูกตัดทันที');
-        
-        if (confirmed) {
-            // 1. หาข้อมูล userId ของคนเบิกก่อน (จากข้อมูลที่มีอยู่ในหน้าจอ)
+        if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-            const targetUserId = voucher ? voucher.userId : '';
+            // รองรับทั้ง userid (เล็ก) และ userId (ใหญ่)
+            const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
 
-            // 2. ส่งคำสั่งอนุมัติไปที่ Server
-            callServerFunction('approveVoucher', { voucherId }).then(async () => {
-                
-                // 3. ✅ ยิงแจ้งเตือนกลับไปหาผู้ใช้
+            callServerFunction('approveVoucher', { voucherId }).then(() => {
+                // ✅ ยิงไลน์หาผู้ใช้
                 if (targetUserId) {
-                    const msg = `🎉 อนุมัติแล้ว!\n📄 ใบเบิกเลขที่: #${voucherId}\n✅ สถานะ: อนุมัติเรียบร้อย\n\nคุณสามารถมารับอุปกรณ์ได้ที่จุดจ่ายของครับ`;
-                    try {
-                        await fetch('/api/push', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: targetUserId, message: msg })
-                        });
-                    } catch (err) { console.error('Push Error:', err); }
+                    const msg = `🎉 อนุมัติแล้ว!\n📄 ใบเบิกเลขที่: #${voucherId}\n✅ สถานะ: อนุมัติเรียบร้อย\n\nติดต่อรับของได้เลยครับ`;
+                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, message: msg }) }).catch(console.error);
                 }
-
-                showToast(`อนุมัติใบเบิก #${voucherId} สำเร็จ`);
-                hideApprovalModal();
-                initializeApp(); // โหลดข้อมูลใหม่
-            });
-        }
-    }
-
-    async function rejectVoucher(voucherId) {
-        const confirmed = await showConfirmationModal('ยืนยันการปฏิเสธ', 'คุณต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?');
-        
-        if (confirmed) {
-            // 1. หาข้อมูล userId
-            const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-            const targetUserId = voucher ? voucher.userId : '';
-
-            // 2. ส่งคำสั่งปฏิเสธไปที่ Server
-            callServerFunction('rejectVoucher', { voucherId }).then(async () => {
-                
-                // 3. ✅ ยิงแจ้งเตือนกลับไปหาผู้ใช้
-                if (targetUserId) {
-                    const msg = `❌ คำขอถูกปฏิเสธ\n📄 ใบเบิกเลขที่: #${voucherId}\n⚠️ สถานะ: ไม่ผ่านการอนุมัติ\n\nโปรดติดต่อแอดมินหากมีข้อสงสัยครับ`;
-                    try {
-                        await fetch('/api/push', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: targetUserId, message: msg })
-                        });
-                    } catch (err) { console.error('Push Error:', err); }
-                }
-
-                showToast(`ปฏิเสธใบเบิก #${voucherId} แล้ว`);
+                showToast('อนุมัติสำเร็จ');
                 hideApprovalModal();
                 initializeApp();
             });
         }
     }
 
+    // 4. ปฏิเสธ (แจ้งเตือน User)
+    async function rejectVoucher(voucherId) {
+        if (await showConfirmationModal('ยืนยันการปฏิเสธ', 'ต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?')) {
+            const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
+            const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
+
+            callServerFunction('rejectVoucher', { voucherId }).then(() => {
+                // ✅ ยิงไลน์หาผู้ใช้
+                if (targetUserId) {
+                    const msg = `❌ คำขอถูกปฏิเสธ\n📄 ใบเบิกเลขที่: #${voucherId}\n⚠️ กรุณาติดต่อแอดมิน`;
+                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, message: msg }) }).catch(console.error);
+                }
+                showToast('ปฏิเสธคำขอแล้ว');
+                hideApprovalModal();
+                initializeApp();
+            });
+        }
+    }
+
+    // 5. อนุมัติบางส่วน (แจ้งเตือน User)
     function handlePartialApprove(voucherId) {
-        // 1. เตรียมข้อมูลสินค้า
         const items = [];
         document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
-            items.push({
-                itemId: Number(row.dataset.itemId),
-                itemName: row.dataset.itemName,
-                quantity: Number(row.querySelector('.approved-quantity').value)
-            });
+            items.push({ itemId: Number(row.dataset.itemId), quantity: Number(row.querySelector('.approved-quantity').value) });
         });
 
-        // 2. หาข้อมูล userId
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-        const targetUserId = voucher ? voucher.userId : '';
+        const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
 
-        // 3. ส่งข้อมูลไป Server
-        callServerFunction('approvePartialVoucher', { voucherId, items }).then(async () => {
-            
-            // 4. ✅ ยิงแจ้งเตือนกลับไปหาผู้ใช้
+        callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
+            // ✅ ยิงไลน์หาผู้ใช้
             if (targetUserId) {
-                const msg = `⚠️ อนุมัติบางส่วน\n📄 ใบเบิกเลขที่: #${voucherId}\n📦 สถานะ: ได้รับของไม่ครบจำนวน\n\nกรุณาตรวจสอบรายการที่ได้รับอนุมัติครับ`;
-                try {
-                    await fetch('/api/push', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: targetUserId, message: msg })
-                    });
-                } catch (err) { console.error('Push Error:', err); }
+                const msg = `⚠️ อนุมัติบางส่วน\n📄 ใบเบิกเลขที่: #${voucherId}\n📦 กรุณาตรวจสอบจำนวนที่ได้รับ`;
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, message: msg }) }).catch(console.error);
             }
-
-            showToast(`อนุมัติใบเบิก #${voucherId} บางส่วนสำเร็จ`);
+            showToast('อนุมัติบางส่วนสำเร็จ');
             hideApprovalModal();
             initializeApp();
         });
@@ -2539,66 +2472,45 @@
     }
 
     // ฟังก์ชันบันทึกการเบิก (Issue)
-    async function saveIssueVoucher(e) { // 👈 เพิ่ม e ตรงนี้
-        if(e) e.preventDefault(); // 👈 เพิ่มบรรทัดนี้ เพื่อกันหน้าเว็บรีเฟรช
+    async function saveIssueVoucher(e) { 
+        if(e) e.preventDefault(); 
         
         try {
-            // 1. ดึงรายการสินค้าที่เลือก (Cart)
+            // 1. ดึงรายการสินค้า
             let cart = [];
             document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
-                const itemIdInput = row.querySelector('.item-select-value');
-                const quantityInput = row.querySelector('.item-quantity');
-                
-                if (itemIdInput && quantityInput) {
-                    const itemId = itemIdInput.value;
-                    const quantity = quantityInput.value;
-                    if (itemId && quantity > 0) {
-                        cart.push({ itemId: Number(itemId), quantity: Number(quantity) });
-                    }
-                }
+                const itemId = row.querySelector('.item-select-value')?.value;
+                const quantity = row.querySelector('.item-quantity')?.value;
+                if (itemId && quantity > 0) cart.push({ itemId: Number(itemId), quantity: Number(quantity) });
             });
 
             // 2. รับค่าจากฟอร์ม
-            const nameInput = document.getElementById('issueUser');
-            const empIdInput = document.getElementById('employeeId');
-            const deptInput = document.getElementById('userDepartment');
+            const userName = document.getElementById('issueUser').value;
+            const empId = document.getElementById('employeeId').value;
+            const dept = document.getElementById('userDepartment').value;
 
-            const userName = nameInput ? nameInput.value : '';
-            const empId = empIdInput ? empIdInput.value : '';
-            const dept = deptInput ? deptInput.value : '';
-
-            // 3. Validation
-            if (cart.length === 0) { alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ'); return; }
+            if (cart.length === 0) { alert('กรุณาเลือกอุปกรณ์'); return; }
             if (!userName || !empId || !dept) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-            // 4. ดึง UserID
             const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
             
-            const payload = {
-                user: userName,
-                employeeId: empId,
-                department: dept,
-                userId: currentUserId,
-                items: cart
-            };
-
             if(typeof showLoading === 'function') showLoading();
 
-            // 5. ส่งข้อมูล
-            const newVoucher = await callServerFunction('addNewVoucher', payload);
+            // 3. ส่งข้อมูลไปบันทึก
+            const newVoucher = await callServerFunction('addNewVoucher', {
+                user: userName, employeeId: empId, department: dept, userId: currentUserId, items: cart
+            });
 
-            // 6. แจ้งเตือน LINE OA
+            // 4. ✅ แจ้งเตือนผู้เบิก (User)
             if (currentUserId) {
-                const itemsCount = cart.length;
-                const msg = `✅ ได้รับใบเบิกแล้วครับ!\n📄 ใบเบิกเลขที่: #${newVoucher.id}\n📦 จำนวน: ${itemsCount} รายการ\n⏳ สถานะ: รอตรวจสอบ\n\nโปรดรอแอดมินอนุมัติสักครู่นะครับ`;
-                
-                try {
-                    await fetch('/api/push', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: currentUserId, message: msg })
-                    });
-                } catch (err) { console.error('Push Error:', err); }
+                const msg = `✅ ได้รับใบเบิกแล้ว!\n📄 เลขที่: #${newVoucher.id}\n📦 จำนวน: ${cart.length} รายการ\n⏳ สถานะ: รออนุมัติ`;
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, message: msg }) }).catch(console.error);
+            }
+
+            // 5. ✅ แจ้งเตือนแอดมิน (Admin)
+            if (ADMIN_ID) {
+                const adminMsg = `📢 มีรายการเบิกใหม่!\n👤 ผู้เบิก: ${userName} (${dept})\n📄 เลขที่: #${newVoucher.id}\n📦 จำนวน: ${cart.length} รายการ`;
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_ID, message: adminMsg }) }).catch(console.error);
             }
 
             if(typeof hideLoading === 'function') hideLoading();
@@ -2607,12 +2519,11 @@
             document.getElementById('issueForm').reset();
             document.getElementById('issueItemsContainer').innerHTML = '';
             if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
-
-            if(typeof callServerFunction === 'function' && typeof onDataLoaded === 'function') {
-                const updatedData = await callServerFunction('getInitialData');
-                onDataLoaded(updatedData);
-                showPage('dashboard');
-            }
+            
+            // รีโหลดหน้า
+            const updatedData = await callServerFunction('getInitialData');
+            onDataLoaded(updatedData);
+            showPage('dashboard');
 
         } catch (error) {
             if(typeof hideLoading === 'function') hideLoading();
@@ -2621,11 +2532,10 @@
         }
     }
 
-    // ฟังก์ชันบันทึกการยืม (Loan) - แบบส่งหาแอดมินชัวร์ๆ (รอส่งเสร็จค่อยแจ้งเตือน)
-    async function saveLoanTransaction(e) { // เพิ่ม async
-        if(e) e.preventDefault(); 
-        
-        // 1. รับค่าจากฟอร์ม
+    // ฟังก์ชันบันทึกการยืม (Loan)
+    async function saveLoanTransaction(e) {
+        if(e) e.preventDefault();
+
         const itemId = document.getElementById('loanItemId').value;
         const userName = document.getElementById('loanUser').value;
         const empId = document.getElementById('loanEmployeeId').value;
@@ -2634,91 +2544,47 @@
         const notes = document.getElementById('loanNotes').value;
         const itemName = document.getElementById('loanItemName').innerText;
 
-        // 2. ตรวจสอบข้อมูล
-        if (!itemId) { alert('กรุณาเลือกอุปกรณ์ที่ต้องการยืม'); return; }
-        if (!userName || !empId || !dept || !dueDate) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+        if (!itemId || !userName || !dueDate) { alert('กรุณากรอกข้อมูลให้ครบ'); return; }
 
-        // 3. เตรียม UserID
         const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
-        
-        // 🔴 ใส่ UserID แอดมินตรงนี้ (อย่าลืมตรวจสอบความถูกต้อง)
-        const ADMIN_USER_ID = 'Ucadb3c0f63ada96c0432a0aede267ff9'; // <--- เปลี่ยนเป็น ID ของคุณ
-
-        const borrowData = {
-            itemId: Number(itemId),
-            borrowerName: userName,
-            employeeId: empId,
-            department: dept,
-            userId: currentUserId,
-            dueDate: dueDate,
-            notes: notes,
-        };
 
         if(typeof showLoading === 'function') showLoading();
 
         try {
-            // 4. ส่งข้อมูลไปบันทึกที่ Server
-            await callServerFunction('borrowItem', borrowData);
+            await callServerFunction('borrowItem', {
+                itemId: Number(itemId), borrowerName: userName, employeeId: empId, 
+                department: dept, userId: currentUserId, dueDate: dueDate, notes: notes
+            });
             
             if(typeof hideLoading === 'function') hideLoading();
 
-            // -----------------------------------------------------------
-            // 🔔 1. แจ้งเตือนหา "ผู้ยืม"
-            // -----------------------------------------------------------
+            // ✅ แจ้งเตือนผู้ยืม
             if (currentUserId) {
-                const dateStr = new Date(dueDate).toLocaleDateString('th-TH');
-                const userMsg = `🛠️ บันทึกการยืมสำเร็จ!\n📦 รายการ: ${itemName}\n📅 กำหนดคืน: ${dateStr}`;
-                
-                // ไม่ต้องรอผู้ยืม (Fire & Forget)
-                fetch('/api/push', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUserId, message: userMsg })
-                }).catch(console.error);
+                const msg = `🛠️ บันทึกการยืมสำเร็จ!\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, message: msg }) }).catch(console.error);
             }
 
-            // -----------------------------------------------------------
-            // 📢 2. แจ้งเตือนหา "แอดมิน" (รอให้ส่งเสร็จก่อน!)
-            // -----------------------------------------------------------
-            if (ADMIN_USER_ID) {
-                console.log("กำลังส่งหาแอดมิน ID:", ADMIN_USER_ID); // เช็ค Log ว่า ID ถูกไหม
-                
-                const adminMsg = `📢 มีรายการยืมใหม่! (OA)\n👤 ผู้ยืม: ${userName} (${dept})\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}\n📝 หมายเหตุ: ${notes || '-'}`;
-                
-                try {
-                    // ใช้ await เพื่อรอให้ส่งเสร็จจริงๆ
-                    await fetch('/api/push', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg })
-                    });
-                    console.log("✅ ส่งหาแอดมินสำเร็จ");
-                } catch (err) {
-                    console.error("❌ ส่งหาแอดมินล้มเหลว:", err);
-                    alert("บันทึกสำเร็จ แต่แจ้งเตือนแอดมินไม่ผ่าน (เช็ค Console)");
-                }
+            // ✅ แจ้งเตือนแอดมิน
+            if (ADMIN_ID) {
+                const adminMsg = `📢 มีรายการยืมใหม่!\n👤 ผู้ยืม: ${userName}\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_ID, message: adminMsg }) }).catch(console.error);
             }
-            // -----------------------------------------------------------
 
             alert('บันทึกการยืมสำเร็จ');
-            
-            // Reset Form
             document.getElementById('loanForm').reset();
+            // ... (Reset UI อื่นๆ ตามเดิม) ...
             document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
             document.getElementById('loanItemImg').classList.add('hidden');
             document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
             document.getElementById('loanItemId').value = '';
-            
-            if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
-            // โหลดข้อมูลใหม่
+            if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
             const updatedData = await callServerFunction('getInitialData');
             onDataLoaded(updatedData);
             showPage('dashboard');
 
         } catch (error) {
             if(typeof hideLoading === 'function') hideLoading();
-            console.error(error);
             alert('เกิดข้อผิดพลาด: ' + error.message);
         }
     }
