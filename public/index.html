@@ -2268,18 +2268,21 @@
             if (!voucher) return;
 
             const targetUserId = voucher.userid || voucher.userId;
-            // ดึงรายการสินค้าออกมาแปลงเป็น Array (กรณีเป็น JSON string)
-            const items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
+            
+            // 🔍 ดึงรายการสินค้าอย่างละเอียด
+            let items = [];
+            try {
+                items = voucher.items || (voucher.itemsJson ? (typeof voucher.itemsJson === 'string' ? JSON.parse(voucher.itemsJson) : voucher.itemsJson) : []);
+            } catch (e) { console.error("Parse items error", e); }
 
             callServerFunction('approveVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    // ✅ แก้ไข: ส่งข้อมูลให้ครบ 4 parameters ตาม Template ใหม่
                     const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucher, items, '#10B981');
                     fetch('/api/push', { 
                         method: 'POST', 
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
-                    }).catch(console.error);
+                    }).catch(err => console.error("Push API Error:", err));
                 }
                 showToast('อนุมัติสำเร็จ');
                 hideApprovalModal();
@@ -2295,17 +2298,21 @@
             if (!voucher) return;
 
             const targetUserId = voucher.userid || voucher.userId;
-            const items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
+            
+            // 🔍 ดึงรายการสินค้าอย่างละเอียด
+            let items = [];
+            try {
+                items = voucher.items || (voucher.itemsJson ? (typeof voucher.itemsJson === 'string' ? JSON.parse(voucher.itemsJson) : voucher.itemsJson) : []);
+            } catch (e) { console.error("Parse items error", e); }
 
             callServerFunction('rejectVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    // ✅ แก้ไข: ส่งข้อมูลให้ครบเพื่อโชว์รายการที่ถูกปฏิเสธ
                     const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher, items, '#EF4444');
                     fetch('/api/push', { 
                         method: 'POST', 
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
-                    }).catch(console.error);
+                    }).catch(err => console.error("Push API Error:", err));
                 }
                 showToast('ปฏิเสธคำขอแล้ว');
                 hideApprovalModal();
@@ -2331,13 +2338,12 @@
 
         callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
             if (targetUserId) {
-                // ✅ แก้ไข: ส่งรายการสินค้าที่ "อนุมัติจริง" ไปโชว์ในไลน์
                 const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher, items, '#F59E0B');
                 fetch('/api/push', { 
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
                     body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
-                }).catch(console.error);
+                }).catch(err => console.error("Push API Error:", err));
             }
             showToast('อนุมัติบางส่วนสำเร็จ');
             hideApprovalModal();
