@@ -2264,34 +2264,26 @@
     // 3. อนุมัติทั้งหมด (แจ้งเตือน User)
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
-            // 1. ค้นหาข้อมูล Voucher เพื่อเอา userId และ รายการสินค้า
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-            if (!voucher) { alert('ไม่พบข้อมูลใบเบิก'); return; }
+            if (!voucher) return;
 
-            // ดึง UserId ของผู้เบิก (รองรับทั้งชื่อตัวเล็กตัวใหญ่จาก Database)
-            const targetUserId = voucher.userid || voucher.userId; 
-            const items = voucher.items; // รายการสินค้าที่อยู่ในใบเบิก
+            const targetUserId = voucher.userid || voucher.userId;
+            // ดึงรายการสินค้าออกมาแปลงเป็น Array (กรณีเป็น JSON string)
+            const items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
 
-            // 2. สั่งงานที่ Server
             callServerFunction('approveVoucher', { voucherId }).then(() => {
-                
-                // 3. ✅ ส่งแจ้งเตือน Flex Message (ส่งหลังจากอนุมัติสำเร็จแล้ว)
                 if (targetUserId) {
-                    // ส่ง title, ก้อน voucher, ก้อน items, และสีเขียว
+                    // ✅ แก้ไข: ส่งข้อมูลให้ครบ 4 parameters ตาม Template ใหม่
                     const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucher, items, '#10B981');
-                    
                     fetch('/api/push', { 
                         method: 'POST', 
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
                     }).catch(console.error);
                 }
-
                 showToast('อนุมัติสำเร็จ');
                 hideApprovalModal();
-                initializeApp(); // รีโหลดข้อมูลหน้าจอ
-            }).catch(err => {
-                alert('เกิดข้อผิดพลาดในการอนุมัติ: ' + err.message);
+                initializeApp();
             });
         }
     }
@@ -2300,13 +2292,20 @@
     async function rejectVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการปฏิเสธ', 'ต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-            const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
+            if (!voucher) return;
+
+            const targetUserId = voucher.userid || voucher.userId;
+            const items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
 
             callServerFunction('rejectVoucher', { voucherId }).then(() => {
-                // ✅ ส่ง Flex Message สีแดง
                 if (targetUserId) {
-                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', `ใบเบิก #${voucherId} ไม่ผ่านการอนุมัติ กรุณาติดต่อแอดมิน`, '#EF4444');
-                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
+                    // ✅ แก้ไข: ส่งข้อมูลให้ครบเพื่อโชว์รายการที่ถูกปฏิเสธ
+                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher, items, '#EF4444');
+                    fetch('/api/push', { 
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
+                    }).catch(console.error);
                 }
                 showToast('ปฏิเสธคำขอแล้ว');
                 hideApprovalModal();
@@ -2319,17 +2318,26 @@
     function handlePartialApprove(voucherId) {
         const items = [];
         document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
-            items.push({ itemId: Number(row.dataset.itemId), quantity: Number(row.querySelector('.approved-quantity').value) });
+            items.push({ 
+                itemId: Number(row.dataset.itemId), 
+                quantity: Number(row.querySelector('.approved-quantity').value) 
+            });
         });
 
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-        const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
+        if (!voucher) return;
+        
+        const targetUserId = voucher.userid || voucher.userId;
 
         callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
-            // ✅ ยิงไลน์หาผู้ใช้
             if (targetUserId) {
-                const msg = `⚠️ อนุมัติบางส่วน\n📄 ใบเบิกเลขที่: #${voucherId}\n📦 กรุณาตรวจสอบจำนวนที่ได้รับ`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, message: msg }) }).catch(console.error);
+                // ✅ แก้ไข: ส่งรายการสินค้าที่ "อนุมัติจริง" ไปโชว์ในไลน์
+                const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher, items, '#F59E0B');
+                fetch('/api/push', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
+                }).catch(console.error);
             }
             showToast('อนุมัติบางส่วนสำเร็จ');
             hideApprovalModal();
