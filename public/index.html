@@ -2448,10 +2448,10 @@
         if(userLinks) userLinks.classList.remove('hidden');
     }
 
-    // ฟังก์ชันบันทึกการเบิก (Issue) - ฉบับแก้ไข Logic Cart
+    // ฟังก์ชันบันทึกการเบิก (Issue) - ฉบับใช้งานจริง (Production)
     async function saveIssueVoucher() {
         try {
-            // 1. สร้างตัวแปร cart โดยการดึงข้อมูลจากหน้าจอ HTML
+            // 1. สร้างตัวแปร cart จากหน้าจอ
             let cart = [];
             document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
                 const itemIdInput = row.querySelector('.item-select-value');
@@ -2460,7 +2460,6 @@
                 if (itemIdInput && quantityInput) {
                     const itemId = itemIdInput.value;
                     const quantity = quantityInput.value;
-                    
                     if (itemId && quantity > 0) {
                         cart.push({ itemId: Number(itemId), quantity: Number(quantity) });
                     }
@@ -2476,129 +2475,123 @@
             const empId = empIdInput ? empIdInput.value : '';
             const dept = deptInput ? deptInput.value : '';
 
-            // 3. ตรวจสอบข้อมูล (Validation)
-            if (cart.length === 0) {
-                alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ');
-                return;
-            }
+            // 3. Validation
+            if (cart.length === 0) { alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ'); return; }
+            if (!userName || !empId || !dept) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-            if (!userName || !empId || !dept) {
-                alert('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, รหัสพนักงาน, แผนก)');
-                return;
-            }
-
-            // 4. ดึง UserID จาก LIFF
+            // 4. เตรียมข้อมูลส่งขึ้น Server
             const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
-
-            // 5. สร้าง ID ใหม่
-            let newId = 1;
-            if (currentData.issueVouchers && currentData.issueVouchers.length > 0) {
-                newId = Math.max(...currentData.issueVouchers.map(v => v.id)) + 1;
-            }
-
-            // 6. สร้าง Object ใบเบิก
-            const newVoucher = {
-                id: newId,
+            
+            const payload = {
                 user: userName,
-                employeeId: empId,
+                employeeId: empId,      // อย่าลืมเพิ่มคอลัมน์ employeeId ใน Supabase ถ้ายังไม่มี
                 department: dept,
-                userId: currentUserId,
-                itemsJson: JSON.stringify(cart), // ส่ง cart ที่เพิ่งสร้างไป
-                reason: 'เบิกทั่วไป',
-                status: 'pending',
-                timestamp: new Date().toISOString()
+                userId: currentUserId,  // ส่ง UserID ไปด้วย
+                items: cart             // ส่งเป็น Array (ให้ Backend แปลงเป็น JSON เอง หรือแก้ให้ตรงกับ API เดิม)
             };
 
-            // 7. บันทึกลงตัวแปรหลัก (และส่ง API)
-            // หมายเหตุ: ตรงนี้ถ้าใช้ API จริง ให้ใช้ callServerFunction('addNewVoucher', newVoucher) แทนการ push ดื้อๆ
-            // แต่ถ้าจะ Push ดื้อๆ เพื่อเทส UI ก่อน ก็ใช้แบบนี้ได้ครับ
-            if (!currentData.issueVouchers) currentData.issueVouchers = [];
-            currentData.issueVouchers.push(newVoucher);
+            // แสดง Loading ระหว่างรอ
+            if(typeof showLoading === 'function') showLoading();
 
-            // *ถ้าจะส่งเข้า Server จริง ให้เปิดบรรทัดนี้แทน*
-            /*
-            await callServerFunction('addNewVoucher', {
-                user: userName, employeeId: empId, department: dept, userId: currentUserId, items: cart
-            });
-            */
+            // 5. 🚀 ส่งข้อมูลไปที่ Server (API)
+            // (ใช้ callServerFunction แทนการ push ดื้อๆ)
+            await callServerFunction('addNewVoucher', payload);
 
-            // 8. แจ้งเตือนไลน์ Admin
+            // 6. แจ้งเตือนไลน์ Admin (ถ้ามี)
             if (typeof sendLineNotify === 'function') {
-                const msg = `\n🔔 มีการเบิกของใหม่!\n👤 โดย: ${userName} (รหัส: ${empId})\n🏢 แผนก: ${dept}\n📦 จำนวน: ${cart.length} รายการ`;
-                await sendLineNotify(msg);
+                const msg = `\n🔔 มีการเบิกของใหม่!\n👤 โดย: ${userName} (${empId})\n🏢 แผนก: ${dept}\n📦 จำนวน: ${cart.length} รายการ`;
+                sendLineNotify(msg); // ไม่ต้อง await ก็ได้ ให้มันทำงานเบื้องหลัง
             }
 
-            // 9. อัปเดตหน้าจอและเคลียร์ค่า
-            alert('สร้างใบเบิกสำเร็จ! กรุณารอการอนุมัติ');
+            // 7. สำเร็จ! รีเซ็ตหน้าจอ
+            if(typeof hideLoading === 'function') hideLoading();
+            alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
 
             document.getElementById('issueForm').reset();
             document.getElementById('issueItemsContainer').innerHTML = '';
-            
-            // เติมชื่อกลับเข้าไปใหม่
+            cart = []; 
             if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
+            // 8. โหลดข้อมูลใหม่ทั้งหมดมาแสดง (เพื่อให้ Timeline และตารางอัปเดตของจริงจาก Server)
+            if(typeof callServerFunction === 'function' && typeof onDataLoaded === 'function') {
+                const updatedData = await callServerFunction('getInitialData');
+                onDataLoaded(updatedData);
+            }
+            
             // กลับไปหน้า Dashboard
-            if (typeof updateUI === 'function') updateUI();
             if (typeof showPage === 'function') showPage('userDashboard');
 
         } catch (error) {
-            console.error("เกิดข้อผิดพลาดในการบันทึก:", error);
-            alert("เกิดข้อผิดพลาด: " + error.message);
+            if(typeof hideLoading === 'function') hideLoading();
+            console.error("Save Error:", error);
+            alert("บันทึกไม่สำเร็จ: " + error.message);
         }
     }
 
-    // ฟังก์ชันบันทึกการยืม (Loan)
+    // ฟังก์ชันบันทึกการยืม (Loan) - อัปเดตส่ง userId
     function saveLoanTransaction() {
-        // 1. รับค่าจากฟอร์ม (อิงตาม ID ใน HTML ล่าสุด)
+        // 1. รับค่าจากฟอร์ม
         const itemId = document.getElementById('loanItemId').value;
         const userName = document.getElementById('loanUser').value;
-        const empId = document.getElementById('loanEmployeeId').value; // 🆕 รหัสพนักงาน
-        const dept = document.getElementById('loanDepartment').value;    // 🆕 แผนก
+        const empId = document.getElementById('loanEmployeeId').value;
+        const dept = document.getElementById('loanDepartment').value;
         const dueDate = document.getElementById('loanDueDate').value;
         const notes = document.getElementById('loanNotes').value;
 
         // 2. ตรวจสอบข้อมูล
-        if (!itemId) {
-            alert('กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
-            return;
-        }
-        if (!userName || !empId || !dept || !dueDate) {
-            alert('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, รหัส, แผนก, กำหนดคืน)');
-            return;
-        }
+        if (!itemId) { alert('กรุณาเลือกอุปกรณ์ที่ต้องการยืม'); return; }
+        if (!userName || !empId || !dept || !dueDate) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-        // 3. สร้าง Object รายการยืม
-        const newLoan = {
-            id: currentData.loanTransactions.length > 0 ? Math.max(...currentData.loanTransactions.map(l => l.id)) + 1 : 1,
-            itemId: itemId,
+        // 3. ดึง UserID จาก LIFF (ถ้ามี)
+        const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
+
+        const borrowData = {
+            itemId: Number(itemId),
             borrowerName: userName,
-            employeeId: empId, // 🆕
-            department: dept,  // 🆕
+            employeeId: empId,
+            department: dept,
+            userId: currentUserId, // 👈 ส่ง UserID ไปด้วย
             dueDate: dueDate,
             notes: notes,
-            status: 'on_loan', // สถานะ = กำลังยืม
-            timestamp: new Date().toISOString()
         };
 
-        // 4. บันทึกข้อมูล
-        currentData.loanTransactions.push(newLoan);
-        
-        // (Optional) ตัดสต็อกชั่วคราว หรือเปลี่ยนสถานะของชิ้นนั้น ถ้าต้องการ
-        
-        // 5. แจ้งเตือนและรีเซ็ต
-        alert('บันทึกการยืมสำเร็จ');
-        
-        // ล้างฟอร์ม
-        document.getElementById('loanForm').reset();
-        // รีเซ็ตการแสดงผลรูปสินค้าที่เลือก
-        document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
-        document.getElementById('loanItemImg').classList.add('hidden');
-        document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
-        document.getElementById('loanItemId').value = '';
+        // แสดง Loading
+        if(typeof showLoading === 'function') showLoading();
 
-        // อัปเดตตารางและหน้าจอ
-        updateUI();
-        // showPage('loan'); // อยู่หน้าเดิมเพื่อให้เห็นตารางอัปเดต
+        // 4. ส่งข้อมูลไป Server
+        callServerFunction('borrowItem', borrowData)
+            .then(() => {
+                if(typeof hideLoading === 'function') hideLoading();
+                
+                // แจ้งเตือนไลน์ Admin (ถ้าต้องการ)
+                if (typeof sendLineNotify === 'function') {
+                    const msg = `\n🛠️ มีการยืมเครื่องมือ!\n👤 โดย: ${userName}\n📦 รายการ: ${document.getElementById('loanItemName').innerText}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
+                    sendLineNotify(msg);
+                }
+
+                alert('บันทึกการยืมสำเร็จ');
+                
+                // Reset Form
+                document.getElementById('loanForm').reset();
+                document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+                document.getElementById('loanItemImg').classList.add('hidden');
+                document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+                document.getElementById('loanItemId').value = '';
+                
+                // Auto-fill ชื่อกลับไปใหม่ (ถ้าเป็น User)
+                if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
+
+                // อัปเดตข้อมูลและกลับหน้า Dashboard
+                callServerFunction('getInitialData').then(data => {
+                    onDataLoaded(data);
+                    showPage('dashboard');
+                });
+            })
+            .catch(err => {
+                if(typeof hideLoading === 'function') hideLoading();
+                console.error(err);
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+            });
     }
 
     // ฟังก์ชันส่งไลน์ (เรียกใช้ API ที่เราเพิ่งสร้าง)
