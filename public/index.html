@@ -2118,28 +2118,27 @@
     }
 
     function renderUserDashboard() {
-        const dashboardDiv = document.getElementById('dashboardContent');
+        // 1. ตรวจสอบว่ามีกล่อง User Dashboard หรือไม่
+        const dashboardDiv = document.getElementById('userDashboardPanel'); 
         if (!dashboardDiv) return;
 
-        // ชื่อและรูปโปรไฟล์ (ถ้าไม่มี LIFF ให้ใช้ค่า Default)
+        // 2. ป้องกัน Error จากตัวแปร liffProfile (ใส่ค่า Default ไว้ก่อน)
         const displayName = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'พนักงาน';
         const pictureUrl = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.pictureUrl : null;
+        
+        // 3. สร้าง HTML รูปโปรไฟล์ (ถ้าไม่มีรูป ให้ใช้ไอคอนคน)
         const profileImgHtml = pictureUrl 
             ? `<img src="${pictureUrl}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">`
             : `<div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-2 border-white shadow-sm"><i class="fa-solid fa-user"></i></div>`;
 
-        // กรองข้อมูลเฉพาะของ User นี้
-        const myLoans = currentData.loanTransactions.filter(l => 
-            l.borrowerName === displayName && l.status === 'on_loan'
-        );
-        const myRequests = currentData.issueVouchers.filter(v => 
-            v.user === displayName && v.status === 'pending'
-        );
+        // 4. ดึงข้อมูล (ใส่เครื่องหมาย ? ป้องกัน Error ถ้าข้อมูลยังไม่โหลด)
+        const myLoans = currentData.loanTransactions?.filter(l => l.borrowerName === displayName && l.status === 'on_loan') || [];
+        const myRequests = currentData.issueVouchers?.filter(v => v.user === displayName && v.status === 'pending') || [];
 
-        // HTML Template แบบ "Calm & Minimalist"
+        // 5. วาดหน้าจอ (HTML)
         dashboardDiv.innerHTML = `
-            <div class="px-2 pt-4 pb-24 max-w-md mx-auto">
-                <div class="flex items-center justify-between mb-8 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100/50">
+            <div class="px-2 pt-4 pb-24 max-w-md mx-auto animate-fade-in">
+                <div class="flex items-center justify-between mb-8 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">สวัสดี, คุณ${displayName}</h2>
                         <p class="text-gray-500 text-xs mt-1">ขอให้วันนี้เป็นวันที่ปลอดภัย :)</p>
@@ -2148,20 +2147,15 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-4 mb-8">
-                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg mb-1">
-                            <i class="fa-solid fa-hand-holding-box"></i>
-                        </div>
+                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:border-teal-200">
+                        <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg"><i class="fa-solid fa-hand-holding-box"></i></div>
                         <div class="text-center">
                             <span class="block text-2xl font-bold text-gray-800">${myLoans.length}</span>
                             <span class="text-xs text-gray-500 font-medium">อุปกรณ์ที่ยืมอยู่</span>
                         </div>
                     </div>
-
-                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg mb-1">
-                            <i class="fa-solid fa-clock"></i>
-                        </div>
+                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:border-orange-200">
+                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg"><i class="fa-solid fa-clock"></i></div>
                         <div class="text-center">
                             <span class="block text-2xl font-bold text-gray-800">${myRequests.length}</span>
                             <span class="text-xs text-gray-500 font-medium">รออนุมัติ</span>
@@ -2171,77 +2165,25 @@
 
                 <h3 class="text-sm font-bold text-gray-700 mb-4 px-1">เมนูด่วน</h3>
                 <div class="space-y-3 mb-8">
-                    <button onclick="showPage('issue')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
+                     <button onclick="showPage('issue')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                                <i class="fa-solid fa-box-open"></i>
-                            </div>
-                            <div class="text-left">
-                                <p class="font-bold text-gray-800 text-sm">เบิกอุปกรณ์ (ใช้แล้วหมดไป)</p>
-                                <p class="text-[10px] text-gray-400">หน้ากาก, ถุงมือ, ชุด PPE ฯลฯ</p>
-                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class="fa-solid fa-box-open"></i></div>
+                            <div class="text-left"><p class="font-bold text-gray-800 text-sm">เบิกอุปกรณ์</p><p class="text-[10px] text-gray-400">หน้ากาก, ถุงมือ, ชุด PPE</p></div>
                         </div>
                         <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-blue-500"></i>
                     </button>
-
-                    <button onclick="showPage('loan')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
+                     <button onclick="showPage('loan')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                                <i class="fa-solid fa-screwdriver-wrench"></i>
-                            </div>
-                            <div class="text-left">
-                                <p class="font-bold text-gray-800 text-sm">ยืม-คืน เครื่องมือ</p>
-                                <p class="text-[10px] text-gray-400">สว่าน, เครื่องวัด, อุปกรณ์เซฟตี้</p>
-                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                            <div class="text-left"><p class="font-bold text-gray-800 text-sm">ยืม-คืน เครื่องมือ</p><p class="text-[10px] text-gray-400">สว่าน, เครื่องวัด, อุปกรณ์เซฟตี้</p></div>
                         </div>
                         <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-purple-500"></i>
                     </button>
                 </div>
-
-                ${myLoans.length > 0 ? `
-                    <h3 class="text-sm font-bold text-gray-700 mb-4 px-1 flex justify-between items-center">
-                        รายการที่ต้องคืนเร็วๆ นี้
-                        <span class="text-[10px] font-normal text-teal-600 bg-teal-50 px-2 py-1 rounded-full">${myLoans.length} รายการ</span>
-                    </h3>
-                    <div class="space-y-3">
-                        ${myLoans.map(loan => {
-                            const item = currentData.ppeItems.find(i => i.id == loan.itemId);
-                            const dueDate = new Date(loan.dueDate);
-                            const today = new Date();
-                            const isOverdue = dueDate < today;
-                            const dateText = dueDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-                            
-                            return `
-                            <div class="bg-white p-3 rounded-xl border ${isOverdue ? 'border-red-200 bg-red-50/30' : 'border-gray-200'} shadow-sm flex items-center gap-3">
-                                <div class="w-12 h-12 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden border border-gray-200">
-                                    ${item && item.image_url 
-                                        ? `<img src="${item.image_url}" onclick="openImagePreview('${item.image_url}', event)" class="w-full h-full object-cover cursor-pointer">` 
-                                        : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fa-solid fa-box"></i></div>`
-                                    }
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-bold text-gray-800 truncate">${item ? item.name : 'ไม่พบข้อมูล'}</p>
-                                    <p class="text-[10px] ${isOverdue ? 'text-red-500 font-bold' : 'text-gray-500'}">
-                                        <i class="fa-regular fa-clock mr-1"></i>คืนภายใน: ${dateText}
-                                        ${isOverdue ? '(เกินกำหนด)' : ''}
-                                    </p>
-                                </div>
-                                <button onclick="showPage('loan')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-teal-600 hover:text-white transition-colors">
-                                    คืน
-                                </button>
-                            </div>
-                            `
-                        }).join('')}
-                    </div>
-                ` : ''}
-
+                
                 <div class="mt-8 text-center pb-8">
-                    <button onclick="window.location.reload()" class="text-xs text-gray-300 hover:text-gray-500">
-                        รีโหลดระบบ
-                    </button>
-                    <button onclick="showLoginModal()" class="ml-2 text-xs text-gray-300 hover:text-teal-600">
-                        Admin Login
-                    </button>
+                    <button onclick="window.location.reload()" class="text-xs text-gray-300 hover:text-gray-500 mr-3">รีโหลดระบบ</button>
+                    <button onclick="showLoginModal()" class="text-xs text-gray-300 hover:text-teal-600">Admin Login</button>
                 </div>
             </div>
         `;
