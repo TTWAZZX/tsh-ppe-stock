@@ -71,6 +71,19 @@
             .responsive-table td { display: flex; justify-content: space-between; padding: 0.5rem 0; border: none; }
             .responsive-table td:before { content: attr(data-label); font-weight: 600; color: #6b7280; margin-right: 1rem; }
         }
+
+        /* บังคับให้ Grid ในฟอร์มต่างๆ เรียงเป็นแถวเดียวบนมือถือ */
+        @media (max-width: 640px) {
+            .grid-cols-2 {
+                grid-template-columns: 1fr !important; /* เปลี่ยนเป็น 1 คอลัมน์ */
+            }
+            
+            /* ปรับระยะห่าง main content ให้เต็มจอ */
+            main {
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -810,56 +823,70 @@
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
         
-        // ประกาศตัวแปร Element ที่ต้องใช้
+        // ประกาศตัวแปร
         const adminPanel = document.getElementById('adminDashboardPanel');
         const userPanel = document.getElementById('userDashboardPanel');
         const sidebar = document.querySelector('aside');
         const header = document.querySelector('header');
+        
+        // ตัวแปรเมนูมือถือ
+        const mobileNav = document.getElementById('mobileNav');
+        const adminMobileLinks = document.getElementById('adminMobileLinks');
+        const userMobileLinks = document.getElementById('userMobileLinks');
+        
+        // ตัวแปรเมนู Sidebar Admin
         const adminMenu = document.getElementById('adminMenu');
-        const adminMenuMobile = document.getElementById('adminMenuMobile');
-        const mobileNav = document.querySelector('nav.lg\\:hidden');
 
         if (isAdmin) {
-            // --- ถ้าเป็น ADMIN ---
-            // 1. สลับ Dashboard Panel: เปิด Admin, ปิด User
+            // === โหมด ADMIN ===
+            
+            // 1. เปิด Dashboard Admin
             if(adminPanel) adminPanel.classList.remove('hidden');
             if(userPanel) userPanel.classList.add('hidden');
-            
-            // 2. เปิด Sidebar และ Header
-            if(sidebar) { sidebar.classList.remove('hidden', 'lg:flex'); sidebar.classList.add('flex'); }
-            if(header) header.classList.remove('hidden');
-            
-            // 3. เปิดเมนู Admin ใน Sidebar และ Mobile
-            if(adminMenu) adminMenu.classList.remove('hidden');
-            if(adminMenuMobile) adminMenuMobile.classList.remove('hidden');
-            
-            // 4. ซ่อนเมนูล่างของ User (เพื่อให้ดูเป็น Admin เต็มตัว)
-            if(mobileNav) mobileNav.classList.add('hidden');
 
-            // 5. วาดกราฟ (เรียกเฉพาะตอนเป็น Admin เท่านั้น!)
-            updateDashboard(); 
+            // 2. จัดการ Sidebar & Header (Desktop)
+            // ให้ Sidebar เป็น hidden บนมือถือ และ flex บน Desktop (lg:flex)
+            if(sidebar) {
+                sidebar.classList.remove('hidden'); // ลบ hidden ที่อาจค้างอยู่
+                sidebar.classList.add('hidden', 'lg:flex'); // บังคับใช้คลาส responsive
+            }
+            if(header) header.classList.remove('hidden'); // Header บน Desktop โชว์ปกติ
+
+            // 3. เปิดเมนูใน Sidebar
+            if(adminMenu) adminMenu.classList.remove('hidden');
+
+            // 4. *** จัดการเมนูมือถือ (จุดสำคัญที่แก้) ***
+            // ให้แสดงเมนูล่างบนมือถือด้วย (Tailwind lg:hidden จะซ่อนมันเองบน Desktop)
+            if(mobileNav) mobileNav.classList.remove('hidden');
+            
+            // 5. สลับไส้ในเมนูมือถือ เป็นของ Admin
+            if(adminMobileLinks) adminMobileLinks.classList.remove('hidden');
+            if(userMobileLinks) userMobileLinks.classList.add('hidden');
+
+            updateDashboard();
+
         } else {
-            // --- ถ้าเป็น USER (ค่าเริ่มต้น) ---
-            // 1. สลับ Dashboard Panel: ปิด Admin, เปิด User
+            // === โหมด USER ===
+            
+            // 1. เปิด Dashboard User
             if(adminPanel) adminPanel.classList.add('hidden');
             if(userPanel) userPanel.classList.remove('hidden');
-            
-            // 2. ซ่อน Sidebar และ Header Admin
-            if(sidebar) sidebar.classList.add('hidden');
-            if(header) header.classList.add('hidden');
-            
-            // 3. ซ่อนเมนู Admin
-            if(adminMenu) adminMenu.classList.add('hidden');
-            if(adminMenuMobile) adminMenuMobile.classList.add('hidden');
-            
-            // 4. โชว์เมนูล่างสำหรับ User
-            if(mobileNav) mobileNav.classList.remove('hidden');
 
-            // 5. วาดหน้า User Dashboard
-            renderUserDashboard(); 
+            // 2. ปิด Sidebar & Header Admin เสมอ
+            if(sidebar) sidebar.classList.add('hidden'); 
+            if(header) header.classList.add('hidden');
+
+            // 3. เปิดเมนูมือถือ
+            if(mobileNav) mobileNav.classList.remove('hidden');
+            
+            // 4. สลับไส้ในเมนูมือถือ เป็นของ User
+            if(adminMobileLinks) adminMobileLinks.classList.add('hidden');
+            if(userMobileLinks) userMobileLinks.classList.remove('hidden');
+
+            renderUserDashboard();
         }
 
-        // อัปเดตข้อมูลตารางอื่นๆ
+        // อัปเดตข้อมูลตารางและลิสต์ต่างๆ
         updateAllTablesAndLists();
         populateAllDropdowns();
         if(typeof renderCategoryList === 'function') renderCategoryList();
