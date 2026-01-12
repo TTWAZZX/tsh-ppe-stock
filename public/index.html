@@ -179,37 +179,38 @@
                                     <i class="fa-solid fa-truck-ramp-box text-teal-600 text-lg"></i><span class="font-medium text-gray-700">รับของเข้าสต็อก</span>
                                 </button>
                                 <button onclick="showPage('pending')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
-                                    <i class="fa-solid fa-hourglass-half text-yellow-600"></i><span class="font-medium text-gray-700">อนุมัติคำขอ</span>
+                                    <i class="fa-solid fa-hourglass-half text-yellow-600 text-lg"></i><span class="font-medium text-gray-700">อนุมัติคำขอ</span>
                                 </button>
                              </div>
                         </div>
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">สัดส่วนหมวดหมู่</h3>
-                            <div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
+                            <h3 class="text-lg font-semibold mb-4 text-gray-800">ศูนย์ปฏิบัติการ</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div><h4 class="font-semibold text-gray-700 mb-3">รายการใกล้หมด / ของหมด</h4><div id="lowStockList" class="space-y-2 max-h-60 overflow-y-auto pr-2"></div></div>
+                                <div><h4 class="font-semibold text-gray-700 mb-3">อุปกรณ์ยืมเกินกำหนด</h4><div id="overdueLoansList" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div></div>
+                            </div>
                         </div>
                     </div>
                     
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                          <div class="bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์เบิกสูงสุด</h3>
-                            <div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
+                            <h3 class="text-lg font-semibold mb-4">สัดส่วนหมวดหมู่</h3><div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
                         </div>
                         <div class="bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">กิจกรรมล่าสุด</h3>
-                            <div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์เบิกสูงสุด</h3><div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
                         </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl border border-gray-200">
+                         <h3 class="text-lg font-semibold mb-4 text-gray-800">กิจกรรมล่าสุด</h3><div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
                     </div>
                 </div>
 
                 <div id="userDashboardPanel">
                     </div>
-
+                
                 <div id="dashboardSkeleton" class="hidden">
-                    <div class="grid grid-cols-2 gap-4 mb-8">
-                        <div class="bg-white p-5 rounded-xl border h-32 animate-pulse"></div>
-                        <div class="bg-white p-5 rounded-xl border h-32 animate-pulse"></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl border h-64 animate-pulse"></div>
+                    <div class="animate-pulse space-y-4"><div class="h-32 bg-gray-200 rounded-xl"></div><div class="h-64 bg-gray-200 rounded-xl"></div></div>
                 </div>
             </div>
 
@@ -780,6 +781,7 @@
         showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
     }
 
+    // แทนที่ฟังก์ชัน updateUI เดิม
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
         
@@ -790,37 +792,65 @@
         const adminMenuMobile = document.getElementById('adminMenuMobile');
         const mobileNav = document.querySelector('nav.lg\\:hidden');
 
-        // ถ้าเป็น Admin -> โชว์กราฟ, โชว์ Sidebar
         if (isAdmin) {
+            // โหมด ADMIN
             if(adminPanel) adminPanel.classList.remove('hidden');
             if(userPanel) userPanel.classList.add('hidden');
             
-            if(sidebar) {
-                sidebar.classList.remove('hidden', 'lg:hidden'); 
-                sidebar.classList.add('flex');
-            }
+            // แสดง Sidebar/Header
+            if(sidebar) { sidebar.classList.remove('hidden', 'lg:flex'); sidebar.classList.add('flex'); }
             if(header) header.classList.remove('hidden');
             if(adminMenuMobile) adminMenuMobile.classList.remove('hidden');
-            if(mobileNav) mobileNav.classList.add('hidden'); // ซ่อนเมนู User
+            if(mobileNav) mobileNav.classList.add('hidden');
 
             updateDashboard(); // วาดกราฟ Admin
-        } 
-        // ถ้าเป็น User (ค่าเริ่มต้น) -> โชว์หน้า User, ซ่อน Sidebar
-        else {
+        } else {
+            // โหมด USER (ค่าเริ่มต้น)
             if(adminPanel) adminPanel.classList.add('hidden');
             if(userPanel) userPanel.classList.remove('hidden');
             
+            // ซ่อน Sidebar/Header
             if(sidebar) sidebar.classList.add('hidden');
             if(header) header.classList.add('hidden');
             if(adminMenuMobile) adminMenuMobile.classList.add('hidden');
-            if(mobileNav) mobileNav.classList.remove('hidden'); // โชว์เมนู User
+            if(mobileNav) mobileNav.classList.remove('hidden');
 
             renderUserDashboard(); // วาดหน้า User
         }
 
         updateAllTablesAndLists();
         populateAllDropdowns();
-        if(typeof renderCategoryList === 'function') renderCategoryList();
+    }
+
+    // แทนที่ฟังก์ชัน showPage เดิม
+    function showPage(pageName) {
+        document.querySelectorAll('.page-container > .page').forEach(page => {
+            if (page.id !== `${pageName}Page`) page.classList.add('hidden');
+        });
+        const pageElement = document.getElementById(pageName + 'Page');
+        if (pageElement) pageElement.classList.remove('hidden');
+
+        // จัดการ Active Tab
+        document.querySelectorAll('.nav-item, .nav-item-mobile').forEach(item => {
+            item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold');
+        });
+        // (เพิ่ม Logic Active Tab ตามต้องการได้)
+
+        // --- จุดสำคัญ: เลือกโหลด Dashboard ให้ถูกคน ---
+        if (pageName === 'dashboard') {
+            if (isAdmin) {
+                updateDashboard();
+            } else {
+                renderUserDashboard();
+            }
+        }
+        // ------------------------------------------
+
+        if (pageName === 'allHistory') {
+            updateHistoryTable();
+            updateLoanHistoryTable();
+            showHistoryTab('issue');
+        }
     }
 
     function setupEventListeners() {
@@ -869,39 +899,7 @@
             toast.addEventListener('transitionend', () => toast.remove());
         }, 3000);
     }
-    
-    function showPage(pageName) {
-        document.querySelectorAll('.page-container > .page').forEach(page => {
-            if (page.id !== `${pageName}Page`) page.classList.add('hidden');
-        });
-        const pageElement = document.getElementById(pageName + 'Page');
-        if (pageElement) pageElement.classList.remove('hidden');
 
-        // จัดการสีปุ่มเมนู (Active State)
-        document.querySelectorAll('aside .nav-item').forEach(item => item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold'));
-        const activeNavItemDesktop = document.querySelector(`aside .nav-item[onclick="showPage('${pageName}')"]`);
-        if (activeNavItemDesktop) activeNavItemDesktop.classList.add('bg-teal-50', 'text-teal-600', 'font-bold');
-
-        document.querySelectorAll('.nav-item-mobile').forEach(item => item.classList.remove('text-teal-600'));
-        const activeNavItemMobile = document.querySelector(`.nav-item-mobile[onclick="showPage('${pageName}')"]`);
-        if (activeNavItemMobile) activeNavItemMobile.classList.add('text-teal-600');
-        
-        // --- จุดแก้ไขสำคัญ: เลือกโหลด Dashboard ให้ถูกตามสถานะ ---
-        if (pageName === 'dashboard') {
-            if (isAdmin) {
-                updateDashboard(); // ถ้าเป็น Admin -> โหลดกราฟ
-            } else {
-                renderUserDashboard(); // ถ้าเป็น User -> โหลดปุ่มเมนูUser
-            }
-        }
-        // -----------------------------------------------------
-
-        if (pageName === 'allHistory') {
-            updateHistoryTable();
-            updateLoanHistoryTable();
-            showHistoryTab('issue');
-        }
-    }
     function showHistoryTab(tabName) {
         document.querySelectorAll('.history-tab-content').forEach(content => content.classList.add('hidden'));
         document.querySelectorAll('.history-tab').forEach(tab => {
@@ -1014,17 +1012,14 @@
     }
 
     // ===========================================
-    // Dashboard Rendering
-    // ===========================================
+    // Dashboard Rendering (Safe Mode)
     function updateDashboard() {
-        // เช็คก่อนว่ามี Element ของ Dashboard แบบ Admin อยู่ไหม
-        // ถ้าไม่มี (แปลว่าเป็น User Mode) ให้จบฟังก์ชันเลย ไม่ต้องทำต่อ
-        if (!document.getElementById('totalItems')) return; 
+        if (!isAdmin || !document.getElementById('totalItems')) return; // ถ้าไม่ใช่ Admin หรือหาไม่เจอ ให้หยุด
 
         const { ppeItems, issueVouchers, dashboardMetrics } = currentData;
-        if (!ppeItems || !issueVouchers || !dashboardMetrics) return;
+        
         document.getElementById('totalItems').textContent = ppeItems.length;
-        document.getElementById('lowStockItems').textContent = ppeItems.filter(item => Number(item.stock) > 0 && Number(item.stock) <= Number(item.reorderPoint)).length;
+        document.getElementById('lowStockItems').textContent = ppeItems.filter(item => Number(item.stock) <= Number(item.reorderPoint)).length;
         document.getElementById('outOfStockItems').textContent = ppeItems.filter(item => Number(item.stock) === 0).length;
         document.getElementById('pendingVouchers').textContent = issueVouchers.filter(v => v.status === 'pending').length;
         document.getElementById('totalStockValue').textContent = `฿${(dashboardMetrics.totalStockValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1035,88 +1030,53 @@
         updateTopIssuedItemsChart();
         updateRecentActivityFeed();
     }
+
     function updateLowStockList() {
         const container = document.getElementById('lowStockList');
-        const attentionItems = currentData.ppeItems
-            .filter(item => Number(item.stock) <= Number(item.reorderPoint))
-            .sort((a, b) => a.stock - b.stock);
-        
+        if (!container) return; // ดัก Error
+
+        const attentionItems = currentData.ppeItems.filter(item => Number(item.stock) <= Number(item.reorderPoint)).sort((a, b) => a.stock - b.stock);
         if (attentionItems.length === 0) {
-            container.innerHTML = createEmptyState('ไม่มีรายการที่ต้องสั่งซื้อเพิ่ม', 'fa-solid fa-thumbs-up');
+            container.innerHTML = createEmptyState('ไม่มีรายการต้องสั่งซื้อ', 'fa-solid fa-thumbs-up');
             return;
         }
-        container.innerHTML = attentionItems.map(item => {
-            const isOutOfStock = Number(item.stock) === 0;
-            const statusText = isOutOfStock ? 'ของหมด' : 'ใกล้หมด';
-            const bgColor = isOutOfStock ? 'bg-red-50' : 'bg-orange-50';
-            const textColor = isOutOfStock ? 'text-red-800' : 'text-orange-800';
-            const subTextColor = isOutOfStock ? 'text-red-600' : 'text-orange-600';
-            const badgeBgColor = isOutOfStock ? 'bg-red-200' : 'bg-orange-200';
-
-            return `
-                <div class="flex justify-between items-center p-2.5 ${bgColor} rounded-lg">
-                    <div>
-                        <p class="font-medium text-sm ${textColor}">${item.name}</p>
-                        <p class="text-xs ${subTextColor}">คงเหลือ: ${item.stock} ${item.unit}</p>
-                    </div>
-                    <span class="px-2 py-1 ${badgeBgColor} ${textColor} text-xs rounded-full font-medium">${statusText}</span>
-                </div>`;
-        }).join('');
+        container.innerHTML = attentionItems.map(item => `
+            <div class="flex justify-between items-center p-2 border-b last:border-0">
+                <span class="text-sm font-medium text-gray-700">${item.name}</span>
+                <span class="text-xs font-bold ${item.stock==0?'text-red-600':'text-orange-500'}">${item.stock} ${item.unit}</span>
+            </div>`).join('');
     }
+
     function updateOverdueLoansList() {
         const container = document.getElementById('overdueLoansList');
-        const overdueLoans = currentData.loanTransactions.filter(loan => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return loan.status === 'on_loan' && new Date(loan.dueDate) < today;
-        }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        if (!container) return; // ดัก Error
 
-        if (overdueLoans.length === 0) {
-            container.innerHTML = createEmptyState('ไม่มีอุปกรณ์ยืมเกินกำหนด', 'fa-solid fa-calendar-check');
+        const overdue = currentData.loanTransactions.filter(l => l.status === 'on_loan' && new Date(l.dueDate) < new Date());
+        if (overdue.length === 0) {
+            container.innerHTML = createEmptyState('ไม่มีรายการเกินกำหนด', 'fa-solid fa-check-circle');
             return;
         }
-        container.innerHTML = overdueLoans.map(loan => {
-            const item = currentData.ppeItems.find(p => p.id == loan.itemId);
-            return `
-                <div class="flex justify-between items-center p-2.5 bg-red-50 rounded-lg">
-                    <div>
-                        <p class="font-medium text-sm text-red-800">${item ? item.name : 'N/A'}</p>
-                        <p class="text-xs text-red-600">ผู้ยืม: ${loan.borrowerName}</p>
-                    </div>
-                    <button onclick="showPage('loan')" class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs transition-colors">
-                        จัดการ
-                    </button>
-                </div>`;
-        }).join('');
+        container.innerHTML = overdue.map(l => `
+            <div class="flex justify-between items-center p-2 border-b last:border-0 bg-red-50">
+                <span class="text-sm text-gray-700">${l.borrowerName}</span>
+                <span class="text-xs text-red-600 font-bold">เกินกำหนด</span>
+            </div>`).join('');
     }
+
     function updateRecentActivityFeed() {
         const container = document.getElementById('recentActivityFeed');
-        const activities = currentData.dashboardMetrics.recentActivities;
+        if (!container) return; // ดัก Error ตรงนี้
 
-        if (!activities || activities.length === 0) {
+        const activities = currentData.dashboardMetrics.recentActivities || [];
+        if (activities.length === 0) {
             container.innerHTML = createEmptyState('ไม่มีกิจกรรมล่าสุด', 'fa-solid fa-bell-slash');
             return;
         }
         container.innerHTML = activities.map(activity => {
             const timestamp = new Date(activity.timestamp).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-            let iconClass, textColor = 'text-gray-700';
-            switch (activity.type) {
-                case 'issue_voucher':
-                    iconClass = 'fa-solid fa-file-export text-emerald-600';
-                    if (activity.status === 'pending') textColor = 'text-yellow-700';
-                    else if (activity.status === 'rejected') textColor = 'text-red-700';
-                    break;
-                case 'loan_transaction': iconClass = 'fa-solid fa-exchange-alt text-teal-600'; break;
-                case 'return_transaction': iconClass = 'fa-solid fa-undo text-lime-600'; break;
-                case 'receive_transaction': iconClass = 'fa-solid fa-truck text-green-600'; break;
-            }
             return `
-                <div class="flex items-start space-x-4 p-3 border-b border-gray-100 last:border-b-0">
-                    <i class="${iconClass} text-lg mt-1 w-5 text-center"></i>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium ${textColor}">${activity.description}</p>
-                        <p class="text-xs text-gray-500">${timestamp}</p>
-                    </div>
+                <div class="flex items-start space-x-3 p-3 border-b border-gray-100 last:border-b-0">
+                    <div class="flex-1"><p class="text-sm font-medium text-gray-700">${activity.description}</p><p class="text-xs text-gray-400">${timestamp}</p></div>
                 </div>`;
         }).join('');
     }
