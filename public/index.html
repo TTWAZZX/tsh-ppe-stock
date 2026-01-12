@@ -2508,9 +2508,9 @@
             }
 
             // 5. ✅ แจ้งเตือนแอดมิน (Admin)
-            if (ADMIN_ID) {
+            if (ADMIN_USER_ID) { // 👈 แก้เป็น ADMIN_USER_ID
                 const adminMsg = `📢 มีรายการเบิกใหม่!\n👤 ผู้เบิก: ${userName} (${dept})\n📄 เลขที่: #${newVoucher.id}\n📦 จำนวน: ${cart.length} รายการ`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_ID, message: adminMsg }) }).catch(console.error);
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg }) }).catch(console.error); // 👈 แก้ตรงนี้ด้วย
             }
 
             if(typeof hideLoading === 'function') hideLoading();
@@ -2565,9 +2565,9 @@
             }
 
             // ✅ แจ้งเตือนแอดมิน
-            if (ADMIN_ID) {
+            if (ADMIN_USER_ID) { // 👈 แก้เป็น ADMIN_USER_ID
                 const adminMsg = `📢 มีรายการยืมใหม่!\n👤 ผู้ยืม: ${userName}\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_ID, message: adminMsg }) }).catch(console.error);
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg }) }).catch(console.error); // 👈 แก้ตรงนี้ด้วย
             }
 
             alert('บันทึกการยืมสำเร็จ');
