@@ -1056,6 +1056,79 @@
         }
     }
 
+    // ===========================================
+    // 🎨 FLEX MESSAGE GENERATORS (เพิ่มใหม่)
+    // ===========================================
+
+    // 1. Template สำหรับ "การเบิก (Issue)"
+    function createIssueFlex(voucherId, user, dept, itemCount, status = 'รออนุมัติ') {
+        return {
+            type: "flex",
+            altText: "มีใบเบิกใหม่ #" + voucherId,
+            contents: {
+                type: "bubble",
+                header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "📄 ใบเบิกอุปกรณ์ใหม่", weight: "bold", color: "#ffffff", size: "lg" }], backgroundColor: "#F59E0B", paddingAll: "lg" }, // สีส้ม Amber
+                body: {
+                    type: "box", layout: "vertical", spacing: "md",
+                    contents: [
+                        { type: "text", text: `#${voucherId}`, weight: "bold", size: "3xl", color: "#333333", align: "center", margin: "md" },
+                        { type: "separator", margin: "lg" },
+                        { type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [
+                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้เบิก:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: user, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
+                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "แผนก:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: dept, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
+                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "จำนวน:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: `${itemCount} รายการ`, wrap: true, color: "#333333", size: "sm", weight: "bold", flex: 4 }] }
+                        ]}
+                    ]
+                },
+                footer: { type: "box", layout: "vertical", contents: [{ type: "text", text: `สถานะ: ${status}`, color: "#aaaaaa", size: "xs", align: "center" }] }
+            }
+        };
+    }
+
+    // 2. Template สำหรับ "การยืม (Loan)"
+    function createLoanFlex(item, user, dept, dueDate) {
+        const imgUrl = item.image_url || 'https://placehold.co/400?text=No+Image'; // ใส่รูป default ถ้าไม่มี
+        return {
+            type: "flex",
+            altText: "แจ้งเตือนการยืม: " + item.name,
+            contents: {
+                type: "bubble",
+                hero: { type: "image", url: imgUrl, size: "full", aspectRatio: "20:13", aspectMode: "cover" },
+                body: {
+                    type: "box", layout: "vertical",
+                    contents: [
+                        { type: "text", text: "ยืมอุปกรณ์สำเร็จ", weight: "bold", size: "xl", color: "#0D9488" }, // สีเขียว Teal
+                        { type: "text", text: item.name, weight: "bold", size: "md", margin: "md", wrap: true },
+                        { type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [
+                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ยืม:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: user, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
+                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "แผนก:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: dept, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
+                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "คืนภายใน:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: new Date(dueDate).toLocaleDateString('th-TH'), wrap: true, color: "#DC2626", size: "sm", weight: "bold", flex: 4 }] }
+                        ]}
+                    ]
+                }
+            }
+        };
+    }
+
+    // 3. Template สำหรับ "ผลอนุมัติ/ปฏิเสธ/คืนของ"
+    function createStatusFlex(title, message, colorCode, icon = '✅') {
+        return {
+            type: "flex",
+            altText: title,
+            contents: {
+                type: "bubble",
+                body: {
+                    type: "box", layout: "vertical",
+                    contents: [
+                        { type: "text", text: title, weight: "bold", size: "xl", color: colorCode },
+                        { type: "text", text: message, wrap: true, color: "#666666", margin: "md" }
+                    ]
+                },
+                styles: { footer: { separator: true } }
+            }
+        };
+    }
+
     function setupEventListeners() {
         document.getElementById('loginForm').addEventListener('submit', handleLogin);
         document.getElementById('manageForm').addEventListener('submit', handleManageSubmit);
@@ -2164,14 +2237,13 @@
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-            // รองรับทั้ง userid (เล็ก) และ userId (ใหญ่)
             const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
 
             callServerFunction('approveVoucher', { voucherId }).then(() => {
-                // ✅ ยิงไลน์หาผู้ใช้
+                // ✅ ส่ง Flex Message สีเขียว
                 if (targetUserId) {
-                    const msg = `🎉 อนุมัติแล้ว!\n📄 ใบเบิกเลขที่: #${voucherId}\n✅ สถานะ: อนุมัติเรียบร้อย\n\nติดต่อรับของได้เลยครับ`;
-                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, message: msg }) }).catch(console.error);
+                    const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', `ใบเบิก #${voucherId} ได้รับการอนุมัติแล้ว ติดต่อรับของได้เลย`, '#10B981');
+                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('อนุมัติสำเร็จ');
                 hideApprovalModal();
@@ -2187,10 +2259,10 @@
             const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
 
             callServerFunction('rejectVoucher', { voucherId }).then(() => {
-                // ✅ ยิงไลน์หาผู้ใช้
+                // ✅ ส่ง Flex Message สีแดง
                 if (targetUserId) {
-                    const msg = `❌ คำขอถูกปฏิเสธ\n📄 ใบเบิกเลขที่: #${voucherId}\n⚠️ กรุณาติดต่อแอดมิน`;
-                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, message: msg }) }).catch(console.error);
+                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', `ใบเบิก #${voucherId} ไม่ผ่านการอนุมัติ กรุณาติดต่อแอดมิน`, '#EF4444');
+                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('ปฏิเสธคำขอแล้ว');
                 hideApprovalModal();
@@ -2370,35 +2442,22 @@
         const confirmed = await showConfirmationModal('ยืนยันการรับคืน', 'คุณต้องการบันทึกการรับคืนอุปกรณ์นี้ใช่หรือไม่?');
         
         if (confirmed) {
-            // 1. ดึงข้อมูลการยืมเพื่อหา UserID และชื่ออุปกรณ์
             const loan = currentData.loanTransactions.find(l => l.loanId == loanId);
-            
-            // รองรับทั้งตัวพิมพ์เล็ก (userid) และใหญ่ (userId) กันเหนียว
-            const targetUserId = loan ? (loan.userid || loan.userId) : ''; 
-            
-            // หาชื่ออุปกรณ์
+            const targetUserId = loan ? (loan.userid || loan.userId) : '';
             const item = currentData.ppeItems.find(p => p.id == loan.itemId);
             const itemName = item ? item.name : 'อุปกรณ์';
 
-            // 2. ส่งคำสั่งไปที่ Server
             callServerFunction('returnItem', { loanId }).then(async () => {
-                
-                // 3. ✅ ยิงแจ้งเตือนกลับไปหาผู้ยืม
+                // ✅ ส่ง Flex Message สีน้ำเงิน
                 if (targetUserId) {
-                    const returnDate = new Date().toLocaleDateString('th-TH', { dateStyle: 'medium' });
-                    const msg = `✅ รับคืนอุปกรณ์แล้ว\n📦 รายการ: ${itemName}\n📅 วันที่คืน: ${returnDate}\n\nขอบคุณที่ให้ความร่วมมือครับ 🙏`;
+                    const returnDate = new Date().toLocaleDateString('th-TH');
+                    const flex = createStatusFlex('รับคืนอุปกรณ์แล้ว ✅', `รายการ: ${itemName}\nวันที่คืน: ${returnDate}\nขอบคุณครับ 🙏`, '#3B82F6');
                     
-                    try {
-                        await fetch('/api/push', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: targetUserId, message: msg })
-                        });
-                    } catch (err) { console.error('Push Error:', err); }
+                    fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
 
                 showToast('รับคืนอุปกรณ์สำเร็จ');
-                initializeApp(); // โหลดข้อมูลใหม่
+                initializeApp();
             });
         }
     }
@@ -2471,7 +2530,7 @@
         if(userLinks) userLinks.classList.remove('hidden');
     }
 
-    // ฟังก์ชันบันทึกการเบิก (Issue)
+    // ฟังก์ชันบันทึกการเบิก (Issue) - ส่ง Flex Message
     async function saveIssueVoucher(e) { 
         if(e) e.preventDefault(); 
         
@@ -2501,16 +2560,18 @@
                 user: userName, employeeId: empId, department: dept, userId: currentUserId, items: cart
             });
 
-            // 4. ✅ แจ้งเตือนผู้เบิก (User)
+            // --- 🔔 สร้าง Flex Message ---
+            const userFlex = createIssueFlex(newVoucher.id, userName, dept, cart.length, 'รออนุมัติ');
+            const adminFlex = createIssueFlex(newVoucher.id, userName, dept, cart.length, 'รอตรวจสอบ (Admin)');
+
+            // 4. ✅ แจ้งเตือนผู้เบิก (User) - แบบ Flex
             if (currentUserId) {
-                const msg = `✅ ได้รับใบเบิกแล้ว!\n📄 เลขที่: #${newVoucher.id}\n📦 จำนวน: ${cart.length} รายการ\n⏳ สถานะ: รออนุมัติ`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, message: msg }) }).catch(console.error);
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, messages: [userFlex] }) }).catch(console.error);
             }
 
-            // 5. ✅ แจ้งเตือนแอดมิน (Admin)
-            if (ADMIN_USER_ID) { // 👈 แก้เป็น ADMIN_USER_ID
-                const adminMsg = `📢 มีรายการเบิกใหม่!\n👤 ผู้เบิก: ${userName} (${dept})\n📄 เลขที่: #${newVoucher.id}\n📦 จำนวน: ${cart.length} รายการ`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg }) }).catch(console.error); // 👈 แก้ตรงนี้ด้วย
+            // 5. ✅ แจ้งเตือนแอดมิน (Admin) - แบบ Flex
+            if (typeof ADMIN_USER_ID !== 'undefined' && ADMIN_USER_ID) {
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, messages: [adminFlex] }) }).catch(console.error);
             }
 
             if(typeof hideLoading === 'function') hideLoading();
@@ -2532,7 +2593,7 @@
         }
     }
 
-    // ฟังก์ชันบันทึกการยืม (Loan)
+    // ฟังก์ชันบันทึกการยืม (Loan) - ส่ง Flex Message
     async function saveLoanTransaction(e) {
         if(e) e.preventDefault();
 
@@ -2558,21 +2619,28 @@
             
             if(typeof hideLoading === 'function') hideLoading();
 
-            // ✅ แจ้งเตือนผู้ยืม
+            // --- 🔔 สร้าง Flex Message ---
+            // สร้าง object item จำลองเพื่อส่งเข้า template (ดึงรูปจากหน้าจอ)
+            const itemObj = { 
+                name: itemName, 
+                image_url: document.getElementById('loanItemImg').src 
+            }; 
+            const loanFlex = createLoanFlex(itemObj, userName, dept, dueDate);
+
+            // ✅ แจ้งเตือนผู้ยืม - แบบ Flex
             if (currentUserId) {
-                const msg = `🛠️ บันทึกการยืมสำเร็จ!\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, message: msg }) }).catch(console.error);
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, messages: [loanFlex] }) }).catch(console.error);
             }
 
-            // ✅ แจ้งเตือนแอดมิน
-            if (ADMIN_USER_ID) { // 👈 แก้เป็น ADMIN_USER_ID
-                const adminMsg = `📢 มีรายการยืมใหม่!\n👤 ผู้ยืม: ${userName}\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg }) }).catch(console.error); // 👈 แก้ตรงนี้ด้วย
+            // ✅ แจ้งเตือนแอดมิน - แบบ Flex
+            if (typeof ADMIN_USER_ID !== 'undefined' && ADMIN_USER_ID) {
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, messages: [loanFlex] }) }).catch(console.error);
             }
 
             alert('บันทึกการยืมสำเร็จ');
             document.getElementById('loanForm').reset();
-            // ... (Reset UI อื่นๆ ตามเดิม) ...
+            
+            // Reset UI
             document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
             document.getElementById('loanItemImg').classList.add('hidden');
             document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
