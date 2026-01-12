@@ -60,6 +60,17 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
             border: 1px solid #E5E7EB;
         }
+
+        /* Mobile Responsive Tweaks */
+        @media (max-width: 640px) {
+            .hide-on-mobile { display: none !important; }
+            .mobile-full-width { width: 100% !important; }
+            /* แปลงตารางเป็นการ์ดในมือถือ */
+            .responsive-table thead { display: none; }
+            .responsive-table tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background: white; }
+            .responsive-table td { display: flex; justify-content: space-between; padding: 0.5rem 0; border: none; }
+            .responsive-table td:before { content: attr(data-label); font-weight: 600; color: #6b7280; margin-right: 1rem; }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -539,32 +550,52 @@
 
         </main>
         
-        <nav class="lg:hidden bg-white border-t border-gray-200 p-2 flex justify-around">
-             <a href="#" onclick="showPage('dashboard')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
-                <i class="fa-solid fa-chart-pie text-xl"></i>
-                <span class="text-xs mt-1">แดชบอร์ด</span>
+        <nav id="mobileNav" class="lg:hidden bg-white border-t flex justify-around p-2 text-xs text-gray-500 fixed bottom-0 w-full z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+            <a onclick="showPage('dashboard')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600 text-teal-600">
+                <i class="fa-solid fa-chart-pie text-xl mb-1"></i> <span>หน้าแรก</span>
             </a>
-            <a href="#" onclick="showPage('stock')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
-                <i class="fa-solid fa-boxes-stacked text-xl"></i>
-                <span class="text-xs mt-1">สต็อก</span>
+            <a onclick="showPage('stock')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
+                <i class="fa-solid fa-boxes-stacked text-xl mb-1"></i> <span>สต็อก</span>
             </a>
-            <a href="#" onclick="showPage('issue')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
-                <i class="fa-solid fa-file-export text-xl"></i>
-                <span class="text-xs mt-1">เบิก</span>
+            <a onclick="showPage('issue')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
+                <i class="fa-solid fa-file-export text-xl mb-1"></i> <span>เบิก</span>
             </a>
-            <a href="#" onclick="showPage('loan')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
-                <i class="fa-solid fa-hand-holding-hand text-xl"></i>
-                <span class="text-xs mt-1">ยืม</span>
+            <a onclick="showPage('loan')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
+                <i class="fa-solid fa-hand-holding-hand text-xl mb-1"></i> <span>ยืม</span>
             </a>
-             <a href="#" onclick="showPage('allHistory')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
-                <i class="fa-solid fa-clock-rotate-left text-xl"></i>
-                <span class="text-xs mt-1">ประวัติ</span>
-            </a>
-            <div id="adminMenuMobile" class="hidden">
-                 <a href="#" onclick="showPage('pending')" class="nav-item-mobile flex flex-col items-center justify-center w-16 h-14 rounded-lg text-gray-500 hover:bg-teal-50 hover:text-teal-600">
-                    <i class="fa-solid fa-hourglass-half text-xl"></i>
-                    <span class="text-xs mt-1">อนุมัติ</span>
+            
+            <div class="relative group">
+                <a onclick="toggleMobileAdminMenu()" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
+                    <i class="fa-solid fa-bars text-xl mb-1"></i> <span>เมนู</span>
                 </a>
+                
+                <div id="mobileMoreMenu" class="hidden absolute bottom-16 right-2 bg-white border border-gray-200 rounded-xl shadow-2xl w-48 p-2 space-y-1 z-50 animate-fade-in-up">
+                    <a onclick="showPage('allHistory'); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left mr-3 text-teal-500"></i> ประวัติทั้งหมด
+                    </a>
+                    
+                    <div id="adminMobileLinks" class="hidden border-t pt-2 mt-2">
+                        <p class="px-2 text-[10px] text-gray-400 font-bold uppercase mb-1">ผู้ดูแลระบบ</p>
+                        <a onclick="showPage('pending'); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-yellow-50 text-yellow-700 rounded-lg flex items-center">
+                            <i class="fa-solid fa-hourglass-half mr-3"></i> อนุมัติคำขอ
+                        </a>
+                        <a onclick="showPage('receive'); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-teal-50 text-teal-700 rounded-lg flex items-center">
+                            <i class="fa-solid fa-truck-ramp-box mr-3"></i> รับของเข้า
+                        </a>
+                        <a onclick="showPage('manage'); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-gray-50 text-gray-700 rounded-lg flex items-center">
+                            <i class="fa-solid fa-gear mr-3"></i> จัดการของ
+                        </a>
+                        <a onclick="logout(); toggleMobileAdminMenu()" class="block px-4 py-2 hover:bg-red-50 text-red-600 rounded-lg mt-2 border-t flex items-center">
+                            <i class="fa-solid fa-right-from-bracket mr-3"></i> ออกจากระบบ
+                        </a>
+                    </div>
+
+                    <div id="userMobileLinks" class="border-t pt-2 mt-2">
+                         <a onclick="showLoginModal(); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-teal-50 text-teal-600 rounded-lg font-medium flex items-center">
+                            <i class="fa-solid fa-user-shield mr-3"></i> Admin Login
+                         </a>
+                    </div>
+                </div>
             </div>
         </nav>
     </div>
@@ -1363,7 +1394,6 @@
                     <td class="px-6 py-4 whitespace-nowrap">
                         ${imgHtml}
                     </td>
-                    
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         ${item ? item.name : '<span class="text-red-500">ไม่พบข้อมูล</span>'}
                         ${item ? `<div class="text-xs text-gray-500 font-normal">${item.code}</div>` : ''}
@@ -2209,6 +2239,24 @@
                 borrowNameField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
             }
         }
+    }
+
+    function toggleMobileAdminMenu() {
+        const menu = document.getElementById('mobileMoreMenu');
+        menu.classList.toggle('hidden');
+    }
+
+    // อัปเดตฟังก์ชัน updateUI ให้จัดการเมนูมือถือด้วย
+    // (เพิ่ม logic นี้เข้าไปในฟังก์ชัน updateUI เดิม ตรงส่วนท้ายๆ)
+    const adminLinks = document.getElementById('adminMobileLinks');
+    const userLinks = document.getElementById('userMobileLinks');
+    
+    if (isAdmin) {
+        if(adminLinks) adminLinks.classList.remove('hidden');
+        if(userLinks) userLinks.classList.add('hidden');
+    } else {
+        if(adminLinks) adminLinks.classList.add('hidden');
+        if(userLinks) userLinks.classList.remove('hidden');
     }
 
 </script>
