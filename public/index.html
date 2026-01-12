@@ -201,7 +201,7 @@
                     </div>
                 </div>
 
-                <div id="userDashboardPanel">
+                <div id="userDashboardPanel" class="w-full">
                     </div>
                 
                 <div id="dashboardSkeleton" class="hidden">
@@ -1599,20 +1599,32 @@
         autoFillUserIdentity();
     }
 
-    // ฟังก์ชันวาดหน้า User (ต้องชี้ไปที่ ID userDashboardPanel)
     function renderUserDashboard() {
+        console.log("Start rendering User Dashboard..."); // เช็คใน Console
+        
         const dashboardDiv = document.getElementById('userDashboardPanel'); 
-        if (!dashboardDiv) return;
+        
+        // ถ้าหา div ไม่เจอ ให้แจ้งเตือนแอดมิน (คุณ)
+        if (!dashboardDiv) {
+            console.error("Error: ไม่พบ <div id='userDashboardPanel'> ใน HTML");
+            return;
+        }
 
-        const displayName = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'พนักงาน';
-        const pictureUrl = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.pictureUrl : null;
+        // เตรียมข้อมูล (ใส่ Default value ป้องกัน Error)
+        const displayName = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'พนักงานทั่วไป';
+        const pictureUrl = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.pictureUrl : '';
+        
+        // สร้าง HTML รูปโปรไฟล์ (ถ้าไม่มีรูป ให้ใช้ไอคอน)
         const profileImgHtml = pictureUrl 
             ? `<img src="${pictureUrl}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">`
             : `<div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-2 border-white shadow-sm"><i class="fa-solid fa-user"></i></div>`;
 
-        const myLoans = currentData.loanTransactions.filter(l => l.borrowerName === displayName && l.status === 'on_loan');
-        const myRequests = currentData.issueVouchers.filter(v => v.user === displayName && v.status === 'pending');
+        // คำนวณตัวเลข
+        const myLoans = currentData.loanTransactions ? currentData.loanTransactions.filter(l => l.borrowerName === displayName && l.status === 'on_loan') : [];
+        const myReqs = currentData.issueVouchers ? currentData.issueVouchers.filter(v => v.user === displayName && v.status === 'pending') : [];
 
+        // วาดหน้าจอ (บังคับให้ div แสดงผลโดยลบ hidden ออกก่อน)
+        dashboardDiv.classList.remove('hidden');
         dashboardDiv.innerHTML = `
             <div class="px-2 pt-4 pb-24 max-w-md mx-auto">
                 <div class="flex items-center justify-between mb-8 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm">
@@ -1630,7 +1642,7 @@
                     </div>
                     <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
                         <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg mb-1"><i class="fa-solid fa-clock"></i></div>
-                        <div class="text-center"><span class="block text-2xl font-bold text-gray-800">${myRequests.length}</span><span class="text-xs text-gray-500 font-medium">รออนุมัติ</span></div>
+                        <div class="text-center"><span class="block text-2xl font-bold text-gray-800">${myReqs.length}</span><span class="text-xs text-gray-500 font-medium">รออนุมัติ</span></div>
                     </div>
                 </div>
 
@@ -1651,13 +1663,14 @@
                         <i class="fa-solid fa-chevron-right text-gray-300"></i>
                     </button>
                 </div>
-
+                
                 <div class="mt-8 text-center pb-8">
                     <button onclick="window.location.reload()" class="text-xs text-gray-300 hover:text-gray-500 mr-3">รีโหลดระบบ</button>
                     <button onclick="showLoginModal()" class="text-xs text-gray-300 hover:text-teal-600">Admin Login</button>
                 </div>
             </div>
         `;
+        console.log("User Dashboard rendered successfully.");
     }
 
     function autoFillUserIdentity() {
