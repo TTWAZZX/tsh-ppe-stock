@@ -1415,8 +1415,21 @@
         if(!tbody) return;
 
         tbody.innerHTML = pendingVouchers.map(voucher => {
-            // --- ส่วนที่แก้ไข: ป้องกัน Error ถ้าไม่มี items ---
-            const itemCount = (voucher.items && Array.isArray(voucher.items)) ? voucher.items.length : 0;
+            // --- แก้ไขใหม่: รองรับทั้งแบบ Array และแบบ Text (JSON String) ---
+            let itemCount = 0;
+            if (voucher.items) {
+                if (Array.isArray(voucher.items)) {
+                    itemCount = voucher.items.length;
+                } else if (typeof voucher.items === 'string') {
+                    try {
+                        const parsedItems = JSON.parse(voucher.items);
+                        itemCount = Array.isArray(parsedItems) ? parsedItems.length : 0;
+                    } catch (e) {
+                        itemCount = 0;
+                    }
+                }
+            }
+            // -------------------------------------------------------------
             const reasonText = voucher.reason || 'เบิกทั่วไป';
             // ---------------------------------------------
 
