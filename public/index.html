@@ -1098,50 +1098,6 @@
         };
     }
 
-    function createStatusFlex(title, voucherId, items, colorCode) {
-        // ตรวจสอบเบื้องต้นว่า items มีข้อมูลไหม
-        if (!items || !Array.isArray(items)) {
-            items = []; // ป้องกัน error .map
-        }
-
-        const itemSummary = items.map(item => {
-            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
-            const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
-            return {
-                type: "box", layout: "horizontal", margin: "xs",
-                contents: [
-                    { type: "text", text: `• ${itemName}`, size: "xs", color: "#666666", flex: 4, wrap: true },
-                    { type: "text", text: `x${item.quantity}`, size: "xs", color: "#333333", flex: 1, align: "end", weight: "bold" }
-                ]
-            };
-        });
-
-        // หากไม่มีรายการสินค้าเลย ให้โชว์ข้อความแจ้งเตือนแทนใน body
-        const bodyContents = [
-            { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
-            { type: "text", text: `ใบเบิกเลขที่: #${voucherId}`, size: "sm", weight: "bold" },
-            { type: "separator", margin: "sm" }
-        ];
-
-        if (itemSummary.length > 0) {
-            bodyContents.push({ type: "box", layout: "vertical", contents: itemSummary });
-        } else {
-            bodyContents.push({ type: "text", text: "ไม่พบรายละเอียดรายการ", size: "xs", color: "#aaaaaa" });
-        }
-
-        return {
-            type: "flex",
-            altText: title,
-            contents: {
-                type: "bubble",
-                body: {
-                    type: "box", layout: "vertical", spacing: "sm",
-                    contents: bodyContents
-                }
-            }
-        };
-    }
-
     // 2. Template สำหรับ "การยืม (Loan)"
     function createStatusFlex(title, voucher, items, colorCode) {
         const itemSummary = items.map(item => {
@@ -2297,6 +2253,48 @@
     }
     function hideApprovalModal() { document.getElementById('approvalModal').classList.add('hidden'); }
 
+    // ===========================================
+    // 🎨 FIXED FLEX MESSAGE GENERATORS
+    // ===========================================
+
+    // Template สำหรับ "ผลการอนุมัติ" (ไม่มีรูป - เน้นข้อความเพื่อความเสถียร)
+    function createStatusFlex(title, voucherId, items, colorCode) {
+        if (!items || !Array.isArray(items)) items = [];
+
+        const itemSummary = items.map(item => {
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
+            return {
+                type: "box", layout: "horizontal", margin: "xs",
+                contents: [
+                    { type: "text", text: `• ${itemName}`, size: "xs", color: "#666666", flex: 4, wrap: true },
+                    { type: "text", text: `x${item.quantity}`, size: "xs", color: "#333333", flex: 1, align: "end", weight: "bold" }
+                ]
+            };
+        });
+
+        return {
+            type: "flex",
+            altText: title,
+            contents: {
+                type: "bubble",
+                body: {
+                    type: "box", layout: "vertical", spacing: "sm",
+                    contents: [
+                        { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
+                        { type: "text", text: `ใบเบิกเลขที่: #${voucherId}`, size: "sm", weight: "bold" },
+                        { type: "separator", margin: "sm" },
+                        { type: "box", layout: "vertical", contents: itemSummary }
+                    ]
+                }
+            }
+        };
+    }
+
+    // ===========================================
+    // 🛠️ ADMIN APPROVAL FUNCTIONS (เพิ่มกลับเข้าไป)
+    // ===========================================
+
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
@@ -2305,14 +2303,12 @@
             
             let items = [];
             try {
-                // ดึงข้อมูลรายการจากฐานข้อมูลให้ชัวร์
                 items = (typeof voucher.itemsJson === 'string') ? JSON.parse(voucher.itemsJson) : (voucher.items || []);
             } catch (e) { items = []; }
 
             callServerFunction('approveVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
                     const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucherId, items, '#10B981');
-                    console.log("Pushing Flex:", flex); // ไว้เช็คใน console
                     fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('อนุมัติสำเร็จ');
