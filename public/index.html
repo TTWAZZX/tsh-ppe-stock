@@ -1394,14 +1394,12 @@
         const tbody = document.getElementById('pendingTableBody');
         const emptyState = document.getElementById('pendingEmptyState');
         
-        // ตรวจสอบข้อมูลก่อนกรอง (ป้องกัน Error ถ้าข้อมูลยังไม่มา)
         if (!currentData || !currentData.issueVouchers) return;
 
         const pendingVouchers = currentData.issueVouchers
             .filter(v => v.status === 'pending')
             .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-        // กรณีไม่มีข้อมูล
         if (pendingVouchers.length === 0) {
             if(tbody) tbody.innerHTML = '';
             if(emptyState) {
@@ -1415,27 +1413,39 @@
         if(!tbody) return;
 
         tbody.innerHTML = pendingVouchers.map(voucher => {
-            // --- แก้ไขใหม่: รองรับทั้งแบบ Array และแบบ Text (JSON String) ---
+            
+            // --- แก้ไข: ระบบตรวจสอบข้อมูลแบบละเอียด (Debug Mode) ---
             let itemCount = 0;
+            let debugType = typeof voucher.items;
+            
+            // สั่งปริ้นท์ค่าออกมาดูใน Console (กด F12 ดูได้)
+            console.log(`Voucher #${voucher.id} items:`, voucher.items, `(Type: ${debugType})`);
+
             if (voucher.items) {
                 if (Array.isArray(voucher.items)) {
+                    // กรณีเป็น Array ปกติ
                     itemCount = voucher.items.length;
                 } else if (typeof voucher.items === 'string') {
+                    // กรณีเป็นข้อความ (String) ลองแปลงเป็น Array
                     try {
-                        const parsedItems = JSON.parse(voucher.items);
-                        itemCount = Array.isArray(parsedItems) ? parsedItems.length : 0;
+                        const parsed = JSON.parse(voucher.items);
+                        itemCount = Array.isArray(parsed) ? parsed.length : 0;
                     } catch (e) {
+                        console.error('Parse Error:', e);
                         itemCount = 0;
                     }
+                } else if (typeof voucher.items === 'object') {
+                    // กรณีเป็น Object (เช่น Supabase ส่งมาเป็น JSON Object)
+                    // ให้นับจำนวน Key เอา
+                    itemCount = Object.keys(voucher.items).length;
                 }
             }
-            // -------------------------------------------------------------
+            // ------------------------------------------------------
+            
             const reasonText = voucher.reason || 'เบิกทั่วไป';
-            // ---------------------------------------------
 
             return `
             <tr class="hover:bg-gray-50 transition-colors border-b">
-                
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-bold text-teal-600">#${voucher.id}</div>
                     <div class="text-xs text-gray-500">
@@ -1443,19 +1453,16 @@
                         ${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}
                     </div>
                 </td>
-
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900">${voucher.user}</div>
                     <div class="text-xs text-gray-500">${voucher.department || '-'}</div>
                 </td>
-
                 <td class="px-6 py-4 text-sm text-gray-500">
                     <div>${reasonText}</div>
                     <div class="text-xs text-gray-400 mt-0.5">
                         <i class="fa-solid fa-box-open mr-1"></i> ${itemCount} รายการ
                     </div>
                 </td>
-
                 <td class="px-6 py-4 whitespace-nowrap text-center">
                     <button onclick="showApprovalModal(${voucher.id})" class="w-full sm:w-auto px-4 py-2 bg-yellow-400 text-yellow-900 rounded-lg hover:bg-yellow-500 font-bold shadow-sm transition-transform active:scale-95 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-clipboard-check"></i> ตรวจสอบ / อนุมัติ
