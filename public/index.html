@@ -869,6 +869,7 @@
             toast.addEventListener('transitionend', () => toast.remove());
         }, 3000);
     }
+    
     function showPage(pageName) {
         document.querySelectorAll('.page-container > .page').forEach(page => {
             if (page.id !== `${pageName}Page`) page.classList.add('hidden');
@@ -876,6 +877,7 @@
         const pageElement = document.getElementById(pageName + 'Page');
         if (pageElement) pageElement.classList.remove('hidden');
 
+        // จัดการสีปุ่มเมนู (Active State)
         document.querySelectorAll('aside .nav-item').forEach(item => item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold'));
         const activeNavItemDesktop = document.querySelector(`aside .nav-item[onclick="showPage('${pageName}')"]`);
         if (activeNavItemDesktop) activeNavItemDesktop.classList.add('bg-teal-50', 'text-teal-600', 'font-bold');
@@ -884,7 +886,16 @@
         const activeNavItemMobile = document.querySelector(`.nav-item-mobile[onclick="showPage('${pageName}')"]`);
         if (activeNavItemMobile) activeNavItemMobile.classList.add('text-teal-600');
         
-        if (pageName === 'dashboard') updateDashboard();
+        // --- จุดแก้ไขสำคัญ: เลือกโหลด Dashboard ให้ถูกตามสถานะ ---
+        if (pageName === 'dashboard') {
+            if (isAdmin) {
+                updateDashboard(); // ถ้าเป็น Admin -> โหลดกราฟ
+            } else {
+                renderUserDashboard(); // ถ้าเป็น User -> โหลดปุ่มเมนูUser
+            }
+        }
+        // -----------------------------------------------------
+
         if (pageName === 'allHistory') {
             updateHistoryTable();
             updateLoanHistoryTable();
