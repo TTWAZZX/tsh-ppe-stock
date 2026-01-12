@@ -835,18 +835,25 @@
         }
     }
 
-    // ฟังก์ชันจัดหน้าจอสำหรับ User ทั่วไป
     function setupUserInterface() {
-        // ซ่อน Sidebar เดิม
-        document.querySelector('aside').classList.add('hidden');
-        document.querySelector('header').classList.add('hidden'); // ซ่อน Header เดิม
+        // 1. ซ่อน Element ของ Admin/Desktop เดิม
+        const sidebar = document.querySelector('aside');
+        if (sidebar) sidebar.classList.add('hidden');
         
-        // ปรับ Dashboard ให้เป็น User Dashboard
+        const header = document.querySelector('header');
+        if (header) header.classList.add('hidden');
+
+        // ซ่อน Admin Menu ใน Mobile Bottom Nav (ถ้ามี)
+        const adminMenuMobile = document.getElementById('adminMenuMobile');
+        if (adminMenuMobile) adminMenuMobile.classList.add('hidden');
+
+        // 2. ปรับ Dashboard ให้เป็น User Dashboard
         renderUserDashboard();
         
-        // ใช้ selector ที่ตรงกับ HTML จริง (nav ที่ซ่อนอยู่ตอนจอใหญ่)
-        const mobileNav = document.querySelector('nav.lg:hidden'); 
-        if (mobileNav) mobileNav.classList.remove('hidden');
+        // 3. (ลบส่วน Mobile Nav ออกได้เลย เพราะมันโชว์อยู่แล้ว)
+
+        // 4. Auto-fill ชื่อ
+        autoFillUserIdentity();
     }
     
     function onDataLoaded(data) {
