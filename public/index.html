@@ -317,102 +317,154 @@
                 </div>
             </div>
 
-            <div id="issuePage" class="page hidden">
-                 <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-6 sm:p-8">
-                    <h3 class="text-xl font-semibold mb-6 text-gray-800">สร้างใบเบิกจ่ายอุปกรณ์</h3>
-                    <form id="issueForm" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้เบิก</label>
-                                <input type="text" id="issueUser" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
-                                <input type="text" id="issueDepartment" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+        <div id="issuePage" class="page hidden">
+            <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-6 sm:p-8">
+                <h3 class="text-xl font-semibold mb-6 text-gray-800">สร้างใบเบิกจ่ายอุปกรณ์</h3>
+                <form id="issueForm" class="space-y-6">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้เบิก</label>
+                            <input type="text" id="issueUser" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">รหัสพนักงาน</label>
+                            <input type="text" id="employeeId" required placeholder="เช่น EMP-001" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
+                        <div class="relative">
+                            <select id="userDepartment" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer">
+                                <option value="" disabled selected>-- กรุณาเลือกแผนก --</option>
+                                <option value="Safety">Safety (ความปลอดภัย)</option>
+                                <option value="Production">Production (ฝ่ายผลิต)</option>
+                                <option value="Maintenance">Maintenance (ซ่อมบำรุง)</option>
+                                <option value="Warehouse">Warehouse (คลังสินค้า)</option>
+                                <option value="Office">Office (สำนักงาน)</option>
+                                <option value="HR">HR (บุคคล)</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">รายการอุปกรณ์</label>
+                        <div id="issueItemsContainer" class="space-y-3 mb-3">
+                            </div>
+                        
+                        <button type="button" onclick="openIssueCatalog()" class="w-full py-3 border-2 border-dashed border-teal-300 rounded-lg text-teal-600 hover:bg-teal-50 hover:border-teal-500 transition-colors font-medium">
+                            <i class="fas fa-plus-circle mr-2"></i>เลือกอุปกรณ์จากแคตตาล็อก
+                        </button>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="resetIssueForm()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">ล้างฟอร์ม</button>
+                        <button type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">สร้างใบเบิก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="loanPage" class="page hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6">
+                    <h3 class="text-xl font-semibold mb-6 text-gray-800">ยืมอุปกรณ์</h3>
+                    <form id="loanForm" class="space-y-4">
+                        
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">รายการอุปกรณ์</label>
-                            <div id="issueItemsContainer" class="space-y-3 mb-3">
-                                </div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
+                            <input type="hidden" id="loanItemId" required> 
                             
-                            <button type="button" onclick="openIssueCatalog()" class="w-full py-3 border-2 border-dashed border-teal-300 rounded-lg text-teal-600 hover:bg-teal-50 hover:border-teal-500 transition-colors font-medium">
-                                <i class="fas fa-plus-circle mr-2"></i>เลือกอุปกรณ์จากแคตตาล็อก
+                            <div id="loanItemDisplay" onclick="openLoanCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
+                                <div class="flex items-center gap-3">
+                                    <div id="loanItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
+                                        <i class="fa-solid fa-box-open text-xl"></i>
+                                    </div>
+                                    <img id="loanItemImg" src="" class="w-12 h-12 rounded-md object-cover hidden border border-gray-200">
+                                    
+                                    <div class="overflow-hidden">
+                                        <p id="loanItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
+                                        <p id="loanItemCode" class="text-xs text-gray-400 hidden"></p>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="loanUser" class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
+                            <input type="text" id="loanUser" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50">
+                        </div>
+
+                        <div>
+                            <label for="loanEmployeeId" class="block text-sm font-medium text-gray-700 mb-2">รหัสพนักงาน</label>
+                            <input type="text" id="loanEmployeeId" required placeholder="เช่น EMP-001" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        </div>
+
+                        <div>
+                            <label for="loanDepartment" class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
+                            <div class="relative">
+                                <select id="loanDepartment" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer">
+                                    <option value="" disabled selected>-- กรุณาเลือกแผนก --</option>
+                                    <option value="Safety">Safety (ความปลอดภัย)</option>
+                                    <option value="Production">Production (ฝ่ายผลิต)</option>
+                                    <option value="Maintenance">Maintenance (ซ่อมบำรุง)</option>
+                                    <option value="Warehouse">Warehouse (คลังสินค้า)</option>
+                                    <option value="Office">Office (สำนักงาน)</option>
+                                    <option value="HR">HR (บุคคล)</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="loanDueDate" class="block text-sm font-medium text-gray-700 mb-2">กำหนดคืน</label>
+                            <input type="date" id="loanDueDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        </div>
+
+                        <div>
+                            <label for="loanNotes" class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
+                            <textarea id="loanNotes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button type="button" onclick="saveLoanTransaction()" class="w-full px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-md active:scale-95 transform duration-150">
+                                บันทึกการยืม
                             </button>
                         </div>
-                        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                            <button type="button" onclick="resetIssueForm()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">ล้างฟอร์ม</button>
-                            <button type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">สร้างใบเบิก</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div id="loanPage" class="page hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6">
-                        <h3 class="text-xl font-semibold mb-6 text-gray-800">ยืมอุปกรณ์</h3>
-                        <form id="loanForm" class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
-                                <input type="hidden" id="loanItemId" required> 
-                                
-                                <div id="loanItemDisplay" onclick="openLoanCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
-                                    <div class="flex items-center gap-3">
-                                        <div id="loanItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
-                                            <i class="fa-solid fa-box-open text-xl"></i>
-                                        </div>
-                                        <img id="loanItemImg" src="" class="w-12 h-12 rounded-md object-cover hidden border border-gray-200">
-                                        
-                                        <div class="overflow-hidden">
-                                            <p id="loanItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
-                                            <p id="loanItemCode" class="text-xs text-gray-400 hidden"></p>
-                                        </div>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="borrowerName" class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
-                                <input type="text" id="borrowerName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                            </div>
-                            <div>
-                                <label for="loanDueDate" class="block text-sm font-medium text-gray-700 mb-2">กำหนดคืน</label>
-                                <input type="date" id="loanDueDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                            </div>
-                            <div>
-                                <label for="loanNotes" class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
-                                <textarea id="loanNotes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
-                            </div>
-                            <div class="flex justify-end pt-2">
-                                <button type="submit" class="w-full px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm">บันทึกการยืม</button>
-                            </div>
                         </form>
-                    </div>
+                        </div>
 
-                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border overflow-hidden">
-                        <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-xl font-semibold text-gray-800">รายการอุปกรณ์ที่กำลังถูกยืม</h3>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead class="bg-gray-50 text-left">
-                                    <tr>
-                                         <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th> <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">อุปกรณ์</th>
-                                         <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้ยืม</th>
-                                         <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่ยืม</th>
-                                         <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">กำหนดคืน</th>
-                                         <th class="px-6 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="onLoanTableBody" class="bg-white divide-y divide-gray-200"></tbody>
-                            </table>
-                             <div id="onLoanEmptyState" class="hidden"></div>
-                        </div>
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-semibold text-gray-800">รายการอุปกรณ์ที่กำลังถูกยืม</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 text-left">
+                                <tr>
+                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th> 
+                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">อุปกรณ์</th>
+                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้ยืม</th>
+                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่ยืม</th>
+                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">กำหนดคืน</th>
+                                    <th class="px-6 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="onLoanTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                        <div id="onLoanEmptyState" class="hidden"></div>
                     </div>
                 </div>
             </div>
+        </div>
             
             <div id="allHistoryPage" class="page hidden">
                 <div class="bg-white rounded-xl shadow-sm border">
@@ -735,6 +787,21 @@
     <img id="previewImage" src="" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-pulse">
 </div>
 
+<div id="timelineDetailModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 w-11/12 max-w-sm shadow-2xl transform transition-all scale-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 class="text-lg font-bold text-gray-800">รายการที่เบิก</h3>
+            <button onclick="document.getElementById('timelineDetailModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <i class="fa-solid fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="timelineItemsList" class="space-y-3 max-h-60 overflow-y-auto">
+            </div>
+        <div class="mt-5 pt-3 border-t text-center">
+            <button onclick="document.getElementById('timelineDetailModal').classList.add('hidden')" class="w-full bg-gray-100 text-gray-700 py-2 rounded-xl font-bold hover:bg-gray-200">ปิด</button>
+        </div>
+    </div>
+</div>
 
 <script>
     // ===========================================
@@ -1815,7 +1882,12 @@
             }
 
             timelineHtml = `
-            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6 mx-2">
+            <div onclick="showTimelineDetails(${lastVoucher.id})" class="cursor-pointer bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6 mx-2 animate-fade-in-up hover:shadow-md transition-shadow relative group">
+                
+                <div class="absolute top-5 right-5 text-gray-300 group-hover:text-teal-500 transition-colors">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </div>
+                
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-sm font-bold text-gray-700">คำขอล่าสุด #${lastVoucher.id}</h3>
                     <span class="text-[10px] text-gray-400">${new Date(lastVoucher.timestamp).toLocaleDateString('th-TH')}</span>
@@ -1897,6 +1969,46 @@
             const u = document.getElementById('issueUser'); if(u) { u.value = liffProfile.displayName; u.readOnly = true; u.classList.add('bg-gray-100'); }
             const b = document.getElementById('borrowerName'); if(b) { b.value = liffProfile.displayName; b.readOnly = true; b.classList.add('bg-gray-100'); }
         }
+    }
+
+    function showTimelineDetails(voucherId) {
+        const voucher = currentData.issueVouchers.find(v => v.id === voucherId);
+        if (!voucher) return;
+
+        const listContainer = document.getElementById('timelineItemsList');
+        
+        // ดึงรายการสินค้า (รองรับ itemsJson ตามที่แก้ไปรอบก่อน)
+        let items = [];
+        const rawItems = voucher.itemsJson || voucher.items;
+        if (typeof rawItems === 'string') {
+            try { items = JSON.parse(rawItems); } catch(e) { items = []; }
+        } else if (Array.isArray(rawItems)) {
+            items = rawItems;
+        }
+
+        // สร้าง HTML รายการสินค้า
+        listContainer.innerHTML = items.map(item => {
+            // หาชื่อสินค้าจาก ID (ถ้ามีข้อมูล ppeItems)
+            const product = currentData.ppeItems.find(p => p.code === item.itemId) || { name: 'สินค้า ' + item.itemId, unit: 'หน่วย' };
+            const pName = product.name || item.itemId;
+            
+            return `
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-box"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-700">${pName}</p>
+                    </div>
+                </div>
+                <span class="text-sm font-bold text-teal-600">x${item.quantity}</span>
+            </div>`;
+        }).join('');
+
+        // เปิด Modal
+        document.getElementById('timelineDetailModal').classList.remove('hidden');
+        document.getElementById('timelineDetailModal').classList.add('flex');
     }
 
     // ==========================================
@@ -2503,6 +2615,113 @@ function renderUserDashboard() {
     } else {
         if(adminLinks) adminLinks.classList.add('hidden');
         if(userLinks) userLinks.classList.remove('hidden');
+    }
+
+    // ฟังก์ชันบันทึกการเบิก (Issue)
+    async function saveIssueVoucher() {
+        // 1. รับค่าจากฟอร์ม (รวมถึง ID ใหม่ที่เพิ่งเพิ่ม)
+        const userName = document.getElementById('issueUser').value;
+        const empId = document.getElementById('employeeId').value; // 🆕 รหัสพนักงาน
+        const dept = document.getElementById('userDepartment').value; // 🆕 แผนก (Dropdown)
+        
+        // 2. ตรวจสอบข้อมูล (Validation)
+        // ตรวจสอบตะกร้าสินค้า (ต้องมีตัวแปร cart ประกาศไว้ด้านบน global)
+        if (!cart || cart.length === 0) {
+            alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ');
+            return;
+        }
+        
+        if (!userName || !empId || !dept) {
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, รหัสพนักงาน, แผนก)');
+            return;
+        }
+
+        // 3. สร้าง Object ใบเบิกใหม่
+        const newVoucher = {
+            id: currentData.issueVouchers.length > 0 ? Math.max(...currentData.issueVouchers.map(v => v.id)) + 1 : 1, // Auto ID
+            user: userName,
+            employeeId: empId, // 🆕 บันทึกรหัสพนักงาน
+            department: dept,  // 🆕 บันทึกแผนก
+            itemsJson: JSON.stringify(cart), // แปลงตะกร้าเป็น JSON String (ตามที่แก้ไปรอบก่อน)
+            reason: 'เบิกทั่วไป', // หรือจะเพิ่มช่องเหตุผลในฟอร์มก็ได้
+            status: 'pending', // สถานะเริ่มต้น = รออนุมัติ
+            timestamp: new Date().toISOString()
+        };
+
+        // 4. บันทึกลงตัวแปรหลัก (และส่งขึ้น Server ถ้ามีระบบ Backend)
+        currentData.issueVouchers.push(newVoucher);
+        
+        // 5. แจ้งเตือนไลน์ Admin (ตามโจทย์ข้อ 3)
+        // (ฟังก์ชัน sendLineNotify ต้องมีอยู่แล้วตามที่คุยกันรอบก่อน)
+        if(typeof sendLineNotify === 'function') {
+            await sendLineNotify(`🔔 มีคำขอเบิกใหม่!\nโดย: ${userName} (${dept})\nรายการ: ${cart.length} อย่าง`);
+        }
+
+        // 6. อัปเดตหน้าจอและล้างฟอร์ม
+        alert('สร้างใบเบิกสำเร็จ! กรุณารอการอนุมัติ');
+        
+        // ล้างค่าในฟอร์ม
+        document.getElementById('issueForm').reset();
+        document.getElementById('issueItemsContainer').innerHTML = '';
+        cart = []; // ล้างตะกร้า
+        
+        // กลับไปหน้า Dashboard หรือหน้ารายการ
+        updateUI(); 
+        showPage('userDashboard'); // หรือหน้า history ก็ได้
+    }
+
+    // ฟังก์ชันบันทึกการยืม (Loan)
+    function saveLoanTransaction() {
+        // 1. รับค่าจากฟอร์ม (อิงตาม ID ใน HTML ล่าสุด)
+        const itemId = document.getElementById('loanItemId').value;
+        const userName = document.getElementById('loanUser').value;
+        const empId = document.getElementById('loanEmployeeId').value; // 🆕 รหัสพนักงาน
+        const dept = document.getElementById('loanDepartment').value;    // 🆕 แผนก
+        const dueDate = document.getElementById('loanDueDate').value;
+        const notes = document.getElementById('loanNotes').value;
+
+        // 2. ตรวจสอบข้อมูล
+        if (!itemId) {
+            alert('กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
+            return;
+        }
+        if (!userName || !empId || !dept || !dueDate) {
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, รหัส, แผนก, กำหนดคืน)');
+            return;
+        }
+
+        // 3. สร้าง Object รายการยืม
+        const newLoan = {
+            id: currentData.loanTransactions.length > 0 ? Math.max(...currentData.loanTransactions.map(l => l.id)) + 1 : 1,
+            itemId: itemId,
+            borrowerName: userName,
+            employeeId: empId, // 🆕
+            department: dept,  // 🆕
+            dueDate: dueDate,
+            notes: notes,
+            status: 'on_loan', // สถานะ = กำลังยืม
+            timestamp: new Date().toISOString()
+        };
+
+        // 4. บันทึกข้อมูล
+        currentData.loanTransactions.push(newLoan);
+        
+        // (Optional) ตัดสต็อกชั่วคราว หรือเปลี่ยนสถานะของชิ้นนั้น ถ้าต้องการ
+        
+        // 5. แจ้งเตือนและรีเซ็ต
+        alert('บันทึกการยืมสำเร็จ');
+        
+        // ล้างฟอร์ม
+        document.getElementById('loanForm').reset();
+        // รีเซ็ตการแสดงผลรูปสินค้าที่เลือก
+        document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+        document.getElementById('loanItemImg').classList.add('hidden');
+        document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+        document.getElementById('loanItemId').value = '';
+
+        // อัปเดตตารางและหน้าจอ
+        updateUI();
+        // showPage('loan'); // อยู่หน้าเดิมเพื่อให้เห็นตารางอัปเดต
     }
 
 </script>
