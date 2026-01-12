@@ -1428,6 +1428,349 @@
         }).join('');
     }
 
+    // ===========================================
+    // >>>>>>>> ส่วนที่ขาดหายไป (Admin & Logic) <<<<<<<<<<
+    // ===========================================
+
+    // --- Category Management ---
+    function showCategoryModal() {
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        document.getElementById('categoryManagementModal').classList.remove('hidden');
+        resetCategoryForm();
+        renderCategoryList();
+    }
+    function hideCategoryModal() {
+        document.getElementById('categoryManagementModal').classList.add('hidden');
+    }
+    function renderCategoryList() {
+        const container = document.getElementById('categoryListContainer');
+        const sortedCategories = [...currentData.categories].sort((a,b) => a.name.localeCompare(b.name));
+        if (sortedCategories.length === 0) {
+            container.innerHTML = createEmptyState('ยังไม่มีหมวดหมู่', 'fa-solid fa-tags');
+            return;
+        }
+        container.innerHTML = sortedCategories.map(cat => `
+            <div class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-50">
+                <span class="text-gray-800">${cat.name}</span>
+                <div class="space-x-2">
+                    <button onclick="editCategory(${cat.id}, '${cat.name}')" class="text-gray-500 hover:text-teal-600"><i class="fas fa-edit"></i></button>
+                    <button onclick="handleDeleteCategory(${cat.id})" class="text-gray-500 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+    }
+    function editCategory(id, name) {
+        document.getElementById('editCategoryId').value = id;
+        document.getElementById('categoryNameInput').value = name;
+        document.getElementById('categoryNameInput').focus();
+    }
+    function resetCategoryForm() {
+        document.getElementById('categoryForm').reset();
+        document.getElementById('editCategoryId').value = '';
+    }
+
+    // --- Voucher & Approval ---
+    function showVoucherDetails(voucherId) {
+        const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
+        if (!voucher) return;
+
+        let items = [];
+        try {
+            items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
+        } catch (e) {
+            items = [];
+        }
+
+        const itemsHtml = items.map(item => {
+            const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
+            return `<li class="flex justify-between">
+                        <span>${ppeItem ? ppeItem.name : 'N/A'}</span>
+                        <span class="font-medium">${item.quantity} ${ppeItem ? ppeItem.unit : ''}</span>
+                    </li>`;
+        }).join('');
+
+        const status = getStatusInfo(voucher.status);
+        const modal = document.getElementById('voucherModal');
+        modal.innerHTML = `
+            <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-lg m-4 relative">
+                <button onclick="hideVoucherModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                <h3 class="text-xl font-semibold mb-2 text-gray-800">รายละเอียดใบเบิก #${voucher.id}</h3>
+                <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${status.color}">${status.text}</span>
+                <div class="mt-6 space-y-4 text-gray-700">
+                    <div class="grid grid-cols-2 gap-4">
+                        <p><strong>ผู้เบิก:</strong> ${voucher.user}</p>
+                        <p><strong>แผนก:</strong> ${voucher.department}</p>
+                        <p><strong>วันที่เบิก:</strong> ${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold mb-2">รายการอุปกรณ์:</p>
+                        <ul class="space-y-1 bg-gray-50 p-4 rounded-lg">${itemsHtml}</ul>
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button onclick="hideVoucherModal()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100">ปิด</button>
+                </div>
+            </div>`;
+        modal.classList.remove('hidden');
+    }
+    function hideVoucherModal() { document.getElementById('voucherModal').classList.add('hidden'); }
+
+    function showApprovalModal(voucherId) {
+        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+        const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
+        if (!voucher) return;
+
+        let items = [];
+        try {
+            items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
+        } catch (e) {
+            items = [];
+        }
+
+        const itemsHtml = items.map(item => {
+            const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
+            const maxApprove = Math.min(item.quantity, ppeItem ? ppeItem.stock : 0);
+            return `
+                <div class="flex items-center space-x-3 p-3 border-b item-approval-row" data-item-id="${item.itemId}" data-item-name="${ppeItem ? ppeItem.name : ''}">
+                    <div class="flex-1">
+                        <p class="font-medium text-gray-800">${ppeItem ? ppeItem.name : 'N/A'}</p>
+                        <p class="text-sm text-gray-600">ขอ: ${item.quantity} | สต็อก: ${ppeItem ? ppeItem.stock : 0}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">อนุมัติ:</label>
+                        <input type="number" value="${maxApprove}" min="0" max="${maxApprove}" class="approved-quantity w-20 px-2 py-1 border rounded focus:outline-none focus:ring-1 focus:ring-teal-500">
+                    </div>
+                </div>`;
+        }).join('');
+
+        const modal = document.getElementById('approvalModal');
+        modal.innerHTML = `
+            <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md m-4 relative">
+                <button onclick="hideApprovalModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                <h3 class="text-xl font-semibold mb-6 text-gray-800">อนุมัติใบเบิก #${voucher.id}</h3>
+                <div class="mb-6 border rounded-lg bg-gray-50 p-4 max-h-60 overflow-y-auto">${itemsHtml}</div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button onclick="rejectVoucher(${voucher.id})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">ปฏิเสธ</button>
+                    <button onclick="approveVoucher(${voucher.id})" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">อนุมัติทั้งหมด</button>
+                    <button onclick="handlePartialApprove(${voucher.id})" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">อนุมัติตามจำนวน</button>
+                </div>
+            </div>`;
+        modal.classList.remove('hidden');
+    }
+    function hideApprovalModal() { document.getElementById('approvalModal').classList.add('hidden'); }
+
+    async function approveVoucher(voucherId) {
+        const confirmed = await showConfirmationModal('ยืนยันการอนุมัติ', 'คุณต้องการอนุมัติใบเบิกนี้ทั้งหมดใช่หรือไม่? สต็อกจะถูกตัดทันที');
+        if (confirmed) {
+            callServerFunction('approveVoucher', { voucherId }).then(() => {
+                showToast(`อนุมัติใบเบิก #${voucherId} สำเร็จ`);
+                hideApprovalModal();
+                initializeApp();
+            });
+        }
+    }
+    async function rejectVoucher(voucherId) {
+        const confirmed = await showConfirmationModal('ยืนยันการปฏิเสธ', 'คุณต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?');
+        if (confirmed) {
+            callServerFunction('rejectVoucher', { voucherId }).then(() => {
+                showToast(`ปฏิเสธใบเบิก #${voucherId} แล้ว`);
+                hideApprovalModal();
+                initializeApp();
+            });
+        }
+    }
+    function handlePartialApprove(voucherId) {
+        const items = [];
+        document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
+            items.push({
+                itemId: Number(row.dataset.itemId),
+                itemName: row.dataset.itemName,
+                quantity: Number(row.querySelector('.approved-quantity').value)
+            });
+        });
+        callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
+            showToast(`อนุมัติใบเบิก #${voucherId} บางส่วนสำเร็จ`);
+            hideApprovalModal();
+            initializeApp();
+        });
+    }
+
+    // --- Form Handlers ---
+    function handleIssueSubmit(e) {
+        e.preventDefault();
+        const user = document.getElementById('issueUser').value;
+        const department = document.getElementById('issueDepartment').value;
+        const items = [];
+        document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
+            const itemIdInput = row.querySelector('.item-select-value');
+            const quantityInput = row.querySelector('.item-quantity');
+            if (itemIdInput && quantityInput) {
+                const itemId = itemIdInput.value;
+                const quantity = quantityInput.value;
+                if (itemId && quantity > 0) items.push({ itemId: Number(itemId), quantity: Number(quantity) });
+            }
+        });
+        if (items.length === 0) return showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
+        callServerFunction('addNewVoucher', { user, department, items }).then(newVoucher => {
+            showToast(`สร้างใบเบิก #${newVoucher.id} สำเร็จ`);
+            resetIssueForm();
+            initializeApp();
+        });
+    }
+
+    function previewImageAdmin() {
+        const url = document.getElementById('itemImage').value;
+        const img = document.getElementById('adminImagePreview');
+        if (url) { img.src = url; img.classList.remove('hidden'); } else { img.classList.add('hidden'); }
+    }
+
+    function handleManageSubmit(e) {
+        e.preventDefault();
+        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+        const itemData = {
+            id: document.getElementById('editItemId').value || null,
+            code: document.getElementById('itemCode').value,
+            name: document.getElementById('itemName').value,
+            category: document.getElementById('itemCategory').value,
+            unit: document.getElementById('itemUnit').value,
+            reorderPoint: Number(document.getElementById('itemReorderPoint').value),
+            stock: Number(document.getElementById('itemStock').value),
+            onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0),
+            price: Number(document.getElementById('itemPrice').value || 0),
+            imageUrl: document.getElementById('itemImage').value
+        };
+        callServerFunction('savePpeItem', itemData).then(result => {
+            showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
+            resetManageForm();
+            initializeApp();
+        });
+    }
+
+    function editItem(itemId) {
+        const item = currentData.ppeItems.find(p => p.id == itemId);
+        if (item) {
+            document.getElementById('editItemId').value = item.id;
+            document.getElementById('itemCode').value = item.code;
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemCategory').value = item.category;
+            document.getElementById('itemUnit').value = item.unit;
+            document.getElementById('itemReorderPoint').value = item.reorderPoint;
+            document.getElementById('itemStock').value = item.stock;
+            document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
+            document.getElementById('itemPrice').value = item.price || 0;
+            document.getElementById('itemImage').value = item.image_url || '';
+            previewImageAdmin();
+            showToast('กำลังแก้ไข: ' + item.name);
+        }
+    }
+    function resetManageForm() {
+        document.getElementById('manageForm').reset();
+        document.getElementById('editItemId').value = '';
+        document.getElementById('adminImagePreview').classList.add('hidden');
+        document.getElementById('adminImagePreview').src = '';
+    }
+
+    function handleReceiveSubmit(e) {
+        e.preventDefault();
+        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+        const itemId = document.getElementById('receiveItemId').value;
+        if (!itemId) return showToast('กรุณาเลือกอุปกรณ์', 'error');
+        const transactionData = {
+            itemId: Number(itemId),
+            quantity: Number(document.getElementById('receiveQuantity').value),
+            type: document.getElementById('receiveType').value,
+            user: document.getElementById('receiveUser').value,
+            department: document.getElementById('receiveDepartment').value,
+        };
+        callServerFunction('addReceiveTransaction', transactionData).then(() => {
+            showToast('รับของเข้าสต็อกสำเร็จ');
+            resetReceiveForm();
+            initializeApp();
+        });
+    }
+
+    function handleBorrowSubmit(e) {
+        e.preventDefault();
+        const itemId = document.getElementById('loanItemId').value;
+        if (!itemId) return showToast('กรุณาเลือกอุปกรณ์ที่ต้องการยืม', 'error');
+        const borrowData = {
+            itemId: Number(itemId),
+            borrowerName: document.getElementById('borrowerName').value,
+            dueDate: document.getElementById('loanDueDate').value,
+            notes: document.getElementById('loanNotes').value,
+        };
+        callServerFunction('borrowItem', borrowData).then(() => {
+            showToast('บันทึกการยืมสำเร็จ');
+            document.getElementById('loanForm').reset();
+            document.getElementById('loanItemId').value = '';
+            document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+            document.getElementById('loanItemName').classList.add('text-gray-500');
+            document.getElementById('loanItemName').classList.remove('text-gray-800', 'font-bold');
+            document.getElementById('loanItemCode').classList.add('hidden');
+            document.getElementById('loanItemImg').classList.add('hidden');
+            document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+            initializeApp();
+        });
+    }
+
+    function handleSaveCategory(e) {
+        e.preventDefault();
+        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+        callServerFunction('saveCategory', {
+            id: document.getElementById('editCategoryId').value || null,
+            name: document.getElementById('categoryNameInput').value,
+        }).then(() => {
+            showToast('บันทึกหมวดหมู่สำเร็จ');
+            resetCategoryForm();
+            initializeApp();
+        });
+    }
+
+    async function handleDeleteCategory(categoryId) {
+        if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+        const confirmed = await showConfirmationModal('ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่นี้?');
+        if (confirmed) {
+            callServerFunction('deleteCategory', { categoryId }).then(() => {
+                showToast('ลบหมวดหมู่สำเร็จ');
+                initializeApp();
+            });
+        }
+    }
+
+    async function handleReturnItem(loanId) {
+        const confirmed = await showConfirmationModal('ยืนยันการรับคืน', 'คุณต้องการบันทึกการรับคืนอุปกรณ์นี้ใช่หรือไม่?');
+        if (confirmed) {
+            callServerFunction('returnItem', { loanId }).then(() => {
+                showToast('รับคืนอุปกรณ์สำเร็จ');
+                initializeApp();
+            });
+        }
+    }
+
+    function showConfirmationModal(title, message) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('confirmationModal');
+            document.getElementById('confirmationTitle').textContent = title;
+            document.getElementById('confirmationMessage').textContent = message;
+            modal.classList.remove('hidden');
+            const confirmBtn = document.getElementById('confirmProceedBtn');
+            const cancelBtn = document.getElementById('confirmCancelBtn');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                newConfirmBtn.removeEventListener('click', handleConfirm);
+                newCancelBtn.removeEventListener('click', handleCancel);
+            };
+            const handleConfirm = () => { cleanup(); resolve(true); };
+            const handleCancel = () => { cleanup(); resolve(false); };
+            newConfirmBtn.addEventListener('click', handleConfirm);
+            newCancelBtn.addEventListener('click', handleCancel);
+        });
+    }
+
     // ==========================================
     // ฟังก์ชันจัดการรายการเบิกแบบใหม่ (New Issue Logic)
     // ==========================================
