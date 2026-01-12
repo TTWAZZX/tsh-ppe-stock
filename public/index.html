@@ -2448,7 +2448,7 @@
         if(userLinks) userLinks.classList.remove('hidden');
     }
 
-    // ฟังก์ชันบันทึกการเบิก (Issue) - ฉบับใช้งานจริง (Production)
+    // ฟังก์ชันบันทึกการเบิก (Issue) - แจ้งเตือนเข้าส่วนตัว (OA) แทนกลุ่ม
     async function saveIssueVoucher() {
         try {
             // 1. สร้างตัวแปร cart จากหน้าจอ
@@ -2484,35 +2484,45 @@
             
             const payload = {
                 user: userName,
-                employeeId: empId,      // อย่าลืมเพิ่มคอลัมน์ employeeId ใน Supabase ถ้ายังไม่มี
+                employeeId: empId,
                 department: dept,
-                userId: currentUserId,  // ส่ง UserID ไปด้วย
-                items: cart             // ส่งเป็น Array (ให้ Backend แปลงเป็น JSON เอง หรือแก้ให้ตรงกับ API เดิม)
+                userId: currentUserId,
+                items: cart
             };
 
-            // แสดง Loading ระหว่างรอ
+            // แสดง Loading
             if(typeof showLoading === 'function') showLoading();
 
             // 5. 🚀 ส่งข้อมูลไปที่ Server (API)
-            // (ใช้ callServerFunction แทนการ push ดื้อๆ)
-            await callServerFunction('addNewVoucher', payload);
+            const newVoucher = await callServerFunction('addNewVoucher', payload);
 
-            // 6. แจ้งเตือนไลน์ Admin (ถ้ามี)
-            if (typeof sendLineNotify === 'function') {
-                const msg = `\n🔔 มีการเบิกของใหม่!\n👤 โดย: ${userName} (${empId})\n🏢 แผนก: ${dept}\n📦 จำนวน: ${cart.length} รายการ`;
-                sendLineNotify(msg); // ไม่ต้อง await ก็ได้ ให้มันทำงานเบื้องหลัง
+            // ------------------------------------------------------------------
+            // 6. ✅ แจ้งเตือนกลับไปหา "ผู้เบิก" ผ่าน LINE OA (Push Message)
+            // ------------------------------------------------------------------
+            if (currentUserId) {
+                const itemsCount = cart.length;
+                const msg = `✅ ได้รับใบเบิกแล้วครับ!\n📄 ใบเบิกเลขที่: #${newVoucher.id}\n📦 จำนวน: ${itemsCount} รายการ\n⏳ สถานะ: รอตรวจสอบ\n\nโปรดรอแอดมินอนุมัติสักครู่นะครับ`;
+                
+                // ยิงไปที่ API Push ของเรา
+                await fetch('/api/push', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUserId, message: msg })
+                }).catch(err => console.error('Push Error:', err));
             }
 
             // 7. สำเร็จ! รีเซ็ตหน้าจอ
             if(typeof hideLoading === 'function') hideLoading();
-            alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
+            
+            // ไม่ต้อง Alert รบกวนแล้ว เพราะไลน์เด้งบอกแล้ว หรือจะเปิดไว้ก็ได้
+            // alert('บันทึกข้อมูลเรียบร้อยแล้ว!'); 
 
             document.getElementById('issueForm').reset();
             document.getElementById('issueItemsContainer').innerHTML = '';
             cart = []; 
             if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
-            // 8. โหลดข้อมูลใหม่ทั้งหมดมาแสดง (เพื่อให้ Timeline และตารางอัปเดตของจริงจาก Server)
+            // 8. โหลดข้อมูลใหม่
             if(typeof callServerFunction === 'function' && typeof onDataLoaded === 'function') {
                 const updatedData = await callServerFunction('getInitialData');
                 onDataLoaded(updatedData);
