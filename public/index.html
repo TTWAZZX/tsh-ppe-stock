@@ -1061,23 +1061,44 @@
     // ===========================================
 
     // 1. Template สำหรับ "การเบิก (Issue)"
-    function createIssueFlex(voucherId, user, dept, itemCount, status = 'รออนุมัติ') {
+    function createIssueFlex(voucherId, user, dept, items, status = 'รออนุมัติ') {
+        // สร้างรายการสินค้าที่จะโชว์ใน Flex
+        const itemContents = items.map(item => {
+            // ค้นหาข้อมูลสินค้าจาก currentData เพื่อเอารูปและชื่อ
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : 'ไม่ระบุชื่อ';
+            const imgUrl = (ppe && ppe.image_url) ? ppe.image_url : 'https://placehold.co/100?text=No+Img';
+            
+            return {
+                type: "box", layout: "horizontal", spacing: "md", margin: "sm",
+                contents: [
+                    { type: "image", url: imgUrl, flex: 1, aspectRatio: "1:1", aspectMode: "cover" },
+                    { type: "box", layout: "vertical", flex: 4, contents: [
+                        { type: "text", text: itemName, size: "sm", color: "#333333", wrap: true },
+                        { type: "text", text: `จำนวน: ${item.quantity}`, size: "xs", color: "#999999" }
+                    ]}
+                ]
+            };
+        });
+
         return {
             type: "flex",
-            altText: "มีใบเบิกใหม่ #" + voucherId,
+            altText: `ใบเบิก #${voucherId} โดย ${user}`,
             contents: {
                 type: "bubble",
-                header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "📄 ใบเบิกอุปกรณ์ใหม่", weight: "bold", color: "#ffffff", size: "lg" }], backgroundColor: "#F59E0B", paddingAll: "lg" }, // สีส้ม Amber
+                header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "📄 รายละเอียดใบเบิกอุปกรณ์", weight: "bold", color: "#ffffff", size: "md" }], backgroundColor: "#F59E0B", paddingAll: "lg" },
                 body: {
                     type: "box", layout: "vertical", spacing: "md",
                     contents: [
-                        { type: "text", text: `#${voucherId}`, weight: "bold", size: "3xl", color: "#333333", align: "center", margin: "md" },
-                        { type: "separator", margin: "lg" },
-                        { type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [
-                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้เบิก:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: user, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
-                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "แผนก:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: dept, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
-                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "จำนวน:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: `${itemCount} รายการ`, wrap: true, color: "#333333", size: "sm", weight: "bold", flex: 4 }] }
-                        ]}
+                        { type: "text", text: `#${voucherId}`, weight: "bold", size: "xl", align: "center" },
+                        { type: "box", layout: "vertical", spacing: "xs", contents: [
+                            { type: "text", text: `ผู้เบิก: ${user}`, size: "xs", color: "#888888" },
+                            { type: "text", text: `แผนก: ${dept}`, size: "xs", color: "#888888" }
+                        ]},
+                        { type: "separator", margin: "md" },
+                        { type: "text", text: "รายการที่เบิก:", size: "sm", weight: "bold", margin: "md" },
+                        { type: "box", layout: "vertical", contents: itemContents }, // รายการสินค้าพร้อมรูป
+                        { type: "separator", margin: "md" }
                     ]
                 },
                 footer: { type: "box", layout: "vertical", contents: [{ type: "text", text: `สถานะ: ${status}`, color: "#aaaaaa", size: "xs", align: "center" }] }
@@ -1086,24 +1107,31 @@
     }
 
     // 2. Template สำหรับ "การยืม (Loan)"
-    function createLoanFlex(item, user, dept, dueDate) {
-        const imgUrl = item.image_url || 'https://placehold.co/400?text=No+Image'; // ใส่รูป default ถ้าไม่มี
+    function createStatusFlex(title, voucher, items, colorCode) {
+        const itemSummary = items.map(item => {
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : 'อุปกรณ์';
+            return {
+                type: "box", layout: "horizontal", contents: [
+                    { type: "text", text: `• ${itemName}`, size: "xs", color: "#666666", flex: 4 },
+                    { type: "text", text: `x${item.quantity}`, size: "xs", color: "#333333", flex: 1, align: "end" }
+                ]
+            };
+        });
+
         return {
             type: "flex",
-            altText: "แจ้งเตือนการยืม: " + item.name,
+            altText: title,
             contents: {
                 type: "bubble",
-                hero: { type: "image", url: imgUrl, size: "full", aspectRatio: "20:13", aspectMode: "cover" },
                 body: {
-                    type: "box", layout: "vertical",
+                    type: "box", layout: "vertical", spacing: "md",
                     contents: [
-                        { type: "text", text: "ยืมอุปกรณ์สำเร็จ", weight: "bold", size: "xl", color: "#0D9488" }, // สีเขียว Teal
-                        { type: "text", text: item.name, weight: "bold", size: "md", margin: "md", wrap: true },
-                        { type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [
-                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ยืม:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: user, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
-                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "แผนก:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: dept, wrap: true, color: "#666666", size: "sm", flex: 4 }] },
-                            { type: "box", layout: "baseline", contents: [{ type: "text", text: "คืนภายใน:", color: "#aaaaaa", size: "sm", flex: 2 }, { type: "text", text: new Date(dueDate).toLocaleDateString('th-TH'), wrap: true, color: "#DC2626", size: "sm", weight: "bold", flex: 4 }] }
-                        ]}
+                        { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
+                        { type: "text", text: `ใบเบิก #${voucher.id}`, size: "sm", weight: "bold" },
+                        { type: "separator" },
+                        { type: "box", layout: "vertical", spacing: "xs", contents: itemSummary },
+                        { type: "text", text: "กรุณาติดต่อรับอุปกรณ์ที่คลังสินค้า", size: "xs", color: "#999999", margin: "md", wrap: true }
                     ]
                 }
             }
@@ -2236,18 +2264,34 @@
     // 3. อนุมัติทั้งหมด (แจ้งเตือน User)
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
+            // 1. ค้นหาข้อมูล Voucher เพื่อเอา userId และ รายการสินค้า
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
-            const targetUserId = voucher ? (voucher.userid || voucher.userId) : '';
+            if (!voucher) { alert('ไม่พบข้อมูลใบเบิก'); return; }
 
+            // ดึง UserId ของผู้เบิก (รองรับทั้งชื่อตัวเล็กตัวใหญ่จาก Database)
+            const targetUserId = voucher.userid || voucher.userId; 
+            const items = voucher.items; // รายการสินค้าที่อยู่ในใบเบิก
+
+            // 2. สั่งงานที่ Server
             callServerFunction('approveVoucher', { voucherId }).then(() => {
-                // ✅ ส่ง Flex Message สีเขียว
+                
+                // 3. ✅ ส่งแจ้งเตือน Flex Message (ส่งหลังจากอนุมัติสำเร็จแล้ว)
                 if (targetUserId) {
-                    const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', `ใบเบิก #${voucherId} ได้รับการอนุมัติแล้ว ติดต่อรับของได้เลย`, '#10B981');
-                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
+                    // ส่ง title, ก้อน voucher, ก้อน items, และสีเขียว
+                    const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucher, items, '#10B981');
+                    
+                    fetch('/api/push', { 
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify({ userId: targetUserId, messages: [flex] }) 
+                    }).catch(console.error);
                 }
+
                 showToast('อนุมัติสำเร็จ');
                 hideApprovalModal();
-                initializeApp();
+                initializeApp(); // รีโหลดข้อมูลหน้าจอ
+            }).catch(err => {
+                alert('เกิดข้อผิดพลาดในการอนุมัติ: ' + err.message);
             });
         }
     }
@@ -2561,8 +2605,8 @@
             });
 
             // --- 🔔 สร้าง Flex Message ---
-            const userFlex = createIssueFlex(newVoucher.id, userName, dept, cart.length, 'รออนุมัติ');
-            const adminFlex = createIssueFlex(newVoucher.id, userName, dept, cart.length, 'รอตรวจสอบ (Admin)');
+            const userFlex = createIssueFlex(newVoucher.id, userName, dept, cart, 'รออนุมัติ'); // เพิ่ม cart เข้าไป
+            const adminFlex = createIssueFlex(newVoucher.id, userName, dept, cart, 'มีใบเบิกใหม่ถึงคุณ');
 
             // 4. ✅ แจ้งเตือนผู้เบิก (User) - แบบ Flex
             if (currentUserId) {
