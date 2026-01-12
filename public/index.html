@@ -2448,10 +2448,10 @@
         if(userLinks) userLinks.classList.remove('hidden');
     }
 
-    // ฟังก์ชันบันทึกการเบิก (Issue) - แจ้งเตือนเข้าส่วนตัว (OA) แทนกลุ่ม
+    // ฟังก์ชันบันทึกการเบิก (Issue) - อัปเดตให้แจ้งเตือนเข้าส่วนตัว (OA)
     async function saveIssueVoucher() {
         try {
-            // 1. สร้างตัวแปร cart จากหน้าจอ
+            // 1. ดึงรายการสินค้าที่เลือก (Cart)
             let cart = [];
             document.querySelectorAll('#issueItemsContainer .issue-item').forEach(row => {
                 const itemIdInput = row.querySelector('.item-select-value');
@@ -2475,18 +2475,19 @@
             const empId = empIdInput ? empIdInput.value : '';
             const dept = deptInput ? deptInput.value : '';
 
-            // 3. Validation
+            // 3. Validation ตรวจสอบความถูกต้อง
             if (cart.length === 0) { alert('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ'); return; }
             if (!userName || !empId || !dept) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-            // 4. เตรียมข้อมูลส่งขึ้น Server
+            // 4. ดึง UserID จาก LIFF
             const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
             
+            // เตรียมข้อมูลส่งให้ Backend
             const payload = {
                 user: userName,
                 employeeId: empId,
                 department: dept,
-                userId: currentUserId,
+                userId: currentUserId, // ส่ง userId ไปด้วย
                 items: cart
             };
 
@@ -2503,33 +2504,35 @@
                 const itemsCount = cart.length;
                 const msg = `✅ ได้รับใบเบิกแล้วครับ!\n📄 ใบเบิกเลขที่: #${newVoucher.id}\n📦 จำนวน: ${itemsCount} รายการ\n⏳ สถานะ: รอตรวจสอบ\n\nโปรดรอแอดมินอนุมัติสักครู่นะครับ`;
                 
-                // ยิงไปที่ API Push ของเรา
-                await fetch('/api/push', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUserId, message: msg })
-                }).catch(err => console.error('Push Error:', err));
+                try {
+                    // เรียกใช้ API Push ของเราเอง
+                    await fetch('/api/push', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: currentUserId, message: msg })
+                    });
+                    console.log('Push notification sent');
+                } catch (err) {
+                    console.error('Push Error:', err);
+                }
             }
+            // ------------------------------------------------------------------
 
-            // 7. สำเร็จ! รีเซ็ตหน้าจอ
             if(typeof hideLoading === 'function') hideLoading();
-            
-            // ไม่ต้อง Alert รบกวนแล้ว เพราะไลน์เด้งบอกแล้ว หรือจะเปิดไว้ก็ได้
-            // alert('บันทึกข้อมูลเรียบร้อยแล้ว!'); 
+            alert('บันทึกใบเบิกเรียบร้อยแล้ว!');
 
+            // Reset Form และหน้าจอ
             document.getElementById('issueForm').reset();
             document.getElementById('issueItemsContainer').innerHTML = '';
-            cart = []; 
+            
             if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
-            // 8. โหลดข้อมูลใหม่
+            // โหลดข้อมูลใหม่และกลับหน้า Dashboard
             if(typeof callServerFunction === 'function' && typeof onDataLoaded === 'function') {
                 const updatedData = await callServerFunction('getInitialData');
                 onDataLoaded(updatedData);
+                showPage('dashboard');
             }
-            
-            // กลับไปหน้า Dashboard
-            if (typeof showPage === 'function') showPage('userDashboard');
 
         } catch (error) {
             if(typeof hideLoading === 'function') hideLoading();
