@@ -2336,28 +2336,88 @@
         autoFillUserIdentity();
     }
 
-    function renderUserDashboard() {
-        // 1. ตรวจสอบว่ามีกล่อง User Dashboard หรือไม่
+function renderUserDashboard() {
         const dashboardDiv = document.getElementById('userDashboardPanel'); 
         if (!dashboardDiv) return;
 
-        // 2. ป้องกัน Error จากตัวแปร liffProfile (ใส่ค่า Default ไว้ก่อน)
+        dashboardDiv.classList.remove('hidden');
+
+        // 1. ดึงข้อมูล User (ชื่อ + รูป)
         const displayName = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'พนักงาน';
         const pictureUrl = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.pictureUrl : null;
         
-        // 3. สร้าง HTML รูปโปรไฟล์ (ถ้าไม่มีรูป ให้ใช้ไอคอนคน)
         const profileImgHtml = pictureUrl 
             ? `<img src="${pictureUrl}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">`
             : `<div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-2 border-white shadow-sm"><i class="fa-solid fa-user"></i></div>`;
 
-        // 4. ดึงข้อมูล (ใส่เครื่องหมาย ? ป้องกัน Error ถ้าข้อมูลยังไม่โหลด)
+        // 2. คำนวณสถิติ
         const myLoans = currentData.loanTransactions?.filter(l => l.borrowerName === displayName && l.status === 'on_loan') || [];
         const myRequests = currentData.issueVouchers?.filter(v => v.user === displayName && v.status === 'pending') || [];
 
-        // 5. วาดหน้าจอ (HTML)
+        // -------------------------------------------------------------
+        // 3. ส่วนคำนวณ Timeline (ต้องมีส่วนนี้ Timeline ถึงจะขึ้น)
+        // -------------------------------------------------------------
+        const lastVoucher = currentData.issueVouchers
+            ?.filter(v => v.user === displayName) // กรองเอาเฉพาะของ user นี้
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]; // เรียงเอาใบล่าสุด
+
+        let timelineHtml = ''; // ค่าเริ่มต้นเป็นว่าง
+        
+        if (lastVoucher) {
+            // กำหนดสีและสถานะ
+            let statusColor = 'bg-gray-300';
+            let statusText = 'รอดำเนินการ';
+            let step2Class = 'opacity-50'; 
+            let step3Class = 'opacity-50'; 
+
+            if (lastVoucher.status === 'pending') {
+                statusColor = 'bg-yellow-400 animate-pulse';
+                statusText = 'กำลังรออนุมัติ';
+                step2Class = ''; 
+            } else if (lastVoucher.status === 'approved') {
+                statusColor = 'bg-teal-500';
+                statusText = 'อนุมัติแล้ว';
+                step2Class = '';
+                step3Class = ''; 
+            } else if (lastVoucher.status === 'rejected') {
+                statusColor = 'bg-red-500';
+                statusText = 'ถูกปฏิเสธ';
+                step2Class = '';
+            }
+
+            // สร้าง HTML ของ Timeline
+            timelineHtml = `
+            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6 mx-2 animate-fade-in-up">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-gray-700">คำขอล่าสุด #${lastVoucher.id}</h3>
+                    <span class="text-[10px] text-gray-400">${new Date(lastVoucher.timestamp).toLocaleDateString('th-TH')}</span>
+                </div>
+                
+                <div class="relative pl-4 border-l-2 border-gray-200 space-y-6">
+                    <div class="relative">
+                        <div class="absolute -left-[21px] bg-teal-500 h-4 w-4 rounded-full border-2 border-white"></div>
+                        <p class="text-xs text-gray-500">ส่งคำขอเรียบร้อย</p>
+                    </div>
+
+                    <div class="relative ${step2Class}">
+                        <div class="absolute -left-[21px] ${statusColor} h-4 w-4 rounded-full border-2 border-white"></div>
+                        <p class="text-sm font-bold text-gray-800">${statusText}</p>
+                        ${lastVoucher.status === 'rejected' ? '<p class="text-xs text-red-400">กรุณาติดต่อแอดมิน</p>' : ''}
+                    </div>
+
+                    <div class="relative ${step3Class}">
+                        <div class="absolute -left-[21px] ${lastVoucher.status === 'approved' ? 'bg-teal-500' : 'bg-gray-200'} h-4 w-4 rounded-full border-2 border-white"></div>
+                        <p class="text-xs text-gray-500">รับของที่จุดจ่าย</p>
+                    </div>
+                </div>
+            </div>`;
+        }
+        // -------------------------------------------------------------
+
+        // 4. แสดงผล HTML (ส่วนที่คุณส่งมาถาม)
         dashboardDiv.innerHTML = `
-            <div class="px-2 pt-4 pb-24 max-w-md mx-auto animate-fade-in">
-                <div class="flex items-center justify-between mb-8 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm">
+            <div class="pt-4 pb-24 max-w-md mx-auto animate-fade-in">
+                <div class="px-2 flex items-center justify-between mb-6 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm mx-2">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">สวัสดี, คุณ${displayName}</h2>
                         <p class="text-gray-500 text-xs mt-1">ขอให้วันนี้เป็นวันที่ปลอดภัย :)</p>
@@ -2365,15 +2425,17 @@
                     ${profileImgHtml}
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mb-8">
-                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:border-teal-200">
+                ${timelineHtml}
+
+                <div class="grid grid-cols-2 gap-3 mb-6 px-2">
+                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
                         <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg"><i class="fa-solid fa-hand-holding-box"></i></div>
                         <div class="text-center">
                             <span class="block text-2xl font-bold text-gray-800">${myLoans.length}</span>
                             <span class="text-xs text-gray-500 font-medium">อุปกรณ์ที่ยืมอยู่</span>
                         </div>
                     </div>
-                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:border-orange-200">
+                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
                         <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg"><i class="fa-solid fa-clock"></i></div>
                         <div class="text-center">
                             <span class="block text-2xl font-bold text-gray-800">${myRequests.length}</span>
@@ -2382,8 +2444,8 @@
                     </div>
                 </div>
 
-                <h3 class="text-sm font-bold text-gray-700 mb-4 px-1">เมนูด่วน</h3>
-                <div class="space-y-3 mb-8">
+                <h3 class="text-sm font-bold text-gray-700 mb-3 px-3">เมนูด่วน</h3>
+                <div class="space-y-3 mb-8 px-2">
                      <button onclick="showPage('issue')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class="fa-solid fa-box-open"></i></div>
@@ -2398,11 +2460,6 @@
                         </div>
                         <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-purple-500"></i>
                     </button>
-                </div>
-                
-                <div class="mt-8 text-center pb-8">
-                    <button onclick="window.location.reload()" class="text-xs text-gray-300 hover:text-gray-500 mr-3">รีโหลดระบบ</button>
-                    <button onclick="showLoginModal()" class="text-xs text-gray-300 hover:text-teal-600">Admin Login</button>
                 </div>
             </div>
         `;
