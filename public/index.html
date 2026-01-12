@@ -1428,6 +1428,279 @@
         }).join('');
     }
 
+    // ==========================================
+    // 1. ระบบเลือกสินค้า (Catalog Logic)
+    // ==========================================
+    let onItemSelectedCallback = null;
+
+    function openItemSelector(callback) {
+        onItemSelectedCallback = callback;
+        document.getElementById('itemSelectorModal').classList.remove('hidden');
+        document.getElementById('selectorSearch').value = ''; 
+        renderSelectorItems();
+    }
+
+    function closeItemSelector() {
+        document.getElementById('itemSelectorModal').classList.add('hidden');
+        onItemSelectedCallback = null;
+    }
+
+    function renderSelectorItems() {
+        const container = document.getElementById('selectorGrid');
+        const searchText = document.getElementById('selectorSearch').value.toLowerCase();
+        
+        // กรองรายการสินค้า
+        const items = currentData.ppeItems.filter(item => 
+            (item.name.toLowerCase().includes(searchText) || item.code.toLowerCase().includes(searchText))
+        );
+
+        if (items.length === 0) {
+            container.innerHTML = `<div class="col-span-full text-center text-gray-400 py-10">ไม่พบสินค้า</div>`;
+            return;
+        }
+
+        container.innerHTML = items.map(item => {
+            const imgUrl = item.image_url || 'https://placehold.co/150x150?text=No+Image'; 
+            const isOutOfStock = Number(item.stock) <= 0;
+            const borderClass = isOutOfStock ? 'border-red-200 bg-red-50/50' : 'border-gray-200 bg-white hover:border-teal-400 hover:shadow-md';
+            
+            return `
+            <div class="flex border ${borderClass} rounded-xl overflow-hidden cursor-pointer h-32 group relative" onclick="selectItemFromGrid(${item.id})">
+                <div class="w-32 flex-shrink-0 bg-white border-r border-gray-100 relative">
+                    <img src="${imgUrl}" class="absolute inset-0 w-full h-full object-contain p-2">
+                     ${isOutOfStock ? '<div class="absolute inset-0 bg-white/80 flex items-center justify-center"><span class="bg-red-600 text-white text-[10px] px-2 py-1 rounded">หมด</span></div>' : ''}
+                </div>
+                <div class="flex-1 p-3 flex flex-col justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold text-gray-400 border px-1 rounded">${item.code}</span>
+                        <h4 class="font-bold text-sm mt-1 line-clamp-2">${item.name}</h4>
+                    </div>
+                    <div class="flex justify-between items-end text-xs text-gray-500">
+                        <span>คงเหลือ: ${item.stock} ${item.unit}</span>
+                        <i class="fa-solid fa-circle-plus text-teal-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function selectItemFromGrid(itemId) {
+        const item = currentData.ppeItems.find(i => i.id == itemId);
+        if (item && onItemSelectedCallback) {
+            onItemSelectedCallback(item);
+            closeItemSelector();
+        }
+    }
+
+    // ==========================================
+    // 2. ตัวเชื่อมปุ่มกดกับแคตตาล็อก (Wrappers)
+    // ==========================================
+    function openIssueCatalog() {
+        openItemSelector((item) => addIssueRow(item));
+    }
+
+    function openLoanCatalog() {
+        openItemSelector((item) => {
+            document.getElementById('loanItemId').value = item.id;
+            // อัปเดต UI หน้าจอ
+            const nameEl = document.getElementById('loanItemName');
+            nameEl.textContent = item.name;
+            nameEl.classList.remove('text-gray-500');
+            nameEl.classList.add('text-gray-900', 'font-bold');
+            
+            // โชว์รูป
+            const img = document.getElementById('loanItemImg');
+            if(item.image_url) {
+                img.src = item.image_url;
+                img.classList.remove('hidden');
+                document.getElementById('loanItemImgPlaceholder').classList.add('hidden');
+            } else {
+                img.classList.add('hidden');
+                document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+            }
+        });
+    }
+
+    function openReceiveCatalog() {
+        openItemSelector((item) => {
+            document.getElementById('receiveItemId').value = item.id;
+            const nameEl = document.getElementById('receiveItemName');
+            nameEl.textContent = item.name;
+            nameEl.classList.remove('text-gray-500');
+            nameEl.classList.add('text-gray-900', 'font-bold');
+            
+             const img = document.getElementById('receiveItemImg');
+            if(item.image_url) {
+                img.src = item.image_url;
+                img.classList.remove('hidden');
+                document.getElementById('receiveItemImgPlaceholder').classList.add('hidden');
+            } else {
+                img.classList.add('hidden');
+                document.getElementById('receiveItemImgPlaceholder').classList.remove('hidden');
+            }
+        });
+    }
+
+    // ==========================================
+    // 3. ฟังก์ชันจัดการฟอร์ม (Form Helpers)
+    // ==========================================
+    function addIssueRow(item) {
+        const container = document.getElementById('issueItemsContainer');
+        
+        // ป้องกันเลือกซ้ำ
+        if (container.querySelector(`input[value="${item.id}"]`)) {
+            return showToast('เลือกรายการนี้ไปแล้ว', 'error');
+        }
+        
+        const rowId = 'row-' + Date.now();
+        const img = item.image_url || 'https://placehold.co/100?text=Box';
+        
+        container.insertAdjacentHTML('beforeend', `
+            <div id="${rowId}" class="issue-item flex gap-3 p-3 bg-white border border-gray-200 rounded-lg shadow-sm mb-2">
+                <input type="hidden" class="item-select-value" value="${item.id}">
+                <img src="${img}" class="w-12 h-12 rounded object-cover border">
+                <div class="flex-1 min-w-0">
+                    <h4 class="font-bold text-gray-800 text-sm truncate">${item.name}</h4>
+                    <p class="text-xs text-gray-500">เหลือ: ${item.stock} ${item.unit}</p>
+                </div>
+                <div class="flex flex-col items-end gap-1">
+                    <input type="number" class="item-quantity w-16 border rounded text-center py-1 font-bold text-gray-700" value="1" min="1" max="${item.stock}">
+                    <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-xs text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i> ลบ</button>
+                </div>
+            </div>
+        `);
+    }
+
+    function resetIssueForm() {
+        document.getElementById('issueForm').reset();
+        const container = document.getElementById('issueItemsContainer');
+        if(container) container.innerHTML = '';
+        
+        // ถ้าเป็น User ให้เติมชื่อกลับเข้าไป (ถ้ามีฟังก์ชันนี้)
+        if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
+    }
+    
+    // ฟังก์ชันดูรูปขยาย (Image Preview)
+    function openImagePreview(url, e) {
+        if(e) e.stopPropagation();
+        const img = document.getElementById('previewImage');
+        if(img) {
+            img.src = url;
+            document.getElementById('imagePreviewModal').classList.remove('hidden');
+        }
+    }
+    
+    function closeImagePreview() {
+        document.getElementById('imagePreviewModal').classList.add('hidden');
+    }
+
+    // ==========================================
+    // 4. ฟังก์ชันดูรูป (Image Preview)
+    // ==========================================
+    function openImagePreview(url, e) {
+        if(e) e.stopPropagation();
+        const img = document.getElementById('previewImage');
+        img.src = url;
+        document.getElementById('imagePreviewModal').classList.remove('hidden');
+    }
+    function closeImagePreview() {
+        document.getElementById('imagePreviewModal').classList.add('hidden');
+        document.getElementById('previewImage').src = '';
+    }
+
+    // ==========================================
+    // 5. User Interface Setup (Line LIFF)
+    // ==========================================
+    function setupUserInterface() {
+        document.querySelector('aside').classList.add('hidden');
+        document.querySelector('header').classList.add('hidden');
+        const adminMenuMobile = document.getElementById('adminMenuMobile');
+        if(adminMenuMobile) adminMenuMobile.classList.add('hidden');
+        
+        const nav = document.querySelector('nav.lg\\:hidden');
+        if(nav) nav.classList.remove('hidden');
+        
+        renderUserDashboard();
+        autoFillUserIdentity();
+    }
+
+    function renderUserDashboard() {
+        const div = document.getElementById('dashboardContent');
+        if(!div) return;
+        
+        const name = (liffProfile && liffProfile.displayName) ? liffProfile.displayName : 'พนักงาน';
+        const pic = (liffProfile && liffProfile.pictureUrl) ? liffProfile.pictureUrl : null;
+        const picHtml = pic ? `<img src="${pic}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm">` : `<div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center"><i class="fa-solid fa-user text-gray-400"></i></div>`;
+
+        // Filter data
+        const myLoans = currentData.loanTransactions.filter(l => l.borrowerName === name && l.status === 'on_loan');
+        const myReqs = currentData.issueVouchers.filter(v => v.user === name && v.status === 'pending');
+
+        div.innerHTML = `
+        <div class="px-2 pt-4 pb-24 max-w-md mx-auto">
+            <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl border border-teal-100 shadow-sm bg-gradient-to-r from-teal-50 to-white">
+                <div><h2 class="text-xl font-bold text-gray-800">สวัสดี, ${name}</h2><p class="text-xs text-gray-500">ขอให้วันนี้ปลอดภัย :)</p></div>
+                ${picHtml}
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div onclick="showPage('loan')" class="card-calm p-4 text-center cursor-pointer active:scale-95 transition-transform"><div class="w-10 h-10 mx-auto bg-teal-100 rounded-full flex items-center justify-center mb-2 text-teal-600"><i class="fa-solid fa-hand-holding-box"></i></div><span class="text-3xl font-bold text-gray-800 block">${myLoans.length}</span><span class="text-xs text-gray-500">ของที่ยืมอยู่</span></div>
+                <div onclick="showPage('allHistory')" class="card-calm p-4 text-center cursor-pointer active:scale-95 transition-transform"><div class="w-10 h-10 mx-auto bg-orange-100 rounded-full flex items-center justify-center mb-2 text-orange-600"><i class="fa-solid fa-clock"></i></div><span class="text-3xl font-bold text-gray-800 block">${myReqs.length}</span><span class="text-xs text-gray-500">รออนุมัติ</span></div>
+            </div>
+            <h3 class="font-bold text-gray-700 mb-3 px-1">เมนูด่วน</h3>
+            <div class="space-y-3">
+                <button onclick="showPage('issue')" class="w-full card-calm p-4 flex items-center gap-4 hover:shadow-md transition-shadow"><div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class="fa-solid fa-box-open"></i></div><div class="text-left"><p class="font-bold text-gray-800 text-sm">เบิกอุปกรณ์</p><p class="text-[10px] text-gray-400">ใช้แล้วหมดไป (หน้ากาก, ถุงมือ)</p></div><i class="fa-solid fa-chevron-right ml-auto text-gray-300"></i></button>
+                <button onclick="showPage('loan')" class="w-full card-calm p-4 flex items-center gap-4 hover:shadow-md transition-shadow"><div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl"><i class="fa-solid fa-screwdriver-wrench"></i></div><div class="text-left"><p class="font-bold text-gray-800 text-sm">ยืม-คืน เครื่องมือ</p><p class="text-[10px] text-gray-400">สว่าน, เครื่องวัด, ชุดเซฟตี้</p></div><i class="fa-solid fa-chevron-right ml-auto text-gray-300"></i></button>
+            </div>
+            
+            ${myLoans.length > 0 ? `
+            <h3 class="font-bold text-gray-700 mt-6 mb-3 px-1">รายการที่ต้องคืน</h3>
+            <div class="space-y-3">
+                ${myLoans.map(l => {
+                    const item = currentData.ppeItems.find(i => i.id == l.itemId);
+                    const due = new Date(l.dueDate);
+                    const isLate = due < new Date();
+                    return `<div class="bg-white p-3 rounded-xl border ${isLate?'border-red-300 bg-red-50':'border-gray-200'} flex items-center gap-3">
+                        <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border">${item?.image_url ? `<img src="${item.image_url}" class="w-full h-full object-cover">` : '<i class="fa-solid fa-box m-auto text-gray-400"></i>'}</div>
+                        <div class="flex-1"><p class="text-sm font-bold text-gray-800">${item?.name||'Unknown'}</p><p class="text-xs ${isLate?'text-red-500 font-bold':'text-gray-500'}">คืน: ${due.toLocaleDateString('th-TH')}</p></div>
+                        <button onclick="showPage('loan')" class="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600">คืน</button>
+                    </div>`
+                }).join('')}
+            </div>` : ''}
+
+            <div class="mt-10 text-center">
+                <button onclick="window.location.reload()" class="text-xs text-gray-400 underline">รีโหลดระบบ</button>
+                <button onclick="showLoginModal()" class="ml-4 text-xs text-gray-300">Admin</button>
+            </div>
+        </div>`;
+    }
+
+    function autoFillUserIdentity() {
+        if(liffProfile) {
+            const u = document.getElementById('issueUser'); if(u) { u.value = liffProfile.displayName; u.readOnly = true; u.classList.add('bg-gray-100'); }
+            const b = document.getElementById('borrowerName'); if(b) { b.value = liffProfile.displayName; b.readOnly = true; b.classList.add('bg-gray-100'); }
+        }
+    }
+
+    // ==========================================
+    // ฟังก์ชันดูรูปภาพขยาย (Image Preview)
+    // ==========================================
+    function openImagePreview(url, e) {
+        if(e) e.stopPropagation(); // ป้องกันไม่ให้ไปกดเลือกสินค้า
+        
+        const img = document.getElementById('previewImage');
+        img.src = url;
+        img.classList.remove('animate-pulse'); // รีเซ็ต animation
+        void img.offsetWidth; // trigger reflow
+        img.classList.add('animate-pulse'); // เล่น animation
+        
+        document.getElementById('imagePreviewModal').classList.remove('hidden');
+    }
+
+    function closeImagePreview() {
+        document.getElementById('imagePreviewModal').classList.add('hidden');
+        document.getElementById('previewImage').src = '';
+    }
+
     // ===========================================
     // >>>>>>>> ส่วนที่ขาดหายไป (Admin & Logic) <<<<<<<<<<
     // ===========================================
@@ -1769,127 +2042,6 @@
             newConfirmBtn.addEventListener('click', handleConfirm);
             newCancelBtn.addEventListener('click', handleCancel);
         });
-    }
-
-    // ==========================================
-    // ฟังก์ชันจัดการรายการเบิกแบบใหม่ (New Issue Logic)
-    // ==========================================
-
-    // 1. เปิดหน้าต่างแคตตาล็อกสินค้า
-    function openIssueCatalog() {
-        // เรียกใช้ Modal เลือกของ (ต้องมีฟังก์ชัน openItemSelector จากขั้นตอนก่อนหน้านี้แล้ว)
-        openItemSelector((selectedItem) => {
-            addIssueRow(selectedItem); // เมื่อเลือกเสร็จ ให้ส่งของที่เลือกมาสร้างแถว
-        });
-    }
-
-    // ==========================================
-    // ฟังก์ชันสำหรับหน้ายืม-คืน (Loan Logic)
-    // ==========================================
-
-    function openLoanCatalog() {
-        // เรียกใช้ Modal Item Selector
-        openItemSelector((item) => {
-            // 1. อัปเดต ID ลงใน Hidden Input
-            document.getElementById('loanItemId').value = item.id;
-            
-            // 2. อัปเดตชื่ออุปกรณ์ (เปลี่ยนสีตัวอักษรให้เข้มขึ้น)
-            const nameEl = document.getElementById('loanItemName');
-            nameEl.textContent = item.name;
-            nameEl.classList.remove('text-gray-500');
-            nameEl.classList.add('text-gray-800', 'font-bold');
-            
-            // 3. อัปเดตรหัสและจำนวนคงเหลือ
-            const codeEl = document.getElementById('loanItemCode');
-            codeEl.textContent = `รหัส: ${item.code} | พร้อมใช้: ${item.stock} ${item.unit}`;
-            codeEl.classList.remove('hidden');
-            
-            // 4. อัปเดตรูปภาพ
-            const imgPlaceholder = document.getElementById('loanItemImgPlaceholder');
-            const img = document.getElementById('loanItemImg');
-            
-            if (item.image_url) {
-                // กรณีมีรูป: โชว์รูป ซ่อนกล่องเปล่า
-                img.src = item.image_url;
-                img.classList.remove('hidden');
-                imgPlaceholder.classList.add('hidden');
-            } else {
-                // กรณีไม่มีรูป: ซ่อนรูป โชว์กล่องเปล่า
-                img.classList.add('hidden');
-                imgPlaceholder.classList.remove('hidden');
-            }
-        });
-    }
-
-    function openReceiveCatalog() {
-        openItemSelector((item) => {
-            document.getElementById('receiveItemId').value = item.id;
-            
-            const nameEl = document.getElementById('receiveItemName');
-            nameEl.textContent = item.name;
-            nameEl.classList.remove('text-gray-500');
-            nameEl.classList.add('text-gray-800', 'font-bold');
-            
-            const codeEl = document.getElementById('receiveItemCode');
-            codeEl.textContent = `รหัส: ${item.code} | ปัจจุบันมี: ${item.stock}`;
-            codeEl.classList.remove('hidden');
-            
-            const imgPlaceholder = document.getElementById('receiveItemImgPlaceholder');
-            const img = document.getElementById('receiveItemImg');
-            
-            if (item.image_url) {
-                img.src = item.image_url;
-                img.classList.remove('hidden');
-                imgPlaceholder.classList.add('hidden');
-            } else {
-                img.classList.add('hidden');
-                imgPlaceholder.classList.remove('hidden');
-            }
-        });
-    }
-
-    // 2. สร้างแถวรายการสินค้า (พร้อมรูปภาพ) ลงในหน้าเบิก
-    function addIssueRow(item) {
-        // เช็คก่อนว่ามีรายการนี้อยู่แล้วไหม (ถ้ามีแล้วอาจจะไม่ต้องเพิ่มซ้ำ หรือให้เพิ่มซ้ำได้แล้วแต่ Logic)
-        const existingRow = document.querySelector(`#issueItemsContainer input[value="${item.id}"]`);
-        if (existingRow) {
-            showToast('รายการนี้ถูกเลือกไปแล้ว', 'error');
-            return;
-        }
-
-        const container = document.getElementById('issueItemsContainer');
-        const rowId = 'issue-row-' + Date.now(); // สร้าง ID สุ่มให้แถวไม่ซ้ำกัน
-        
-        // ใช้รูป Placeholder กรณีไม่มีรูปจริง
-        const imgUrl = item.image_url || 'https://placehold.co/100x100?text=No+Img';
-
-        const html = `
-        <div id="${rowId}" class="issue-item flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-lg shadow-sm transition-all hover:border-teal-400">
-            <input type="hidden" class="item-select-value" value="${item.id}">
-            
-            <div class="h-16 w-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
-                <img src="${imgUrl}" class="h-full w-full object-cover">
-            </div>
-            
-            <div class="flex-1 min-w-0">
-                <h4 class="font-bold text-gray-800 text-sm truncate">${item.name}</h4>
-                <p class="text-xs text-gray-500">รหัส: ${item.code} | คงเหลือ: ${item.stock} ${item.unit}</p>
-            </div>
-
-            <div class="flex flex-col items-end gap-1">
-                <div class="flex items-center gap-2">
-                    <input type="number" class="item-quantity w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold text-gray-700" value="1" min="1" max="${item.stock}">
-                    <span class="text-xs text-gray-500 w-8">${item.unit}</span>
-                </div>
-            </div>
-
-            <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-gray-400 hover:text-red-600 p-2 transition-colors" title="ลบรายการ">
-                <i class="fas fa-trash-alt"></i>
-            </button>
-        </div>
-        `;
-        
-        container.insertAdjacentHTML('beforeend', html);
     }
 
     // ===========================================
