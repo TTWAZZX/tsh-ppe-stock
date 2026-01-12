@@ -96,15 +96,15 @@
                 <i class="fa-solid fa-clock-rotate-left w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> ประวัติทั้งหมด
             </a>
             <div id="adminMenu" class="hidden pt-4 mt-4 border-t border-gray-200 space-y-2">
-                 <p class="px-4 text-xs font-semibold text-gray-400 uppercase">Admin</p>
+                 <p class="px-4 text-xs font-semibold text-gray-400 uppercase">Admin Tools</p>
                 <a href="#" onclick="showPage('pending')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
-                    <i class="fa-solid fa-hourglass-half w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รายการรออนุมัติ
+                    <i class="fa-solid fa-hourglass-half w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รออนุมัติ
                 </a>
                 <a href="#" onclick="showPage('manage')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
                     <i class="fa-solid fa-gear w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> จัดการอุปกรณ์
                 </a>
                 <a href="#" onclick="showPage('receive')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
-                    <i class="fa-solid fa-truck-ramp-box w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รับของเข้าสต็อก
+                    <i class="fa-solid fa-truck-ramp-box w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รับของเข้า
                 </a>
             </div>
         </nav>
@@ -781,45 +781,62 @@
         showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
     }
 
-    // แทนที่ฟังก์ชัน updateUI เดิม
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
         
+        // ประกาศตัวแปร Element
         const adminPanel = document.getElementById('adminDashboardPanel');
         const userPanel = document.getElementById('userDashboardPanel');
         const sidebar = document.querySelector('aside');
         const header = document.querySelector('header');
+        const adminMenu = document.getElementById('adminMenu'); // เมนู Admin ใน Sidebar
         const adminMenuMobile = document.getElementById('adminMenuMobile');
         const mobileNav = document.querySelector('nav.lg\\:hidden');
 
         if (isAdmin) {
-            // โหมด ADMIN
+            // --- โหมด ADMIN ---
+            // 1. จัดการ Dashboard Panel
             if(adminPanel) adminPanel.classList.remove('hidden');
             if(userPanel) userPanel.classList.add('hidden');
             
-            // แสดง Sidebar/Header
+            // 2. จัดการ Sidebar & Header
             if(sidebar) { sidebar.classList.remove('hidden', 'lg:flex'); sidebar.classList.add('flex'); }
             if(header) header.classList.remove('hidden');
+            
+            // 3. เปิดเมนู Admin
+            if(adminMenu) adminMenu.classList.remove('hidden');
             if(adminMenuMobile) adminMenuMobile.classList.remove('hidden');
+            
+            // 4. ซ่อนเมนู User ด้านล่าง (Mobile)
             if(mobileNav) mobileNav.classList.add('hidden');
 
-            updateDashboard(); // วาดกราฟ Admin
+            // 5. อัปเดตข้อมูลกราฟ (เรียกเฉพาะตอนเป็น Admin เท่านั้น!)
+            updateDashboard(); 
         } else {
-            // โหมด USER (ค่าเริ่มต้น)
+            // --- โหมด USER ---
+            // 1. จัดการ Dashboard Panel
             if(adminPanel) adminPanel.classList.add('hidden');
             if(userPanel) userPanel.classList.remove('hidden');
             
-            // ซ่อน Sidebar/Header
+            // 2. ซ่อน Sidebar & Header
             if(sidebar) sidebar.classList.add('hidden');
             if(header) header.classList.add('hidden');
+            
+            // 3. ซ่อนเมนู Admin
+            if(adminMenu) adminMenu.classList.add('hidden');
             if(adminMenuMobile) adminMenuMobile.classList.add('hidden');
+            
+            // 4. โชว์เมนู User ด้านล่าง (Mobile)
             if(mobileNav) mobileNav.classList.remove('hidden');
 
-            renderUserDashboard(); // วาดหน้า User
+            // 5. วาดหน้า User Dashboard
+            renderUserDashboard(); 
         }
 
+        // อัปเดตข้อมูลส่วนอื่นๆ
         updateAllTablesAndLists();
         populateAllDropdowns();
+        if(typeof renderCategoryList === 'function') renderCategoryList();
     }
 
     // แทนที่ฟังก์ชัน showPage เดิม
@@ -1014,16 +1031,19 @@
     // ===========================================
     // Dashboard Rendering (Safe Mode)
     function updateDashboard() {
-        if (!isAdmin || !document.getElementById('totalItems')) return; // ถ้าไม่ใช่ Admin หรือหาไม่เจอ ให้หยุด
+        // --- ส่วนที่เพิ่ม: ถ้าไม่ใช่ Admin หรือหา element ไม่เจอ ให้หยุดทันที (ห้ามรันต่อ) ---
+        if (!isAdmin || !document.getElementById('totalItems')) return; 
 
         const { ppeItems, issueVouchers, dashboardMetrics } = currentData;
         
-        document.getElementById('totalItems').textContent = ppeItems.length;
-        document.getElementById('lowStockItems').textContent = ppeItems.filter(item => Number(item.stock) <= Number(item.reorderPoint)).length;
-        document.getElementById('outOfStockItems').textContent = ppeItems.filter(item => Number(item.stock) === 0).length;
-        document.getElementById('pendingVouchers').textContent = issueVouchers.filter(v => v.status === 'pending').length;
-        document.getElementById('totalStockValue').textContent = `฿${(dashboardMetrics.totalStockValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        // อัปเดตตัวเลข (ใส่ if ดักไว้ทุกตัว เพื่อความชัวร์)
+        if(document.getElementById('totalItems')) document.getElementById('totalItems').textContent = ppeItems.length;
+        if(document.getElementById('lowStockItems')) document.getElementById('lowStockItems').textContent = ppeItems.filter(item => Number(item.stock) <= Number(item.reorderPoint)).length;
+        if(document.getElementById('outOfStockItems')) document.getElementById('outOfStockItems').textContent = ppeItems.filter(item => Number(item.stock) === 0).length;
+        if(document.getElementById('pendingVouchers')) document.getElementById('pendingVouchers').textContent = issueVouchers.filter(v => v.status === 'pending').length;
+        if(document.getElementById('totalStockValue')) document.getElementById('totalStockValue').textContent = `฿${(dashboardMetrics.totalStockValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         
+        // เรียกฟังก์ชันลูก (ต้องแก้ให้ปลอดภัยด้วย)
         updateLowStockList();
         updateOverdueLoansList();
         updateCategoryChart();
@@ -1031,21 +1051,27 @@
         updateRecentActivityFeed();
     }
 
+    // ต้องแก้ฟังก์ชันลูกด้วย ให้เช็ค container ก่อนเสมอ
     function updateLowStockList() {
         const container = document.getElementById('lowStockList');
-        if (!container) return; // ดัก Error
+        if (!container) return; // <--- สำคัญมาก: ถ้าไม่มีกล่องให้หยุด
 
-        const attentionItems = currentData.ppeItems.filter(item => Number(item.stock) <= Number(item.reorderPoint)).sort((a, b) => a.stock - b.stock);
+        const attentionItems = currentData.ppeItems
+            .filter(item => Number(item.stock) <= Number(item.reorderPoint))
+            .sort((a, b) => a.stock - b.stock);
+        
         if (attentionItems.length === 0) {
-            container.innerHTML = createEmptyState('ไม่มีรายการต้องสั่งซื้อ', 'fa-solid fa-thumbs-up');
+            container.innerHTML = createEmptyState('ไม่มีรายการที่ต้องสั่งซื้อเพิ่ม', 'fa-solid fa-thumbs-up');
             return;
         }
+        
         container.innerHTML = attentionItems.map(item => `
-            <div class="flex justify-between items-center p-2 border-b last:border-0">
-                <span class="text-sm font-medium text-gray-700">${item.name}</span>
-                <span class="text-xs font-bold ${item.stock==0?'text-red-600':'text-orange-500'}">${item.stock} ${item.unit}</span>
+            <div class="flex justify-between items-center p-2.5 border-b last:border-0">
+                <div><p class="font-medium text-sm text-gray-700">${item.name}</p><p class="text-xs text-gray-500">เหลือ: ${item.stock}</p></div>
+                <span class="text-xs font-bold ${item.stock==0?'text-red-600':'text-orange-500'}">${item.stock==0?'หมด':'ใกล้หมด'}</span>
             </div>`).join('');
     }
+
 
     function updateOverdueLoansList() {
         const container = document.getElementById('overdueLoansList');
