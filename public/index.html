@@ -2538,7 +2538,7 @@
         }
     }
 
-    // ฟังก์ชันบันทึกการยืม (Loan) - อัปเดตส่ง userId
+    // ฟังก์ชันบันทึกการยืม (Loan) - แก้ไขให้แจ้งเตือนเข้าไลน์ส่วนตัว (OA)
     function saveLoanTransaction() {
         // 1. รับค่าจากฟอร์ม
         const itemId = document.getElementById('loanItemId').value;
@@ -2552,7 +2552,7 @@
         if (!itemId) { alert('กรุณาเลือกอุปกรณ์ที่ต้องการยืม'); return; }
         if (!userName || !empId || !dept || !dueDate) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-        // 3. ดึง UserID จาก LIFF (ถ้ามี)
+        // 3. ดึง UserID จาก LIFF
         const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
 
         const borrowData = {
@@ -2560,7 +2560,7 @@
             borrowerName: userName,
             employeeId: empId,
             department: dept,
-            userId: currentUserId, // 👈 ส่ง UserID ไปด้วย
+            userId: currentUserId,
             dueDate: dueDate,
             notes: notes,
         };
@@ -2570,14 +2570,30 @@
 
         // 4. ส่งข้อมูลไป Server
         callServerFunction('borrowItem', borrowData)
-            .then(() => {
+            .then(async () => { // เพิ่ม async ตรงนี้เพื่อให้รอส่งไลน์ได้
                 if(typeof hideLoading === 'function') hideLoading();
                 
-                // แจ้งเตือนไลน์ Admin (ถ้าต้องการ)
-                if (typeof sendLineNotify === 'function') {
-                    const msg = `\n🛠️ มีการยืมเครื่องมือ!\n👤 โดย: ${userName}\n📦 รายการ: ${document.getElementById('loanItemName').innerText}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}`;
-                    sendLineNotify(msg);
+                // -----------------------------------------------------------
+                // ✅ แก้ไขใหม่: แจ้งเตือนเข้าไลน์ส่วนตัว (OA) แทน Notify กลุ่ม
+                // -----------------------------------------------------------
+                if (currentUserId) {
+                    const itemName = document.getElementById('loanItemName').innerText;
+                    const dateStr = new Date(dueDate).toLocaleDateString('th-TH');
+                    
+                    const msg = `🛠️ บันทึกการยืมสำเร็จ!\n📦 รายการ: ${itemName}\n👤 ผู้ยืม: ${userName}\n📅 กำหนดคืน: ${dateStr}\n\nอย่าลืมนำมาคืนตามกำหนดนะครับ`;
+                    
+                    try {
+                        await fetch('/api/push', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: currentUserId, message: msg })
+                        });
+                        console.log('Push notification sent');
+                    } catch (err) {
+                        console.error('Push Error:', err);
+                    }
                 }
+                // -----------------------------------------------------------
 
                 alert('บันทึกการยืมสำเร็จ');
                 
@@ -2588,7 +2604,7 @@
                 document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
                 document.getElementById('loanItemId').value = '';
                 
-                // Auto-fill ชื่อกลับไปใหม่ (ถ้าเป็น User)
+                // Auto-fill ชื่อกลับไปใหม่
                 if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
                 // อัปเดตข้อมูลและกลับหน้า Dashboard
