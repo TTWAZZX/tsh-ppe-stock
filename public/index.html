@@ -2621,8 +2621,10 @@
         }
     }
 
-    // ฟังก์ชันบันทึกการยืม (Loan) - แจ้งเตือน ผู้ยืม (OA) + แอดมิน (OA)
-    function saveLoanTransaction() {
+    // ฟังก์ชันบันทึกการยืม (Loan) - แบบส่งหาแอดมินชัวร์ๆ (รอส่งเสร็จค่อยแจ้งเตือน)
+    async function saveLoanTransaction(e) { // เพิ่ม async
+        if(e) e.preventDefault(); 
+        
         // 1. รับค่าจากฟอร์ม
         const itemId = document.getElementById('loanItemId').value;
         const userName = document.getElementById('loanUser').value;
@@ -2636,10 +2638,10 @@
         if (!itemId) { alert('กรุณาเลือกอุปกรณ์ที่ต้องการยืม'); return; }
         if (!userName || !empId || !dept || !dueDate) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
-        // 3. ดึง UserID ของคนยืม
+        // 3. เตรียม UserID
         const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
-
-        // 🔴🔴🔴 ใส่ UserID ของแอดมิน ตรงนี้ครับ 🔴🔴🔴
+        
+        // 🔴 ใส่ UserID แอดมินตรงนี้ (อย่าลืมตรวจสอบความถูกต้อง)
         const ADMIN_USER_ID = 'Ucadb3c0f63ada96c0432a0aede267ff9'; // <--- เปลี่ยนเป็น ID ของคุณ
 
         const borrowData = {
@@ -2654,60 +2656,71 @@
 
         if(typeof showLoading === 'function') showLoading();
 
-        // 4. ส่งข้อมูลไป Server
-        callServerFunction('borrowItem', borrowData)
-            .then(async () => {
-                if(typeof hideLoading === 'function') hideLoading();
+        try {
+            // 4. ส่งข้อมูลไปบันทึกที่ Server
+            await callServerFunction('borrowItem', borrowData);
+            
+            if(typeof hideLoading === 'function') hideLoading();
+
+            // -----------------------------------------------------------
+            // 🔔 1. แจ้งเตือนหา "ผู้ยืม"
+            // -----------------------------------------------------------
+            if (currentUserId) {
+                const dateStr = new Date(dueDate).toLocaleDateString('th-TH');
+                const userMsg = `🛠️ บันทึกการยืมสำเร็จ!\n📦 รายการ: ${itemName}\n📅 กำหนดคืน: ${dateStr}`;
                 
-                // -----------------------------------------------------------
-                // 🔔 1. แจ้งเตือนหา "ผู้ยืม" (LINE OA)
-                // -----------------------------------------------------------
-                if (currentUserId) {
-                    const dateStr = new Date(dueDate).toLocaleDateString('th-TH');
-                    const userMsg = `🛠️ บันทึกการยืมสำเร็จ!\n📦 รายการ: ${itemName}\n👤 ผู้ยืม: ${userName}\n📅 กำหนดคืน: ${dateStr}\n\nอย่าลืมนำมาคืนตามกำหนดนะครับ`;
-                    
-                    fetch('/api/push', {
+                // ไม่ต้องรอผู้ยืม (Fire & Forget)
+                fetch('/api/push', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUserId, message: userMsg })
+                }).catch(console.error);
+            }
+
+            // -----------------------------------------------------------
+            // 📢 2. แจ้งเตือนหา "แอดมิน" (รอให้ส่งเสร็จก่อน!)
+            // -----------------------------------------------------------
+            if (ADMIN_USER_ID) {
+                console.log("กำลังส่งหาแอดมิน ID:", ADMIN_USER_ID); // เช็ค Log ว่า ID ถูกไหม
+                
+                const adminMsg = `📢 มีรายการยืมใหม่! (OA)\n👤 ผู้ยืม: ${userName} (${dept})\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}\n📝 หมายเหตุ: ${notes || '-'}`;
+                
+                try {
+                    // ใช้ await เพื่อรอให้ส่งเสร็จจริงๆ
+                    await fetch('/api/push', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: currentUserId, message: userMsg })
-                    }).catch(err => console.error('User Push Error:', err));
+                        body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg })
+                    });
+                    console.log("✅ ส่งหาแอดมินสำเร็จ");
+                } catch (err) {
+                    console.error("❌ ส่งหาแอดมินล้มเหลว:", err);
+                    alert("บันทึกสำเร็จ แต่แจ้งเตือนแอดมินไม่ผ่าน (เช็ค Console)");
                 }
+            }
+            // -----------------------------------------------------------
 
-                // -----------------------------------------------------------
-                // 📢 2. แจ้งเตือนหา "แอดมิน" (LINE OA) **เปลี่ยนจาก Notify เป็น OA**
-                // -----------------------------------------------------------
-                if (ADMIN_USER_ID) {
-                    const adminMsg = `📢 มีรายการยืมใหม่! (OA)\n👤 ผู้ยืม: ${userName} (${dept})\n📦 อุปกรณ์: ${itemName}\n📅 คืนวันที่: ${new Date(dueDate).toLocaleDateString('th-TH')}\n📝 หมายเหตุ: ${notes || '-'}`;
-                    
-                    fetch('/api/push', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: ADMIN_USER_ID, message: adminMsg }) // ส่งหาแอดมิน
-                    }).catch(err => console.error('Admin Push Error:', err));
-                }
-                // -----------------------------------------------------------
+            alert('บันทึกการยืมสำเร็จ');
+            
+            // Reset Form
+            document.getElementById('loanForm').reset();
+            document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+            document.getElementById('loanItemImg').classList.add('hidden');
+            document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+            document.getElementById('loanItemId').value = '';
+            
+            if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
 
-                alert('บันทึกการยืมสำเร็จ');
-                
-                // Reset Form
-                document.getElementById('loanForm').reset();
-                document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
-                document.getElementById('loanItemImg').classList.add('hidden');
-                document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
-                document.getElementById('loanItemId').value = '';
-                
-                if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
+            // โหลดข้อมูลใหม่
+            const updatedData = await callServerFunction('getInitialData');
+            onDataLoaded(updatedData);
+            showPage('dashboard');
 
-                callServerFunction('getInitialData').then(data => {
-                    onDataLoaded(data);
-                    showPage('dashboard');
-                });
-            })
-            .catch(err => {
-                if(typeof hideLoading === 'function') hideLoading();
-                console.error(err);
-                alert('เกิดข้อผิดพลาด: ' + err.message);
-            });
+        } catch (error) {
+            if(typeof hideLoading === 'function') hideLoading();
+            console.error(error);
+            alert('เกิดข้อผิดพลาด: ' + error.message);
+        }
     }
 
     // ฟังก์ชันส่งไลน์ (เรียกใช้ API ที่เราเพิ่งสร้าง)
