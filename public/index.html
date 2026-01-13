@@ -2562,24 +2562,29 @@
 
     async function handleLiffConfirmReceive() {
 
-        // ⭐⭐ เพิ่มบรรทัดนี้ ⭐⭐
         console.log('🔥 handleLiffConfirmReceive CALLED');
 
+        const params = new URLSearchParams(window.location.search);
+
+        const modeFromUrl = params.get('mode');
+        const voucherIdFromUrl = params.get('voucherId');
+
+        if (modeFromUrl === 'confirmReceive' && voucherIdFromUrl) {
+            sessionStorage.setItem('confirm_mode', modeFromUrl);
+            sessionStorage.setItem('confirm_voucher_id', voucherIdFromUrl);
+        }
+
+        const mode = sessionStorage.getItem('confirm_mode');
+        const voucherId = Number(sessionStorage.getItem('confirm_voucher_id'));
+
+        if (mode !== 'confirmReceive' || !voucherId) return;
+
+        if (!liff.isLoggedIn()) {
+            liff.login();
+            return;
+        }
+
         try {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('mode') !== 'confirmReceive') return;
-
-            const voucherId = Number(params.get('voucherId'));
-            if (!voucherId) {
-                alert('ไม่พบเลขที่ใบเบิก');
-                return;
-            }
-
-            if (!liff.isLoggedIn()) {
-                liff.login();
-                return;
-            }
-
             const profile = await liff.getProfile();
 
             const ok = await showConfirmationModal(
@@ -2598,11 +2603,15 @@
             console.log('✅ confirmReceive success:', res);
             alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
 
+            sessionStorage.removeItem('confirm_mode');
+            sessionStorage.removeItem('confirm_voucher_id');
+
         } catch (err) {
             console.error('❌ confirmReceive error:', err);
             alert('เกิดข้อผิดพลาดของระบบ');
         }
     }
+
 
     function previewImageAdmin() {
         const url = document.getElementById('itemImage').value;
