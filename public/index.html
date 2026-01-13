@@ -993,16 +993,26 @@
         autoFillUserIdentity();
     }
     
+    // ค้นหา function onDataLoaded(data) { ... } แล้วเปลี่ยนไส้ในเป็นแบบนี้ครับ
     function onDataLoaded(data) {
+        console.log("Data loaded:", data); // ดูข้อมูลใน Console (กด F12) เพื่อเช็คความชัวร์
         currentData = data;
+
+        // ป้องกัน Error กรณี Backend ลืมส่งค่าบางอย่างมา
+        if (!currentData.dashboardMetrics) currentData.dashboardMetrics = {};
+        if (!currentData.ppeItems) currentData.ppeItems = [];
+        if (!currentData.issueVouchers) currentData.issueVouchers = [];
 
         window.departments = data.departments || [];
 
-        renderDepartmentSelect(); // ⭐ ต้องรันให้ dropdown แผนกขึ้น
+        // สร้างตัวเลือกแผนก
+        renderDepartmentSelect(); 
 
-        // ❌ ปิดไว้ก่อน ป้องกัน JS error
-        // renderDashboard();
-        // renderIssueVouchers();
+        // ✅ หัวใจสำคัญ: สั่งให้หน้าจออัปเดตข้อมูลทันทีหลังจากโหลดเสร็จ
+        updateUI(); 
+        
+        // ✅ สำคัญมาก: ซ่อน Loading Skeleton (ตัวโหลดสีเทาๆ) เพื่อโชว์หน้าจริง
+        hideDashboardSkeleton();
     }
 
     function onFailure(error) {
