@@ -998,12 +998,11 @@
 
         window.departments = data.departments || [];
 
-        renderDepartmentSelect(); // ⭐ สำคัญ
+        renderDepartmentSelect(); // ⭐ ต้องรันให้ dropdown แผนกขึ้น
 
-        // ❌ ปิดไว้ก่อน เพราะฟังก์ชันไม่มีอยู่
+        // ❌ ปิดไว้ก่อน ป้องกัน JS error
         // renderDashboard();
-
-        renderIssueVouchers();
+        // renderIssueVouchers();
     }
 
     function onFailure(error) {
