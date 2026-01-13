@@ -814,7 +814,7 @@
     // ===========================================
     const WEB_APP_URL = "/api/ppe";
     const ADMIN_USER_ID = 'Ucadb3c0f63ada96c0432a0aede267ff9';
-    
+    const CURRENT_ADMIN_NAME = window.currentAdminName || 'Admin';
 
     /**
      * Central function to call the Google Apps Script API.
@@ -822,6 +822,16 @@
      * @param {object} [payload=null] - The data to send.
      * @returns {Promise<any>} - A promise that resolves with the response data.
      */
+    function formatThaiDateTime(date = new Date()) {
+        return date.toLocaleString('th-TH', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     async function callServerFunction(action, payload = null) {
         showLoading();
         try {
@@ -2280,86 +2290,269 @@
         };
     }
 
+    function buildItemListForFlex(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return [{
+                type: "text",
+                text: "ไม่มีรายการอุปกรณ์",
+                size: "xs",
+                color: "#9CA3AF"
+            }];
+        }
+
+        return items.map(item => {
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : `อุปกรณ์ #${item.itemId}`;
+            const imageUrl = ppe?.image_url || 'https://via.placeholder.com/80';
+
+            return {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                    {
+                        type: "image",
+                        url: imageUrl,
+                        size: "sm",
+                        aspectRatio: "1:1",
+                        aspectMode: "cover"
+                    },
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        flex: 1,
+                        contents: [
+                            {
+                                type: "text",
+                                text: itemName,
+                                size: "sm",
+                                weight: "bold",
+                                wrap: true
+                            },
+                            {
+                                type: "text",
+                                text: `จำนวน: ${item.quantity}`,
+                                size: "xs",
+                                color: "#6B7280"
+                            }
+                        ]
+                    }
+                ]
+            };
+        });
+    }
+
+    function createApprovalFlex({ title, icon, color, voucher, items }) {
+
+        const liffUrl = `https://liff.line.me/YOUR_LIFF_ID?voucherId=${voucher.id}`;
+        const approveTime = formatThaiDateTime(new Date());
+
+        return {
+            type: "flex",
+            altText: `${title} (#${voucher.id})`,
+            contents: {
+                type: "bubble",
+                styles: {
+                    header: { backgroundColor: color }
+                },
+                header: {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        { type: "text", text: icon, size: "lg" },
+                        {
+                            type: "text",
+                            text: title,
+                            weight: "bold",
+                            color: "#FFFFFF",
+                            margin: "md"
+                        }
+                    ]
+                },
+                body: {
+                    type: "box",
+                    layout: "vertical",
+                    spacing: "sm",
+                    contents: [
+                        { type: "text", text: `ใบเบิกเลขที่ #${voucher.id}`, weight: "bold" },
+                        { type: "text", text: `ผู้เบิก: ${voucher.user}`, size: "sm" },
+                        { type: "text", text: `แผนก: ${voucher.department}`, size: "sm" },
+
+                        { type: "separator", margin: "sm" },
+
+                        // 🧑‍💼 Admin + เวลา
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            spacing: "xs",
+                            contents: [
+                                { type: "text", text: `อนุมัติโดย: ${CURRENT_ADMIN_NAME}`, size: "xs" },
+                                { type: "text", text: `เวลา: ${approveTime}`, size: "xs", color: "#6B7280" }
+                            ]
+                        },
+
+                        { type: "separator", margin: "sm" },
+
+                        // 📦 รายการอุปกรณ์
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            spacing: "sm",
+                            contents: buildItemListForFlex(items)
+                        }
+                    ]
+                },
+
+                // 🔘 ปุ่มเปิด LIFF
+                footer: {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                        {
+                            type: "button",
+                            style: "primary",
+                            color: color,
+                            action: {
+                                type: "uri",
+                                label: "ดูรายละเอียดใบเบิก",
+                                uri: liffUrl
+                            }
+                        }
+                    ]
+                }
+            }
+        };
+    }
+
+    async function sendApprovalLine(type, voucher, items) {
+
+        let title = 'อัปเดตใบเบิก';
+        let color = '#374151';
+        let icon = 'ℹ️';
+
+        if (type === 'approved') {
+            title = 'อนุมัติเรียบร้อย';
+            color = '#16A34A';
+            icon = '✅';
+        } else if (type === 'rejected') {
+            title = 'ไม่อนุมัติใบเบิก';
+            color = '#DC2626';
+            icon = '❌';
+        } else if (type === 'partial') {
+            title = 'อนุมัติบางส่วน';
+            color = '#D97706';
+            icon = '⚠️';
+        }
+
+        const flex = createApprovalFlex({
+            title,
+            icon,
+            color,
+            voucher,
+            items
+        });
+
+        await fetch('/api/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: voucher.userid,
+                messages: [flex]
+            })
+        });
+    }
+
     // ===========================================
     // 🛠️ ADMIN APPROVAL FUNCTIONS (เพิ่มกลับเข้าไป)
     // ===========================================
 
-    // ✅ ฟังก์ชันอนุมัติ
+    // ✅ ฟังก์ชันอนุมัติ (แก้แล้ว)
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
+
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
             if (!voucher) return;
-            const targetUserId = voucher.userid || voucher.userId;
-            
+
             let items = [];
             try {
-                items = (typeof voucher.itemsJson === 'string') ? JSON.parse(voucher.itemsJson) : (voucher.items || []);
-            } catch (e) { items = []; }
+                items = (typeof voucher.itemsJson === 'string')
+                    ? JSON.parse(voucher.itemsJson)
+                    : (voucher.itemsJson || []);
+            } catch { items = []; }
 
-            callServerFunction('approveVoucher', { voucherId }).then(() => {
-                if (targetUserId) {
-                    const flex = createStatusFlex(
-                    'อนุมัติเรียบร้อย 🎉',
-                    voucher.id,   // ✅ ส่งแค่ ID
-                    items,
-                    '#10B981'
-                    );
-                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
-                }
-                showToast('อนุมัติสำเร็จ');
-                hideApprovalModal();
-                initializeApp();
-            });
+            await callServerFunction('approveVoucher', { voucherId });
+
+            // ✅ ส่ง LINE ด้วยฟังก์ชันกลาง
+            await sendApprovalLine(
+                'approved',
+                voucher,
+                items
+            );
+
+            showToast('อนุมัติสำเร็จ');
+            hideApprovalModal();
+            initializeApp();
         }
     }
 
-    // ✅ ฟังก์ชันปฏิเสธ
+    // ✅ ฟังก์ชันปฏิเสธ (แก้แล้ว)
     async function rejectVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการปฏิเสธ', 'ต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?')) {
+
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
             if (!voucher) return;
-            const targetUserId = voucher.userid || voucher.userId;
 
             let items = [];
             try {
-                items = (typeof voucher.itemsJson === 'string') ? JSON.parse(voucher.itemsJson) : (voucher.items || []);
-            } catch (e) { items = []; }
+                items = (typeof voucher.itemsJson === 'string')
+                    ? JSON.parse(voucher.itemsJson)
+                    : (voucher.itemsJson || []);
+            } catch { items = []; }
 
-            callServerFunction('rejectVoucher', { voucherId }).then(() => {
-                if (targetUserId) {
-                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher.id, items, '#EF4444');
-                    fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
-                }
-                showToast('ปฏิเสธคำขอแล้ว');
-                hideApprovalModal();
-                initializeApp();
-            });
+            await callServerFunction('rejectVoucher', { voucherId });
+
+            // ✅ ส่ง LINE ด้วยฟังก์ชันกลาง
+            await sendApprovalLine(
+                'rejected',
+                voucher,
+                items
+            );
+
+            showToast('ปฏิเสธคำขอแล้ว');
+            hideApprovalModal();
+            initializeApp();
         }
     }
 
-    // ✅ ฟังก์ชันอนุมัติบางส่วน
-    function handlePartialApprove(voucherId) {
-        const items = [];
+    // ✅ ฟังก์ชันอนุมัติบางส่วน (แก้แล้ว)
+    async function handlePartialApprove(voucherId) {
+
+        const approvedItems = [];
         document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
-            items.push({ 
-                itemId: Number(row.dataset.itemId), 
-                quantity: Number(row.querySelector('.approved-quantity').value) 
+            approvedItems.push({
+                itemId: Number(row.dataset.itemId),
+                quantity: Number(row.querySelector('.approved-quantity').value)
             });
         });
 
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
         if (!voucher) return;
-        const targetUserId = voucher.userid || voucher.userId;
 
-        callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
-            if (targetUserId) {
-                const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher.id, items, '#F59E0B');
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
-            }
-            showToast('อนุมัติบางส่วนสำเร็จ');
-            hideApprovalModal();
-            initializeApp();
+        await callServerFunction('approvePartialVoucher', {
+            voucherId,
+            items: approvedItems
         });
+
+        // ✅ ส่ง LINE ด้วยฟังก์ชันกลาง
+        await sendApprovalLine(
+            'partial',
+            voucher,
+            approvedItems
+        );
+
+        showToast('อนุมัติบางส่วนสำเร็จ');
+        hideApprovalModal();
+        initializeApp();
     }
 
     function previewImageAdmin() {
@@ -2752,6 +2945,8 @@
             console.error('ส่งไลน์ไม่ผ่าน:', error);
         }
     }
+
+
 
 
 </script>
