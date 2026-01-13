@@ -21,7 +21,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // CORS เบื้องต้น (ถ้าคุณรัน index.html จากที่อื่น)
+  // CORS เบื้องต้น
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -35,9 +35,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // อ่าน body แบบ raw เพื่อรองรับ text/plain;charset=utf-8
     const rawBody = await getRawBody(req);
-    // rawBody จะเป็น string ประมาณ '{"action":"getInitialData","payload":null}'
     const { action, payload } = JSON.parse(rawBody || '{}');
 
     let result;
@@ -95,7 +93,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
 
-    return res.status(200).json({ status: 'success', data: result });
+    // ส่ง version กลับไปเพื่อเช็คว่า Server อัปเดตโค้ดแล้ว
+    return res.status(200).json({ status: 'success', data: result, version: '1.3-fix-lowercase' });
   } catch (err) {
     console.error('API Error:', err);
     return res.status(500).json({ status: 'error', message: err.message });
@@ -203,7 +202,6 @@ async function deleteCategory(categoryId) {
 async function savePpeItem(itemData) {
   if (!itemData) throw new Error('Missing item data');
 
-  // เตรียม object ข้อมูลที่จะบันทึก (เพิ่ม imageUrl เข้าไป)
   const payload = {
     code: itemData.code,
     name: itemData.name,
@@ -213,27 +211,25 @@ async function savePpeItem(itemData) {
     stock: itemData.stock || 0,
     onLoanQuantity: itemData.onLoanQuantity || 0,
     price: itemData.price || 0,
-    image_url: itemData.imageUrl || '', // <--- เพิ่มบรรทัดนี้ครับ
+    image_url: itemData.imageUrl || '',
   };
 
   if (itemData.id) {
-    // กรณี Update
     const { data, error } = await supabase
       .from('ppe_items')
-      .update(payload) // ใช้ payload ตัวเดียวกัน
+      .update(payload)
       .eq('id', itemData.id)
       .select()
       .single();
     if (error) throw error;
     return { item: data, isNew: false };
   } else {
-    // กรณี Insert ใหม่
     const nextId = await getNextId('ppe_items', 'id');
     const { data, error } = await supabase
       .from('ppe_items')
       .insert({
         id: nextId,
-        ...payload // Spread payload เข้าไป
+        ...payload
       })
       .select()
       .single();
@@ -242,7 +238,11 @@ async function savePpeItem(itemData) {
   }
 }
 
+// ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
 async function addNewVoucher(voucherData) {
+  // Debug Log
+  console.log("🔥 [addNewVoucher] Payload:", JSON.stringify(voucherData));
+
   const nextId = await getNextId('issue_vouchers', 'id');
   const { data, error } = await supabase
     .from('issue_vouchers')
@@ -250,14 +250,22 @@ async function addNewVoucher(voucherData) {
       id: nextId,
       timestamp: new Date().toISOString(),
       user: voucherData.user,
-      department: voucherData.department,
+      department: voucherData.department, // แผนก
+      
+      // *** เปลี่ยนเป็นตัวพิมพ์เล็กให้ตรงกับ Supabase ***
+      employeeid: voucherData.employeeId || '', 
+      userid: voucherData.userId || '',         
+      
       status: 'pending',
       adminNotes: '',
       itemsJson: voucherData.items,
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+      console.error("🔥 [addNewVoucher] Error:", error);
+      throw error;
+  }
   return data;
 }
 
@@ -376,9 +384,12 @@ async function addReceiveTransactionAndUpdateStock(tx) {
   return { updatedStockItems };
 }
 
+// ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
 async function borrowItem(borrowData) {
-  const nextId = await getNextId('loan_transactions', 'loanId');
+  // Debug Log
+  console.log("🔥 [borrowItem] Payload:", JSON.stringify(borrowData));
 
+  const nextId = await getNextId('loan_transactions', 'loanId');
   const updatedItem = await updateLoanableStock(borrowData.itemId, 'borrow');
 
   const { data, error } = await supabase
@@ -387,6 +398,12 @@ async function borrowItem(borrowData) {
       loanId: nextId,
       itemId: borrowData.itemId,
       borrowerName: borrowData.borrowerName,
+      
+      // *** เปลี่ยนเป็นตัวพิมพ์เล็ก ***
+      employeeid: borrowData.employeeId || '', 
+      department: borrowData.department || '',
+      userid: borrowData.userId || '', 
+      
       borrowDate: new Date().toISOString(),
       dueDate: borrowData.dueDate || null,
       returnDate: null,
@@ -433,7 +450,7 @@ async function checkAdminCredentials(username, password) {
   return username === ADMIN_USERNAME && providedBase64 === ADMIN_PASSWORD_BASE64;
 }
 
-// ------------------------- helpers ที่ยกมาจาก logic เดิม -------------------------
+// ------------------------- helpers -------------------------
 async function getNextId(tableName, colName = 'id') {
   const { data, error } = await supabase
     .from(tableName)
