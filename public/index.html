@@ -2407,23 +2407,40 @@
                     ]
                 },
 
-                // 🔘 ปุ่มเปิด LIFF
+                // 🔘 Footer: ปุ่ม / สถานะรับของ
                 footer: {
-                type: "box",
-                layout: "vertical",
-                spacing: "sm",
-                contents: [
-                    {
-                    type: "button",
-                    style: "primary",
-                    color: "#2563EB",
-                    action: {
-                        type: "uri",
-                        label: "✅ ยืนยันรับของ",
-                        uri: liffUrl
-                    }
-                    }
-                ]
+                    type: "box",
+                    layout: "vertical",
+                    spacing: "sm",
+                    contents: voucher.status_received === 'received'
+                        ? [
+                            {
+                                type: "text",
+                                text: "🟢 รับของเรียบร้อยแล้ว",
+                                align: "center",
+                                weight: "bold",
+                                color: "#10B981"
+                            },
+                            {
+                                type: "text",
+                                text: `เวลา: ${formatThaiDateTime(voucher.received_at)}`,
+                                size: "xs",
+                                align: "center",
+                                color: "#6B7280"
+                            }
+                        ]
+                        : [
+                            {
+                                type: "button",
+                                style: "primary",
+                                color: "#2563EB",
+                                action: {
+                                    type: "uri",
+                                    label: "✅ ยืนยันรับของ",
+                                    uri: liffUrl
+                                }
+                            }
+                        ]
                 }
             }
         };
