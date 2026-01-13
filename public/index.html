@@ -808,6 +808,17 @@
     </div>
 </div>
 
+<!-- 🔒 Loading Overlay -->
+<div id="loadingOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl p-6 flex flex-col items-center gap-4 w-72">
+    <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+    <div class="text-center">
+      <p class="font-semibold">กำลังยืนยันการรับของ</p>
+      <p class="text-sm text-gray-500">กรุณารอสักครู่…</p>
+    </div>
+  </div>
+</div>
+
 <script>
     // ===========================================
     // API Configuration
@@ -1135,8 +1146,16 @@
     // ===========================================
     // UI Control & Helpers
     // ===========================================
-    function showLoading() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
-    function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+    function showLoading() {
+        const el = document.getElementById('loadingOverlay');
+        if (el) el.classList.remove('hidden');
+    }
+
+    function hideLoading() {
+        const el = document.getElementById('loadingOverlay');
+        if (el) el.classList.add('hidden');
+    }
+
     // แก้ไขไม่ให้ Error ถ้าหา Element ไม่เจอ
     function showDashboardSkeleton() {
         const adminPanel = document.getElementById('adminDashboardPanel');
@@ -2615,9 +2634,10 @@
             );
 
             if (!ok) {
-                isConfirmingReceive = false;
                 return;
             }
+
+            showLoading(); // 🔒 แสดง overlay
 
             const res = await callServerFunction('confirmReceive', {
                 voucherId,
@@ -2626,7 +2646,6 @@
             });
 
             console.log('✅ confirmReceive success:', res);
-            alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
 
             // 🔔 ส่ง Flex ใหม่ (รับของแล้ว)
             await fetch('/api/push', {
@@ -2639,10 +2658,11 @@
                 })
             });
 
+            alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
+
             sessionStorage.removeItem('confirm_mode');
             sessionStorage.removeItem('confirm_voucher_id');
 
-            // ✅ ปิด LIFF (UX ดี)
             if (liff.isInClient()) {
                 liff.closeWindow();
             }
@@ -2651,9 +2671,11 @@
             console.error('❌ confirmReceive error:', err);
             alert('เกิดข้อผิดพลาดของระบบ');
         } finally {
+            hideLoading();          // ⭐ สำคัญมาก
             isConfirmingReceive = false;
         }
     }
+
 
     function previewImageAdmin() {
         const url = document.getElementById('itemImage').value;
