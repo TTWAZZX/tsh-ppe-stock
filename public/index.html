@@ -2063,45 +2063,53 @@
         `;
     }
 
-    function renderDepartmentSelect(filter = '') {
-        const select = document.getElementById('loanDepartment');
-        if (!select) return;
+    // ค้นหาฟังก์ชัน renderDepartmentSelect แล้วแทนที่ด้วยตัวนี้ครับ
+    function renderDepartmentSelect(filter = '', targetId = null) {
+        // กำหนดรายการ ID ของ Dropdown ที่ต้องการอัปเดต
+        // ถ้าส่ง targetId มาจะทำแค่อันเดียว ถ้าไม่ส่งจะทำทั้งคู่ (issue และ loan)
+        const dropdownIds = targetId ? [targetId] : ['issueDepartment', 'loanDepartment'];
 
-        const lastDept = localStorage.getItem('last_department');
-        const selectedValue = select.value;
+        dropdownIds.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
 
-        // reset option
-        select.innerHTML = '<option value="" disabled>-- กรุณาเลือกแผนก --</option>';
+            const lastDept = localStorage.getItem('last_department');
+            const selectedValue = select.value;
 
-        (window.departments || [])
-            .filter(dep =>
-                dep.name.toLowerCase().includes(filter.toLowerCase())
-            )
-            .forEach(dep => {
-                const opt = document.createElement('option');
-                opt.value = dep.name;
-                opt.textContent = dep.name;
+            // Reset ตัวเลือก (เก็บ option แรกไว้)
+            select.innerHTML = '<option value="" disabled selected>-- กรุณาเลือกแผนก --</option>';
 
-                // ⭐ เลือกแผนกล่าสุด หรือค่าที่เลือกอยู่
-                if (dep.name === selectedValue || (!selectedValue && dep.name === lastDept)) {
-                    opt.selected = true;
-                }
+            (window.departments || [])
+                .filter(dep =>
+                    dep.name.toLowerCase().includes(filter.toLowerCase())
+                )
+                .forEach(dep => {
+                    const opt = document.createElement('option');
+                    opt.value = dep.name;
+                    opt.textContent = dep.name;
 
-                select.appendChild(opt);
-            });
+                    // Logic การเลือกค่าเดิม หรือค่าล่าสุดที่เคยใช้
+                    if (dep.name === selectedValue || (!selectedValue && dep.name === lastDept)) {
+                        opt.selected = true;
+                    }
+
+                    select.appendChild(opt);
+                });
+        });
     }
 
-    // 🔍 ค้นหาแผนกแบบ realtime
+    // แก้ไขส่วน Event Listener ของการค้นหาแผนก (Issue Page)
     document.getElementById('issueDepartmentSearch')
         ?.addEventListener('input', (e) => {
-            renderDepartmentSelect(e.target.value);
+            // เพิ่มพารามิเตอร์ตัวที่ 2 เพื่อบอกว่าจะอัปเดตแค่ issueDepartment
+            renderDepartmentSelect(e.target.value, 'issueDepartment'); 
         });
 
-    // ⭐ จำแผนกที่ใช้ล่าสุด
-    document.getElementById('issueDepartment')
-        ?.addEventListener('change', (e) => {
-            localStorage.setItem('last_department', e.target.value);
-        });       
+    // เพิ่ม/ตรวจสอบ ของหน้ายืม (Loan Page) ด้วยครับ
+    document.getElementById('departmentSearch')
+        ?.addEventListener('input', (e) => {
+            renderDepartmentSelect(e.target.value, 'loanDepartment');
+        });  
 
     function autoFillUserIdentity() {
         if(liffProfile) {
@@ -3212,6 +3220,7 @@
         }
     }
 
+    // ค้นหาฟังก์ชัน bindIssueUserModeRadios ในไฟล์ index.html แล้วแทนที่ด้วยตัวนี้
     function bindIssueUserModeRadios() {
         const radios = document.querySelectorAll('input[name="issueUserMode"]');
         const input = document.getElementById('issueUser');
@@ -3221,11 +3230,31 @@
         radios.forEach(radio => {
             radio.addEventListener('change', () => {
                 if (radio.value === 'custom') {
+                    // === โหมดพิมพ์เอง ===
+                    input.readOnly = false;
                     input.disabled = false;
+                    input.value = ''; // เคลียร์ค่าให้ว่างเพื่อให้พิมพ์ใหม่
+                    
+                    // ลบสไตล์สีเทาออก ใส่สีขาวให้ดูพิมพ์ได้
+                    input.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                    input.classList.add('bg-white', 'text-gray-900');
+                    
                     input.focus();
                 } else {
-                    input.value = '';
-                    input.disabled = true;
+                    // === โหมดใช้ชื่อ LINE ===
+                    input.readOnly = true;
+                    // input.disabled = true; // ไม่ต้อง disable ก็ได้ถ้า readOnly แล้ว เพื่อให้ส่งค่าได้ง่ายๆ
+                    
+                    // คืนค่าสไตล์สีเทา
+                    input.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                    input.classList.remove('bg-white', 'text-gray-900');
+
+                    // ดึงชื่อจากตัวแปร global liffProfile มาใส่คืน
+                    if (typeof liffProfile !== 'undefined' && liffProfile) {
+                        input.value = liffProfile.displayName;
+                    } else {
+                        input.value = '';
+                    }
                 }
             });
         });
