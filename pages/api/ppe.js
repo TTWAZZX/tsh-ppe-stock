@@ -342,7 +342,6 @@ async function approvePartialVoucher(approvalData) {
     .update({
       status: newStatus,
       adminNotes: finalNote,
-      itemsJson: itemsToUpdateInStock,
     })
     .eq('id', voucherId);
   if (upErr) throw upErr;

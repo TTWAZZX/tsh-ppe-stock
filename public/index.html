@@ -1102,67 +1102,6 @@
         };
     }
 
-    // ✅ Template มาตรฐานสำหรับแจ้งสถานะ (อนุมัติ/ปฏิเสธ/บางส่วน) 
-    function createStatusFlex(title, voucher, items, colorCode) {
-        // ดึงค่าออกมาเป็นตัวแปรธรรมดาเพื่อป้องกัน [object Object]
-        const vId = voucher.id || "-";
-        const vUser = voucher.user || "ไม่ระบุชื่อ";
-        const vDept = voucher.department || "-";
-        
-        // จัดการรายการสินค้า
-        const safeItems = Array.isArray(items) ? items : [];
-        const itemSummary = safeItems.map(item => {
-            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
-            const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
-            return {
-                type: "box", layout: "horizontal", margin: "xs",
-                contents: [
-                    { type: "text", text: `• ${itemName}`, size: "xs", color: "#666666", flex: 4, wrap: true },
-                    { type: "text", text: `x${item.quantity}`, size: "xs", color: "#333333", flex: 1, align: "end", weight: "bold" }
-                ]
-            };
-        });
-
-        return {
-            type: "flex",
-            altText: title,
-            contents: {
-                type: "bubble",
-                body: {
-                    type: "box", layout: "vertical", spacing: "sm",
-                    contents: [
-                        { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
-                        { type: "text", text: `ใบเบิกเลขที่: #${vId}`, size: "sm", weight: "bold" },
-                        { type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
-                            { type: "text", text: `👤 ผู้เบิก: ${vUser}`, size: "xs", color: "#888888" },
-                            { type: "text", text: `🏢 แผนก: ${vDept}`, size: "xs", color: "#888888" }
-                        ]},
-                        { type: "separator", margin: "sm" },
-                        { type: "box", layout: "vertical", margin: "sm", contents: itemSummary.length > 0 ? itemSummary : [{ type: "text", text: "ไม่พบรายการ", size: "xs", color: "#aaaaaa" }] }
-                    ]
-                }
-            }
-        };
-    }
-
-    // 3. Template สำหรับ "ผลอนุมัติ/ปฏิเสธ/คืนของ"
-    function createStatusFlex(title, message, colorCode, icon = '✅') {
-        return {
-            type: "flex",
-            altText: title,
-            contents: {
-                type: "bubble",
-                body: {
-                    type: "box", layout: "vertical",
-                    contents: [
-                        { type: "text", text: title, weight: "bold", size: "xl", color: colorCode },
-                        { type: "text", text: message, wrap: true, color: "#666666", margin: "md" }
-                    ]
-                },
-                styles: { footer: { separator: true } }
-            }
-        };
-    }
 
     function setupEventListeners() {
         document.getElementById('loginForm').addEventListener('submit', handleLogin);
@@ -2272,18 +2211,34 @@
     // 🎨 FIXED FLEX MESSAGE GENERATORS
     // ===========================================
 
-    // Template สำหรับ "ผลการอนุมัติ" (ไม่มีรูป - เน้นข้อความเพื่อความเสถียร)
     function createStatusFlex(title, voucherId, items, colorCode) {
-        if (!items || !Array.isArray(items)) items = [];
+        if (!Array.isArray(items)) items = [];
 
         const itemSummary = items.map(item => {
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
             return {
-                type: "box", layout: "horizontal", margin: "xs",
+                type: "box",
+                layout: "horizontal",
+                margin: "xs",
                 contents: [
-                    { type: "text", text: `• ${itemName}`, size: "xs", color: "#666666", flex: 4, wrap: true },
-                    { type: "text", text: `x${item.quantity}`, size: "xs", color: "#333333", flex: 1, align: "end", weight: "bold" }
+                    {
+                        type: "text",
+                        text: `• ${itemName}`,
+                        size: "xs",
+                        color: "#666666",
+                        flex: 4,
+                        wrap: true
+                    },
+                    {
+                        type: "text",
+                        text: `x${item.quantity}`,
+                        size: "xs",
+                        color: "#333333",
+                        flex: 1,
+                        align: "end",
+                        weight: "bold"
+                    }
                 ]
             };
         });
@@ -2294,12 +2249,31 @@
             contents: {
                 type: "bubble",
                 body: {
-                    type: "box", layout: "vertical", spacing: "sm",
+                    type: "box",
+                    layout: "vertical",
+                    spacing: "sm",
                     contents: [
-                        { type: "text", text: title, weight: "bold", size: "lg", color: colorCode },
-                        { type: "text", text: `ใบเบิกเลขที่: #${voucherId}`, size: "sm", weight: "bold" },
+                        {
+                            type: "text",
+                            text: title,
+                            weight: "bold",
+                            size: "lg",
+                            color: colorCode
+                        },
+                        {
+                            type: "text",
+                            text: `ใบเบิกเลขที่: #${voucherId}`,
+                            size: "sm",
+                            weight: "bold"
+                        },
                         { type: "separator", margin: "sm" },
-                        { type: "box", layout: "vertical", contents: itemSummary }
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            contents: itemSummary.length
+                                ? itemSummary
+                                : [{ type: "text", text: "ไม่มีรายการ", size: "xs", color: "#999999" }]
+                        }
                     ]
                 }
             }
@@ -2324,7 +2298,12 @@
 
             callServerFunction('approveVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    const flex = createStatusFlex('อนุมัติเรียบร้อย 🎉', voucher, items, '#10B981');
+                    const flex = createStatusFlex(
+                    'อนุมัติเรียบร้อย 🎉',
+                    voucher.id,   // ✅ ส่งแค่ ID
+                    items,
+                    '#10B981'
+                    );
                     fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('อนุมัติสำเร็จ');
@@ -2348,7 +2327,7 @@
 
             callServerFunction('rejectVoucher', { voucherId }).then(() => {
                 if (targetUserId) {
-                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher, items, '#EF4444');
+                    const flex = createStatusFlex('คำขอถูกปฏิเสธ ❌', voucher.id, items, '#EF4444');
                     fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
                 showToast('ปฏิเสธคำขอแล้ว');
@@ -2374,7 +2353,7 @@
 
         callServerFunction('approvePartialVoucher', { voucherId, items }).then(() => {
             if (targetUserId) {
-                const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher, items, '#F59E0B');
+                const flex = createStatusFlex('อนุมัติบางส่วน ⚠️', voucher.id, items, '#F59E0B');
                 fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
             }
             showToast('อนุมัติบางส่วนสำเร็จ');
@@ -2541,8 +2520,14 @@
                 // ✅ ส่ง Flex Message สีน้ำเงิน
                 if (targetUserId) {
                     const returnDate = new Date().toLocaleDateString('th-TH');
-                    const flex = createStatusFlex('รับคืนอุปกรณ์แล้ว ✅', `รายการ: ${itemName}\nวันที่คืน: ${returnDate}\nขอบคุณครับ 🙏`, '#3B82F6');
-                    
+                    const flex = createStatusFlex(
+                        'รับคืนอุปกรณ์แล้ว ✅',
+                        loan.loanId,
+                        [
+                            { itemId: loan.itemId, quantity: 1 }
+                        ],
+                        '#3B82F6'
+                        );                  
                     fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
                 }
 
@@ -2747,21 +2732,27 @@
         }
     }
 
-    // ฟังก์ชันส่งไลน์ (เรียกใช้ API ที่เราเพิ่งสร้าง)
     async function sendLineNotify(msg) {
         try {
+            const safeMessage =
+                typeof msg === 'string'
+                    ? msg
+                    : JSON.stringify(msg, null, 2);
+
             await fetch('/api/notify', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: msg }) // ส่งข้อความไปให้หลังบ้าน
+                body: JSON.stringify({ message: safeMessage })
             });
+
             console.log('ส่งไลน์เรียบร้อย');
         } catch (error) {
             console.error('ส่งไลน์ไม่ผ่าน:', error);
         }
     }
+
 
 </script>
 
