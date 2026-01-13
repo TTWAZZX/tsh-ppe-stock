@@ -2344,7 +2344,7 @@
 
     function createApprovalFlex({ title, icon, color, voucher, items }) {
 
-        const liffUrl = `https://liff.line.me/YOUR_LIFF_ID?voucherId=${voucher.id}`;
+        const liffUrl = `https://liff.line.me/2007053300-JTSerFbF?voucherId=${voucher.id}`;
         const approveTime = formatThaiDateTime(new Date());
 
         return {
@@ -2405,20 +2405,21 @@
 
                 // 🔘 ปุ่มเปิด LIFF
                 footer: {
-                    type: "box",
-                    layout: "vertical",
-                    contents: [
-                        {
-                            type: "button",
-                            style: "primary",
-                            color: color,
-                            action: {
-                                type: "uri",
-                                label: "ดูรายละเอียดใบเบิก",
-                                uri: liffUrl
-                            }
-                        }
-                    ]
+                type: "box",
+                layout: "vertical",
+                spacing: "sm",
+                contents: [
+                    {
+                    type: "button",
+                    style: "primary",
+                    color: "#2563EB",
+                    action: {
+                        type: "uri",
+                        label: "✅ ยืนยันรับของ",
+                        uri: `https://liff.line.me/YOUR_LIFF_ID?mode=confirmReceive&voucherId=${voucher.id}`
+                    }
+                    }
+                ]
                 }
             }
         };
@@ -2553,6 +2554,31 @@
         showToast('อนุมัติบางส่วนสำเร็จ');
         hideApprovalModal();
         initializeApp();
+    }
+
+    async function handleLiffConfirmReceive() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') !== 'confirmReceive') return;
+
+        const voucherId = Number(urlParams.get('voucherId'));
+        if (!voucherId) return;
+
+        const profile = await liff.getProfile();
+
+        const ok = await showConfirmationModal(
+            'ยืนยันรับของ',
+            `ยืนยันว่าคุณได้รับอุปกรณ์จากใบเบิก #${voucherId} แล้วใช่หรือไม่`
+        );
+
+        if (!ok) return;
+
+        await callServerFunction('confirmReceive', {
+            voucherId,
+            userId: profile.userId,
+            userName: profile.displayName
+        });
+
+        alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
     }
 
     function previewImageAdmin() {

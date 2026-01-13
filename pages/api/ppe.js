@@ -73,6 +73,10 @@ export default async function handler(req, res) {
         result = await rejectVoucher(payload.voucherId);
         break;
 
+      case 'confirmReceive':
+        result = await confirmReceive(payload);
+        break;  
+
       case 'borrowItem':
         result = await borrowItem(payload);
         break;
@@ -636,4 +640,66 @@ function getStatusTextServer(status) {
     returned: 'คืนแล้ว',
   };
   return map[status] || 'ไม่ทราบ';
+}
+
+async function confirmReceive(payload) {
+  const { voucherId, userId, userName } = payload;
+
+  if (!voucherId || !userId) {
+    throw new Error('ข้อมูลไม่ครบ');
+  }
+
+  const { data: voucher, error: findErr } = await supabase
+    .from('issue_vouchers')
+    .select('*')
+    .eq('id', voucherId)
+    .single();
+
+  if (findErr) throw findErr;
+  if (!voucher) throw new Error('ไม่พบใบเบิก');
+
+  if (voucher.status_received === 'received') {
+    return { status: 'already_received' };
+  }
+
+  // ✅ อัปเดตสถานะรับของ
+  const { error: upErr } = await supabase
+    .from('issue_vouchers')
+    .update({
+      status_received: 'received',
+      received_at: new Date().toISOString(),
+      received_by: userName || userId
+    })
+    .eq('id', voucherId);
+
+  if (upErr) throw upErr;
+
+  // 🔔 STEP 5: แจ้ง Admin หลังรับของ (ตรงนี้แหละ)
+  try {
+    const ADMIN_LINE_USER_ID = process.env.ADMIN_LINE_USER_ID;
+
+    if (ADMIN_LINE_USER_ID) {
+      await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
+        },
+        body: JSON.stringify({
+          to: ADMIN_LINE_USER_ID,
+          messages: [
+            {
+              type: 'text',
+              text: `📦 ยืนยันรับของแล้ว\n\nใบเบิก #${voucher.id}\nผู้รับ: ${userName || userId}\nเวลา: ${new Date().toLocaleString('th-TH')}`
+            }
+          ]
+        })
+      });
+    }
+  } catch (notifyErr) {
+    // ❗ ไม่ throw เพื่อไม่ให้ process หลักพัง
+    console.error('แจ้ง Admin ไม่สำเร็จ:', notifyErr);
+  }
+
+  return { status: 'received', voucherId };
 }
