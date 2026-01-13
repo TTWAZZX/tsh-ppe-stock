@@ -884,7 +884,7 @@
     let liffProfile = null;
     const LIFF_ID = "2007053300-JTSerFbF"; // **ต้องใส่ LIFF ID ของคุณ**
 
-    // แก้ไข initializeApp
+    // ✅ แก้ไข initializeApp (เวอร์ชันถูกต้อง)
     async function initializeApp(isFirstLoad = false) {
         if (isFirstLoad) showDashboardSkeleton();
         
@@ -895,14 +895,18 @@
             if (liff.isLoggedIn()) {
                 liffProfile = await liff.getProfile();
                 console.log("Logged in as:", liffProfile.displayName);
-                
-                // เช็คว่าเป็น Admin หรือ User (อาจจะ Hardcode ID แอดมินไว้ หรือเช็คจาก DB)
-                // สมมติ: ถ้าไม่ใช่ Admin ให้เข้าโหมด User
+
+                // ⭐⭐⭐ จุดสำคัญที่สุด ⭐⭐⭐
+                // ตรวจว่ามาจากปุ่ม "ยืนยันรับของ" หรือไม่
+                await handleLiffConfirmReceive();
+
+                // โหมด User ปกติ
                 if (!isAdmin) {
                     setupUserInterface();
                 }
             } else {
                 liff.login(); // บังคับ Login ถ้าเปิดผ่าน External Browser
+                return; // สำคัญ: หยุดไว้ก่อน
             }
 
             // 2. Load Data (Logic เดิม)
@@ -911,10 +915,10 @@
 
         } catch (err) {
             console.error('LIFF/App Error:', err);
-            // Fallback กรณีไม่ได้เปิดใน LINE หรือ Error
-            setupUserInterface(); // หรือแสดงหน้า Login ปกติ
+            setupUserInterface();
         }
     }
+
 
     // ฟังก์ชันจัดหน้าจอสำหรับ User ทั่วไป
     function setupUserInterface() {
@@ -2557,11 +2561,15 @@
     }
 
     async function handleLiffConfirmReceive() {
-        try {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') !== 'confirmReceive') return;
 
-            const voucherId = Number(urlParams.get('voucherId'));
+        // ⭐⭐ เพิ่มบรรทัดนี้ ⭐⭐
+        console.log('🔥 handleLiffConfirmReceive CALLED');
+
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('mode') !== 'confirmReceive') return;
+
+            const voucherId = Number(params.get('voucherId'));
             if (!voucherId) {
                 alert('ไม่พบเลขที่ใบเบิก');
                 return;
@@ -2581,20 +2589,18 @@
 
             if (!ok) return;
 
-            // 👉 ตรงนี้สำคัญ: await + try/catch
             const res = await callServerFunction('confirmReceive', {
                 voucherId,
                 userId: profile.userId,
                 userName: profile.displayName
             });
 
-            console.log('confirmReceive result:', res);
-
+            console.log('✅ confirmReceive success:', res);
             alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
 
         } catch (err) {
             console.error('❌ confirmReceive error:', err);
-            alert('เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง');
+            alert('เกิดข้อผิดพลาดของระบบ');
         }
     }
 
