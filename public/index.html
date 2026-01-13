@@ -2467,10 +2467,60 @@
         });
     }
 
-    function createApprovalFlex({ title, icon, color, voucher, items }) {
+// รับ approvalStatus เข้ามาเพิ่มในบรรทัดนี้ 👇
+    function createApprovalFlex({ title, icon, color, voucher, items, approvalStatus }) {
 
         const liffUrl = `https://liff.line.me/2007053300-JTSerFbF?mode=confirmReceive&voucherId=${voucher.id}`;
         const approveTime = formatThaiDateTime(new Date());
+
+        // --- ส่วนจัดการ Footer (ปุ่มกด) ---
+        let footerContents = [];
+
+        if (approvalStatus === 'rejected') {
+            // ❌ กรณีไม่อนุมัติ: แสดงข้อความแทนปุ่ม
+            footerContents = [
+                {
+                    type: "text",
+                    text: "กรุณาติดต่อ Admin หากมีข้อสงสัย",
+                    size: "xs",
+                    align: "center",
+                    color: "#9CA3AF"
+                }
+            ];
+        } else if (voucher.status_received === 'received') {
+            // 🟢 กรณีรับของแล้ว
+            footerContents = [
+                {
+                    type: "text",
+                    text: "🟢 รับของเรียบร้อยแล้ว",
+                    align: "center",
+                    weight: "bold",
+                    color: "#10B981"
+                },
+                {
+                    type: "text",
+                    text: `เวลา: ${formatThaiDateTime(voucher.received_at)}`,
+                    size: "xs",
+                    align: "center",
+                    color: "#6B7280"
+                }
+            ];
+        } else {
+            // 🔵 กรณีอนุมัติ (และยังไม่ได้รับของ): แสดงปุ่มยืนยัน
+            footerContents = [
+                {
+                    type: "button",
+                    style: "primary",
+                    color: "#2563EB",
+                    action: {
+                        type: "uri",
+                        label: "✅ ยืนยันรับของ",
+                        uri: liffUrl
+                    }
+                }
+            ];
+        }
+        // --------------------------------
 
         return {
             type: "flex",
@@ -2528,40 +2578,12 @@
                     ]
                 },
 
-                // 🔘 Footer: ปุ่ม / สถานะรับของ
+                // 🔘 Footer ที่ผ่าน Logic แล้ว
                 footer: {
                     type: "box",
                     layout: "vertical",
                     spacing: "sm",
-                    contents: voucher.status_received === 'received'
-                        ? [
-                            {
-                                type: "text",
-                                text: "🟢 รับของเรียบร้อยแล้ว",
-                                align: "center",
-                                weight: "bold",
-                                color: "#10B981"
-                            },
-                            {
-                                type: "text",
-                                text: `เวลา: ${formatThaiDateTime(voucher.received_at)}`,
-                                size: "xs",
-                                align: "center",
-                                color: "#6B7280"
-                            }
-                        ]
-                        : [
-                            {
-                                type: "button",
-                                style: "primary",
-                                color: "#2563EB",
-                                action: {
-                                    type: "uri",
-                                    label: "✅ ยืนยันรับของ",
-                                    uri: liffUrl
-                                }
-                            }
-                        ]
+                    contents: footerContents
                 }
             }
         };
@@ -2592,7 +2614,8 @@
             icon,
             color,
             voucher,
-            items
+            items,
+            approvalStatus: type // ✅ เพิ่มบรรทัดนี้: ส่งสถานะเข้าไปด้วย
         });
 
         await fetch('/api/push', {
