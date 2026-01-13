@@ -1208,6 +1208,94 @@
         };
     }
 
+    // 🎨 เพิ่มฟังก์ชันนี้ใน index.html (วางต่อจาก createIssueFlex หรือบริเวณฟังก์ชัน Flex Message อื่นๆ)
+    function createLoanFlex(item, user, dept, dueDate) {
+        const itemImg = item.image_url || 'https://placehold.co/100?text=Tool';
+        const dateText = new Date(dueDate).toLocaleDateString('th-TH', { 
+            year: 'numeric', month: 'short', day: 'numeric' 
+        });
+
+        return {
+            type: "flex",
+            altText: `แจ้งเตือนการยืม: ${item.name}`,
+            contents: {
+                type: "bubble",
+                size: "mega",
+                header: {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                        { type: "text", text: "🛠️ บันทึกการยืมอุปกรณ์", weight: "bold", color: "#ffffff", size: "md" }
+                    ],
+                    backgroundColor: "#0EA5E9", // สีฟ้า Sky Blue
+                    paddingAll: "lg"
+                },
+                hero: {
+                    type: "image",
+                    url: itemImg,
+                    size: "full",
+                    aspectRatio: "20:13",
+                    aspectMode: "cover"
+                },
+                body: {
+                    type: "box",
+                    layout: "vertical",
+                    spacing: "md",
+                    contents: [
+                        {
+                            type: "text",
+                            text: item.name,
+                            weight: "bold",
+                            size: "xl",
+                            wrap: true
+                        },
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            spacing: "sm",
+                            contents: [
+                                {
+                                    type: "box",
+                                    layout: "baseline",
+                                    spacing: "sm",
+                                    contents: [
+                                        { type: "text", text: "ผู้ยืม", color: "#aaaaaa", size: "sm", flex: 2 },
+                                        { type: "text", text: user, wrap: true, color: "#666666", size: "sm", flex: 5 }
+                                    ]
+                                },
+                                {
+                                    type: "box",
+                                    layout: "baseline",
+                                    spacing: "sm",
+                                    contents: [
+                                        { type: "text", text: "แผนก", color: "#aaaaaa", size: "sm", flex: 2 },
+                                        { type: "text", text: dept, wrap: true, color: "#666666", size: "sm", flex: 5 }
+                                    ]
+                                },
+                                {
+                                    type: "box",
+                                    layout: "baseline",
+                                    spacing: "sm",
+                                    contents: [
+                                        { type: "text", text: "คืนภายใน", color: "#aaaaaa", size: "sm", flex: 2 },
+                                        { type: "text", text: dateText, weight: "bold", color: "#EF4444", size: "sm", flex: 5 }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                footer: {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                        { type: "text", text: "กรุณาคืนอุปกรณ์ภายในกำหนด", size: "xs", color: "#aaaaaa", align: "center" }
+                    ]
+                }
+            }
+        };
+    }
+
 
     function setupEventListeners() {
         document.getElementById('loginForm').addEventListener('submit', handleLogin);
@@ -1745,6 +1833,9 @@
         const badge = document.getElementById('onLoanCountBadge');
         
         if (!container) return;
+
+        // 👇👇 แก้ตรงนี้: เพิ่ม class 'pb-24' (Padding Bottom)
+        container.className = "p-4 overflow-y-auto max-h-[600px] bg-gray-50/30 space-y-3 pb-24";
 
         const onLoanItems = currentData.loanTransactions
             .filter(l => l.status === 'on_loan')

@@ -390,12 +390,14 @@ async function addReceiveTransactionAndUpdateStock(tx) {
   return { updatedStockItems };
 }
 
-// ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
+// ในไฟล์ ppe.js ค้นหาฟังก์ชัน borrowItem แล้วแก้เป็นแบบนี้
 async function borrowItem(borrowData) {
   // Debug Log
   console.log("🔥 [borrowItem] Payload:", JSON.stringify(borrowData));
 
-  const nextId = await getNextId('loan_transactions', 'loanId');
+  // เช็คชื่อคอลัมน์ ID ใน DB ดีๆ ว่าเป็น loanId หรือ loan_id (ส่วนใหญ่ Supabase จะใช้ id หรือ loan_id)
+  // แต่ถ้าคุณตั้งไว้เป็น loanId แล้วก็ใช้ตามเดิมได้ครับ
+  const nextId = await getNextId('loan_transactions', 'loanId'); 
   const updatedItem = await updateLoanableStock(borrowData.itemId, 'borrow');
 
   const { data, error } = await supabase
@@ -405,10 +407,11 @@ async function borrowItem(borrowData) {
       itemId: borrowData.itemId,
       borrowerName: borrowData.borrowerName,
       
-      // *** เปลี่ยนเป็นตัวพิมพ์เล็ก ***
+      // ✅ แก้ตรงนี้: ฝั่งซ้ายคือชื่อคอลัมน์ใน DB (ตัวเล็ก) = ฝั่งขวาคือค่าจาก Frontend (CamelCase)
       employeeid: borrowData.employeeId || '', 
-      department: borrowData.department || '',
       userid: borrowData.userId || '', 
+      
+      department: borrowData.department || '',
       
       borrowDate: new Date().toISOString(),
       dueDate: borrowData.dueDate || null,
@@ -418,7 +421,11 @@ async function borrowItem(borrowData) {
     })
     .select()
     .single();
-  if (error) throw error;
+
+  if (error) {
+      console.error("Database Insert Error:", error); // เพิ่ม Log ให้เห็นชัดๆ ใน Vercel Logs
+      throw error;
+  }
 
   return { newLoan: data, updatedItem };
 }
