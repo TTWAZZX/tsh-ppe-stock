@@ -426,8 +426,28 @@
                         </div>
 
                         <div>
-                            <label for="loanUser" class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
-                            <input type="text" id="loanUser" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
+
+                            <div class="flex items-center gap-4 mb-2 text-sm">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="loanUserMode" value="line" checked>
+                                    ใช้ชื่อจาก LINE
+                                </label>
+
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="loanUserMode" value="custom">
+                                    พิมพ์ชื่อเอง
+                                </label>
+                            </div>
+
+                            <input 
+                                type="text" 
+                                id="loanUser" 
+                                required 
+                                placeholder="ชื่อผู้ยืม"
+                                disabled
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed bg-white transition-colors"
+                            >
                         </div>
 
                         <div>
@@ -479,25 +499,21 @@
                         </form>
                         </div>
 
-                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border overflow-hidden">
-                    <div class="p-6 border-b border-gray-200">
-                        <h3 class="text-xl font-semibold text-gray-800">รายการอุปกรณ์ที่กำลังถูกยืม</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50 text-left">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th> 
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">อุปกรณ์</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้ยืม</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่ยืม</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">กำหนดคืน</th>
-                                    <th class="px-6 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="onLoanTableBody" class="bg-white divide-y divide-gray-200"></tbody>
-                        </table>
-                        <div id="onLoanEmptyState" class="hidden"></div>
+                <div class="lg:col-span-2 flex flex-col h-full">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
+                        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-clock-rotate-left text-teal-600"></i> 
+                                รายการที่กำลังถูกยืม
+                            </h3>
+                            <span class="bg-teal-100 text-teal-700 text-xs font-bold px-2.5 py-1 rounded-full border border-teal-200" id="onLoanCountBadge">0 รายการ</span>
+                        </div>
+                        
+                        <div id="onLoanListContainer" class="p-4 overflow-y-auto max-h-[600px] bg-gray-50/30 space-y-3">
+                            </div>
+                        
+                        <div id="onLoanEmptyState" class="hidden flex-1 flex flex-col items-center justify-center py-12 text-gray-400">
+                            </div>
                     </div>
                 </div>
             </div>
@@ -1133,6 +1149,17 @@
         if (pageName === 'issue') {
             bindIssueUserModeRadios();
         }
+
+        if (pageName === 'loan') {
+            // เรียกฟังก์ชันผูก event radio button
+            bindLoanUserModeRadios(); 
+            
+            // Auto-fill ชื่อถ้าเป็นโหมด LINE
+            const loanLineRadio = document.querySelector('input[name="loanUserMode"][value="line"]');
+            if (loanLineRadio && loanLineRadio.checked && typeof autoFillUserIdentity === 'function') {
+                autoFillUserIdentity();
+            }
+        }
     }
 
     // ===========================================
@@ -1711,54 +1738,106 @@
         .join('');
     }
 
+    // ฟังก์ชันวาดรายการยืมแบบใหม่ (Card Style)
     function updateOnLoanTable() {
-        const tbody = document.getElementById('onLoanTableBody');
+        const container = document.getElementById('onLoanListContainer');
         const emptyState = document.getElementById('onLoanEmptyState');
+        const badge = document.getElementById('onLoanCountBadge');
+        
+        if (!container) return;
+
         const onLoanItems = currentData.loanTransactions
             .filter(l => l.status === 'on_loan')
-            .sort((a, b) => new Date(a.borrowDate) - new Date(b.borrowDate));
+            .sort((a, b) => new Date(a.borrowDate) - new Date(b.borrowDate)); // เรียงตามวันที่ยืม (เก่าสุดขึ้นก่อน)
+
+        // อัปเดตตัวเลข Badge
+        if(badge) badge.textContent = `${onLoanItems.length} รายการ`;
 
         if (onLoanItems.length === 0) {
-            tbody.innerHTML = '';
-            emptyState.innerHTML = createEmptyState('ไม่มีอุปกรณ์ที่กำลังถูกยืม', 'fa-solid fa-people-carry-box');
-            emptyState.classList.remove('hidden');
+            container.innerHTML = '';
+            container.classList.add('hidden');
+            if(emptyState) {
+                emptyState.innerHTML = createEmptyState('ไม่มีอุปกรณ์ที่กำลังถูกยืม', 'fa-solid fa-clipboard-check');
+                emptyState.classList.remove('hidden');
+            }
             return;
         }
-        emptyState.classList.add('hidden');
 
-        tbody.innerHTML = onLoanItems.map(loan => {
+        if(emptyState) emptyState.classList.add('hidden');
+        container.classList.remove('hidden');
+
+        // สร้างการ์ดรายการ
+        container.innerHTML = onLoanItems.map(loan => {
             const item = currentData.ppeItems.find(p => p.id == loan.itemId);
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const isOverdue = new Date(loan.dueDate) < today;
             
-            // Logic รูปภาพ (ถ้าไม่มีของ หรือไม่มีรูป ให้ใช้ placeholder)
+            const today = new Date(); 
+            today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(loan.dueDate);
+            dueDate.setHours(0,0,0,0);
+            
+            // Logic เช็ควันเกินกำหนด
+            const isOverdue = dueDate < today;
+            const daysOverdue = isOverdue ? Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24)) : 0;
+
+            // สไตล์การ์ดตามสถานะ
+            const cardBorder = isOverdue ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200 hover:border-teal-300';
+            const bgClass = isOverdue ? 'bg-white' : 'bg-white';
+            
+            // รูปภาพ
             const imgHtml = (item && item.image_url) 
-                ? `<div class="h-10 w-10 rounded-md border border-gray-200 overflow-hidden bg-white"><img src="${item.image_url}" class="h-full w-full object-cover"></div>`
-                : `<div class="h-10 w-10 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400"><i class="fa-solid fa-box"></i></div>`;
+                ? `<img src="${item.image_url}" class="w-16 h-16 rounded-lg object-cover border border-gray-100">`
+                : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-2xl"><i class="fa-solid fa-box"></i></div>`;
 
             return `
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${imgHtml}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${item ? item.name : '<span class="text-red-500">ไม่พบข้อมูล</span>'}
-                        ${item ? `<div class="text-xs text-gray-500 font-normal">${item.code}</div>` : ''}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${loan.borrowerName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(loan.borrowDate).toLocaleDateString('th-TH')}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}">
-                        ${new Date(loan.dueDate).toLocaleDateString('th-TH')}
-                        ${isOverdue ? '<span class="ml-2 inline-block px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">เกินกำหนด</span>' : ''}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <button onclick="handleReturnItem(${loan.loanId})" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm">
-                            <i class="fa-solid fa-undo mr-1"></i> รับคืน
-                        </button>
-                    </td>
-                </tr>`;
+            <div class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border ${cardBorder} ${bgClass} shadow-sm transition-all hover:shadow-md">
+                
+                <div class="flex-shrink-0">
+                    ${imgHtml}
+                </div>
+
+                <div class="flex-1 min-w-0 w-full">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="text-base font-bold text-gray-800 leading-tight mb-1">
+                                ${item ? item.name : '<span class="text-red-500">ไม่พบข้อมูลอุปกรณ์</span>'}
+                            </h4>
+                            <p class="text-xs text-gray-500 font-mono mb-2 bg-gray-100 inline-block px-1.5 rounded">
+                                ${item ? item.code : '-'}
+                            </p>
+                        </div>
+                        ${isOverdue 
+                            ? `<span class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                 <i class="fa-solid fa-circle-exclamation mr-1"></i> เกิน ${daysOverdue} วัน
+                               </span>`
+                            : `<span class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                 กำลังยืม
+                               </span>`
+                        }
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-1">
+                        <div class="flex items-center text-gray-600">
+                            <i class="fa-solid fa-user w-5 text-center text-gray-400 mr-1"></i>
+                            <span class="truncate font-medium">${loan.borrowerName}</span>
+                        </div>
+                        <div class="flex items-center text-gray-600">
+                            <i class="fa-regular fa-calendar w-5 text-center text-gray-400 mr-1"></i>
+                            <span>คืน: ${new Date(loan.dueDate).toLocaleDateString('th-TH')}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full sm:w-auto mt-3 sm:mt-0 flex justify-end">
+                    <button onclick="handleReturnItem(${loan.loanId})" 
+                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                        รับคืน
+                    </button>
+                </div>
+            </div>`;
         }).join('');
     }
+
     function updateLoanHistoryTable() {
         const tbody = document.getElementById('loanHistoryTableBody');
         const emptyState = document.getElementById('loanHistoryEmptyState');
@@ -3010,19 +3089,23 @@
         if (typeof liffProfile !== 'undefined' && liffProfile) {
             // หน้าเบิก
             const issueUserField = document.getElementById('issueUser');
-            if(issueUserField) {
-                issueUserField.value = liffProfile.displayName;
-                // ทำให้แก้ไขไม่ได้และดูเป็นสีเทา
-                issueUserField.readOnly = true;
-                issueUserField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+            if(issueUserField && !issueUserField.readOnly) { // เช็คเพิ่มว่าถ้า user เลือกพิมพ์เองแล้วไม่ต้องทับ
+                 const mode = document.querySelector('input[name="issueUserMode"]:checked')?.value;
+                 if(mode !== 'custom') {
+                    issueUserField.value = liffProfile.displayName;
+                    issueUserField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                 }
             }
             
-            // หน้าผู้ยืม
-            const borrowNameField = document.getElementById('borrowerName');
-            if(borrowNameField) {
-                borrowNameField.value = liffProfile.displayName;
-                borrowNameField.readOnly = true;
-                borrowNameField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+            // หน้าผู้ยืม (แก้ไขใหม่)
+            const loanUserField = document.getElementById('loanUser');
+            if(loanUserField) {
+                 const mode = document.querySelector('input[name="loanUserMode"]:checked')?.value;
+                 if(mode !== 'custom') {
+                    loanUserField.value = liffProfile.displayName;
+                    loanUserField.readOnly = true;
+                    loanUserField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                 }
             }
         }
     }
@@ -3283,6 +3366,40 @@
                     input.classList.remove('bg-white', 'text-gray-900');
 
                     // ดึงชื่อจากตัวแปร global liffProfile มาใส่คืน
+                    if (typeof liffProfile !== 'undefined' && liffProfile) {
+                        input.value = liffProfile.displayName;
+                    } else {
+                        input.value = '';
+                    }
+                }
+            });
+        });
+    }
+
+    // ฟังก์ชันจัดการ Radio Button หน้า "ยืม" (Copy Logic มาจากหน้าเบิก)
+    function bindLoanUserModeRadios() {
+        const radios = document.querySelectorAll('input[name="loanUserMode"]');
+        const input = document.getElementById('loanUser');
+
+        if (!radios.length || !input) return;
+
+        radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'custom') {
+                    // === โหมดพิมพ์เอง ===
+                    input.readOnly = false;
+                    input.disabled = false;
+                    input.value = ''; 
+                    input.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                    input.classList.add('bg-white', 'text-gray-900');
+                    input.focus();
+                } else {
+                    // === โหมดใช้ชื่อ LINE ===
+                    input.readOnly = true;
+                    // ใส่กลับเป็น disabled/readonly style
+                    input.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                    input.classList.remove('bg-white', 'text-gray-900');
+
                     if (typeof liffProfile !== 'undefined' && liffProfile) {
                         input.value = liffProfile.displayName;
                     } else {
