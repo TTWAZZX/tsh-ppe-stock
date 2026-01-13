@@ -360,7 +360,7 @@
 
                             <!-- 🔍 ช่องค้นหา -->
                             <input
-                                id="departmentSearch"
+                                id="issueDepartmentSearch"
                                 type="text"
                                 placeholder="ค้นหาแผนก..."
                                 class="w-full mb-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -368,7 +368,7 @@
 
                             <div class="relative">
                                 <select
-                                    id="loanDepartment"
+                                    id="issueDepartment"
                                     required
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer"
                                 >
@@ -999,7 +999,10 @@
         window.departments = data.departments || [];
 
         renderDepartmentSelect(); // ⭐ สำคัญ
-        renderDashboard();
+
+        // ❌ ปิดไว้ก่อน เพราะฟังก์ชันไม่มีอยู่
+        // renderDashboard();
+
         renderIssueVouchers();
     }
 
@@ -2087,13 +2090,13 @@
     }
 
     // 🔍 ค้นหาแผนกแบบ realtime
-    document.getElementById('departmentSearch')
+    document.getElementById('issueDepartmentSearch')
         ?.addEventListener('input', (e) => {
             renderDepartmentSelect(e.target.value);
         });
 
     // ⭐ จำแผนกที่ใช้ล่าสุด
-    document.getElementById('loanDepartment')
+    document.getElementById('issueDepartment')
         ?.addEventListener('change', (e) => {
             localStorage.setItem('last_department', e.target.value);
         });       
@@ -3029,7 +3032,7 @@
                     : (liffProfile?.displayName || '');
 
             const empId = document.getElementById('employeeId').value.trim();
-            const dept = document.getElementById('loanDepartment').value;
+            const dept = document.getElementById('issueDepartment').value;
 
             // 3. Validation
             if (!empId || !dept) {
