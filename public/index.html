@@ -2557,28 +2557,45 @@
     }
 
     async function handleLiffConfirmReceive() {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('mode') !== 'confirmReceive') return;
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') !== 'confirmReceive') return;
 
-        const voucherId = Number(urlParams.get('voucherId'));
-        if (!voucherId) return;
+            const voucherId = Number(urlParams.get('voucherId'));
+            if (!voucherId) {
+                alert('ไม่พบเลขที่ใบเบิก');
+                return;
+            }
 
-        const profile = await liff.getProfile();
+            if (!liff.isLoggedIn()) {
+                liff.login();
+                return;
+            }
 
-        const ok = await showConfirmationModal(
-            'ยืนยันรับของ',
-            `ยืนยันว่าคุณได้รับอุปกรณ์จากใบเบิก #${voucherId} แล้วใช่หรือไม่`
-        );
+            const profile = await liff.getProfile();
 
-        if (!ok) return;
+            const ok = await showConfirmationModal(
+                'ยืนยันรับของ',
+                `ยืนยันว่าคุณได้รับอุปกรณ์จากใบเบิก #${voucherId} แล้วใช่หรือไม่`
+            );
 
-        await callServerFunction('confirmReceive', {
-            voucherId,
-            userId: profile.userId,
-            userName: profile.displayName
-        });
+            if (!ok) return;
 
-        alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
+            // 👉 ตรงนี้สำคัญ: await + try/catch
+            const res = await callServerFunction('confirmReceive', {
+                voucherId,
+                userId: profile.userId,
+                userName: profile.displayName
+            });
+
+            console.log('confirmReceive result:', res);
+
+            alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
+
+        } catch (err) {
+            console.error('❌ confirmReceive error:', err);
+            alert('เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง');
+        }
     }
 
     function previewImageAdmin() {
