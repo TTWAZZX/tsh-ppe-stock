@@ -2344,7 +2344,7 @@
 
     function createApprovalFlex({ title, icon, color, voucher, items }) {
 
-        const liffUrl = `https://liff.line.me/2007053300-JTSerFbF?voucherId=${voucher.id}`;
+        const liffUrl = `https://liff.line.me/2007053300-JTSerFbF?mode=confirmReceive&voucherId=${voucher.id}`;
         const approveTime = formatThaiDateTime(new Date());
 
         return {
@@ -2416,7 +2416,7 @@
                     action: {
                         type: "uri",
                         label: "✅ ยืนยันรับของ",
-                        uri: `https://liff.line.me/YOUR_LIFF_ID?mode=confirmReceive&voucherId=${voucher.id}`
+                        uri: liffUrl
                     }
                     }
                 ]
