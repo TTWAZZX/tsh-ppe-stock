@@ -1102,16 +1102,15 @@
         };
     }
 
-    // ✅ Template สำหรับแจ้งสถานะ (อนุมัติ/ปฏิเสธ/บางส่วน) - ชุดที่สมบูรณ์ที่สุด
+    // ✅ Template มาตรฐานสำหรับแจ้งสถานะ (อนุมัติ/ปฏิเสธ/บางส่วน) 
     function createStatusFlex(title, voucher, items, colorCode) {
-        // ดึงข้อมูลพื้นฐาน ป้องกันกรณีข้อมูลมาไม่ครบ
+        // ดึงค่าออกมาเป็นตัวแปรธรรมดาเพื่อป้องกัน [object Object]
         const vId = voucher.id || "-";
         const vUser = voucher.user || "ไม่ระบุชื่อ";
         const vDept = voucher.department || "-";
         
-        // ตรวจสอบรายการสินค้า
+        // จัดการรายการสินค้า
         const safeItems = Array.isArray(items) ? items : [];
-
         const itemSummary = safeItems.map(item => {
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : `รหัส: ${item.itemId}`;
@@ -2311,6 +2310,7 @@
     // 🛠️ ADMIN APPROVAL FUNCTIONS (เพิ่มกลับเข้าไป)
     // ===========================================
 
+    // ✅ ฟังก์ชันอนุมัติ
     async function approveVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการอนุมัติ', 'ต้องการอนุมัติใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
@@ -2334,6 +2334,7 @@
         }
     }
 
+    // ✅ ฟังก์ชันปฏิเสธ
     async function rejectVoucher(voucherId) {
         if (await showConfirmationModal('ยืนยันการปฏิเสธ', 'ต้องการปฏิเสธใบเบิกนี้ใช่หรือไม่?')) {
             const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
@@ -2357,6 +2358,7 @@
         }
     }
 
+    // ✅ ฟังก์ชันอนุมัติบางส่วน
     function handlePartialApprove(voucherId) {
         const items = [];
         document.querySelectorAll('#approvalModal .item-approval-row').forEach(row => {
