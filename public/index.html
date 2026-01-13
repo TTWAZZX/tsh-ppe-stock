@@ -2577,6 +2577,8 @@
         initializeApp();
     }
 
+    let isConfirmingReceive = false;
+
     async function handleLiffConfirmReceive() {
 
         console.log('🔥 handleLiffConfirmReceive CALLED');
@@ -2595,6 +2597,7 @@
         const voucherId = Number(sessionStorage.getItem('confirm_voucher_id'));
 
         if (mode !== 'confirmReceive' || !voucherId) return;
+        if (isConfirmingReceive) return;
 
         if (!liff.isLoggedIn()) {
             liff.login();
@@ -2602,6 +2605,8 @@
         }
 
         try {
+            isConfirmingReceive = true;
+
             const profile = await liff.getProfile();
 
             const ok = await showConfirmationModal(
@@ -2609,7 +2614,10 @@
                 `ยืนยันว่าคุณได้รับอุปกรณ์จากใบเบิก #${voucherId} แล้วใช่หรือไม่`
             );
 
-            if (!ok) return;
+            if (!ok) {
+                isConfirmingReceive = false;
+                return;
+            }
 
             const res = await callServerFunction('confirmReceive', {
                 voucherId,
@@ -2620,15 +2628,32 @@
             console.log('✅ confirmReceive success:', res);
             alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
 
+            // 🔔 ส่ง Flex ใหม่ (รับของแล้ว)
+            await fetch('/api/push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'received',
+                    voucherId,
+                    userId: profile.userId
+                })
+            });
+
             sessionStorage.removeItem('confirm_mode');
             sessionStorage.removeItem('confirm_voucher_id');
+
+            // ✅ ปิด LIFF (UX ดี)
+            if (liff.isInClient()) {
+                liff.closeWindow();
+            }
 
         } catch (err) {
             console.error('❌ confirmReceive error:', err);
             alert('เกิดข้อผิดพลาดของระบบ');
+        } finally {
+            isConfirmingReceive = false;
         }
     }
-
 
     function previewImageAdmin() {
         const url = document.getElementById('itemImage').value;
