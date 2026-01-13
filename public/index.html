@@ -1092,7 +1092,7 @@
     }
 
     // แทนที่ฟังก์ชัน showPage เดิม
-    function showPage(pageName) {
+    function showPage(pageName) { 
         document.querySelectorAll('.page-container > .page').forEach(page => {
             if (page.id !== `${pageName}Page`) page.classList.add('hidden');
         });
@@ -1103,9 +1103,8 @@
         document.querySelectorAll('.nav-item, .nav-item-mobile').forEach(item => {
             item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold');
         });
-        // (เพิ่ม Logic Active Tab ตามต้องการได้)
 
-        // --- จุดสำคัญ: เลือกโหลด Dashboard ให้ถูกคน ---
+        // --- Dashboard ---
         if (pageName === 'dashboard') {
             if (isAdmin) {
                 updateDashboard();
@@ -1113,12 +1112,16 @@
                 renderUserDashboard();
             }
         }
-        // ------------------------------------------
 
         if (pageName === 'allHistory') {
             updateHistoryTable();
             updateLoanHistoryTable();
             showHistoryTab('issue');
+        }
+
+        // ⭐⭐⭐ เพิ่มตรงนี้เท่านั้น
+        if (pageName === 'issue') {
+            bindIssueUserModeRadios();
         }
     }
 
@@ -3209,20 +3212,25 @@
         }
     }
 
-    // 👤 ควบคุมโหมดชื่อผู้เบิก (LINE / พิมพ์เอง)
-    document.querySelectorAll('input[name="issueUserMode"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            const input = document.getElementById('issueUser');
+    function bindIssueUserModeRadios() {
+        const radios = document.querySelectorAll('input[name="issueUserMode"]');
+        const input = document.getElementById('issueUser');
 
-            if (radio.value === 'custom') {
-                input.disabled = false;
-                input.focus();
-            } else {
-                input.value = '';
-                input.disabled = true;
-            }
+        if (!radios.length || !input) return;
+
+        radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'custom') {
+                    input.disabled = false;
+                    input.focus();
+                } else {
+                    input.value = '';
+                    input.disabled = true;
+                }
+            });
         });
-    });
+    }
+
 
 
 </script>
