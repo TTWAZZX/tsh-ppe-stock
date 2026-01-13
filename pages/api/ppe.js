@@ -129,13 +129,15 @@ async function getInitialData() {
     issueVouchersRes,
     receiveTransactionsRes,
     loanTransactionsRes,
-    categoriesRes
+    categoriesRes,
+    departmentsRes
   ] = await Promise.all([
     supabase.from('ppe_items').select('*'),
     supabase.from('issue_vouchers').select('*'),
     supabase.from('receive_transactions').select('*'),
     supabase.from('loan_transactions').select('*'),
     supabase.from('categories').select('*'),
+    supabase.from('departments').select('*').order('name')
   ]);
 
   const ppeItems = ppeItemsRes.data || [];
@@ -161,6 +163,7 @@ async function getInitialData() {
     receiveTransactions,
     loanTransactions,
     categories,
+    departments: departmentsRes.data || [],   // ⭐ เพิ่มบรรทัดนี้
     dashboardMetrics: {
       totalStockValue,
       topIssuedItems,
