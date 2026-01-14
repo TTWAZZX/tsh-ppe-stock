@@ -298,133 +298,128 @@
                 <div id="dashboardPage" class="page">
                     <div class="max-w-7xl mx-auto space-y-6">
                     
-                    <div id="adminDashboardPanel" class="hidden">
-                        
-                        <div class="mb-6 flex justify-between items-end">
-                            <div>
-                                <p class="text-gray-500 text-xs font-medium">Admin Console</p>
-                                <h2 class="text-2xl font-bold text-gray-800">System Overview</h2>
+                        <div id="adminDashboardPanel" class="hidden">
+                            
+                            <div class="mb-6 flex justify-between items-end">
+                                <div>
+                                    <p class="text-gray-500 text-xs font-medium">Admin Console</p>
+                                    <h2 class="text-2xl font-bold text-gray-800">ภาพรวมระบบ</h2>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xs text-gray-500 font-mono bg-white border border-gray-200 px-2 py-1 rounded-lg shadow-sm" id="currentDateDisplay">...</span>
+                                </div>
                             </div>
-                            <div class="flex items-center justify-end gap-2">
-                                <span class="text-[10px] sm:text-xs text-gray-500 font-mono bg-white border border-gray-200 px-2 py-1.5 rounded-lg shadow-sm" id="currentDateDisplay">
-                                    ...
-                                </span>
-                                <button onclick="refreshDashboardData(this)" class="bg-white border border-gray-200 text-gray-500 hover:text-teal-600 hover:border-teal-200 p-1.5 rounded-lg shadow-sm transition-all active:scale-90" title="อัปเดตข้อมูลล่าสุด">
-                                    <i class="fa-solid fa-arrows-rotate text-sm"></i>
+
+                            <div class="grid grid-cols-2 gap-3 mb-6">
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-28 relative overflow-hidden group">
+                                    <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <i class="fa-solid fa-boxes text-5xl text-teal-600"></i>
+                                    </div>
+                                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">อุปกรณ์ทั้งหมด</p>
+                                    <p class="text-3xl font-bold text-gray-800 mt-1" id="totalItems">0</p>
+                                    <div class="h-1 w-full bg-gray-100 rounded-full mt-auto overflow-hidden">
+                                        <div class="h-full bg-teal-500 w-2/3 rounded-full"></div>
+                                    </div>
+                                </div>
+
+                                <div onclick="showPage('pending')" class="bg-orange-50 p-4 rounded-2xl shadow-sm border border-orange-100 flex flex-col justify-between h-28 cursor-pointer active:scale-95 transition-transform relative overflow-hidden">
+                                    <div class="absolute right-0 top-0 p-3 opacity-20">
+                                        <i class="fa-solid fa-clock text-5xl text-orange-600"></i>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-xs text-orange-800 font-bold uppercase tracking-wider">รออนุมัติ</p>
+                                        <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                                    </div>
+                                    <p class="text-3xl font-bold text-orange-700 mt-1" id="pendingVouchers">0</p>
+                                    <p class="text-[10px] text-orange-600 font-medium flex items-center gap-1">
+                                        แตะเพื่อจัดการ <i class="fa-solid fa-arrow-right"></i>
+                                    </p>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-28 relative overflow-hidden">
+                                    <div class="absolute right-0 top-0 p-3 opacity-10">
+                                        <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500"></i>
+                                    </div>
+                                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">ต้องเติมของ</p>
+                                    <div class="flex items-baseline gap-1 mt-1">
+                                        <p class="text-3xl font-bold text-gray-800" id="lowStockItems">0</p>
+                                        <span class="text-xs text-gray-400">ใกล้หมด</span>
+                                    </div>
+                                    <div class="mt-auto">
+                                        <span class="text-[10px] px-2 py-0.5 bg-red-100 text-red-600 rounded-md font-bold">
+                                            หมดแล้ว: <span id="outOfStockItems">0</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-28 relative overflow-hidden">
+                                    <div class="absolute right-0 top-0 p-3 opacity-10">
+                                        <i class="fa-solid fa-wallet text-5xl text-blue-500"></i>
+                                    </div>
+                                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">มูลค่าสต็อก</p>
+                                    <p class="text-lg font-bold text-blue-600 truncate mt-1" id="totalStockValue">฿0</p>
+                                    <p class="text-[10px] text-gray-400 mt-auto">บาท (THB)</p>
+                                </div>
+                            </div>
+
+                            <h3 class="text-sm font-bold text-gray-800 mb-3 ml-1 flex items-center gap-2">
+                                <i class="fa-solid fa-rocket text-teal-500"></i> เมนูด่วน
+                            </h3>
+                            <div class="grid grid-cols-2 gap-3 mb-8">
+                                <button onclick="showPage('issue')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-teal-500 transition-all group">
+                                    <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center group-active:bg-teal-600 group-active:text-white transition-colors">
+                                        <i class="fa-solid fa-file-export text-lg"></i>
+                                    </div>
+                                    <div class="text-left">
+                                        <p class="text-sm font-bold text-gray-700">เบิกของ</p>
+                                        <p class="text-[10px] text-gray-400">สร้างใบเบิก</p>
+                                    </div>
+                                </button>
+
+                                <button onclick="showPage('receive')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-blue-500 transition-all group">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-active:bg-blue-600 group-active:text-white transition-colors">
+                                        <i class="fa-solid fa-truck-ramp-box text-lg"></i>
+                                    </div>
+                                    <div class="text-left">
+                                        <p class="text-sm font-bold text-gray-700">รับเข้า</p>
+                                        <p class="text-[10px] text-gray-400">เติมสต็อก</p>
+                                    </div>
+                                </button>
+
+                                <button onclick="showPage('manage')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-purple-500 transition-all group">
+                                    <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-active:bg-purple-600 group-active:text-white transition-colors">
+                                        <i class="fa-solid fa-gear text-lg"></i>
+                                    </div>
+                                    <div class="text-left">
+                                        <p class="text-sm font-bold text-gray-700">จัดการ</p>
+                                        <p class="text-[10px] text-gray-400">แก้ไขข้อมูล</p>
+                                    </div>
+                                </button>
+
+                                <button onclick="showPage('report')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-pink-500 transition-all group">
+                                    <div class="w-10 h-10 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center group-active:bg-pink-600 group-active:text-white transition-colors">
+                                        <i class="fa-solid fa-chart-pie text-lg"></i>
+                                    </div>
+                                    <div class="text-left">
+                                        <p class="text-sm font-bold text-gray-700">รายงาน</p>
+                                        <p class="text-[10px] text-gray-400">ดูสรุปผล</p>
+                                    </div>
                                 </button>
                             </div>
+
+                            <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm mb-20">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-sm font-bold text-gray-800">5 อันดับเบิกสูงสุด</h3>
+                                    <span class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-medium">ภาพรวม</span>
+                                </div>
+                                <div class="relative h-48">
+                                    <canvas id="topIssuedItemsChart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <div class="hidden relative h-64 md:h-72 mt-4"><canvas id="categoryChart"></canvas></div>
+
                         </div>
-
-                        <div class="grid grid-cols-2 gap-3 mb-6">
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-28 relative overflow-hidden group">
-                                <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <i class="fa-solid fa-boxes text-5xl text-teal-600"></i>
-                                </div>
-                                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">All Items</p>
-                                <p class="text-3xl font-bold text-gray-800 mt-1" id="totalItems">0</p>
-                                <div class="h-1 w-full bg-gray-100 rounded-full mt-auto overflow-hidden">
-                                    <div class="h-full bg-teal-500 w-2/3 rounded-full"></div>
-                                </div>
-                            </div>
-
-                            <div onclick="showPage('pending')" class="bg-orange-50 p-4 rounded-2xl shadow-sm border border-orange-100 flex flex-col justify-between h-28 cursor-pointer active:scale-95 transition-transform relative overflow-hidden">
-                                <div class="absolute right-0 top-0 p-3 opacity-20">
-                                    <i class="fa-solid fa-clock text-5xl text-orange-600"></i>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <p class="text-xs text-orange-800 font-bold uppercase tracking-wider">Pending</p>
-                                    <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
-                                </div>
-                                <p class="text-3xl font-bold text-orange-700 mt-1" id="pendingVouchers">0</p>
-                                <p class="text-[10px] text-orange-600 font-medium flex items-center gap-1">
-                                    Tap to manage <i class="fa-solid fa-arrow-right"></i>
-                                </p>
-                            </div>
-
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-28 relative overflow-hidden">
-                                <div class="absolute right-0 top-0 p-3 opacity-10">
-                                    <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500"></i>
-                                </div>
-                                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">Restock</p>
-                                <div class="flex items-baseline gap-1 mt-1">
-                                    <p class="text-3xl font-bold text-gray-800" id="lowStockItems">0</p>
-                                    <span class="text-xs text-gray-400">Low</span>
-                                </div>
-                                <div class="mt-auto">
-                                    <span class="text-[10px] px-2 py-0.5 bg-red-100 text-red-600 rounded-md font-bold">
-                                        Out: <span id="outOfStockItems">0</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-28 relative overflow-hidden">
-                                <div class="absolute right-0 top-0 p-3 opacity-10">
-                                    <i class="fa-solid fa-wallet text-5xl text-blue-500"></i>
-                                </div>
-                                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Value</p>
-                                <p class="text-lg font-bold text-blue-600 truncate mt-1" id="totalStockValue">฿0</p>
-                                <p class="text-[10px] text-gray-400 mt-auto">THB Currency</p>
-                            </div>
-                        </div>
-
-                        <h3 class="text-sm font-bold text-gray-800 mb-3 ml-1 flex items-center gap-2">
-                            <i class="fa-solid fa-rocket text-teal-500"></i> Quick Actions
-                        </h3>
-                        <div class="grid grid-cols-2 gap-3 mb-8">
-                            <button onclick="showPage('issue')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-teal-500 transition-all group">
-                                <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center group-active:bg-teal-600 group-active:text-white transition-colors">
-                                    <i class="fa-solid fa-file-export text-lg"></i>
-                                </div>
-                                <div class="text-left">
-                                    <p class="text-sm font-bold text-gray-700">Issue</p>
-                                    <p class="text-[10px] text-gray-400">New Request</p>
-                                </div>
-                            </button>
-
-                            <button onclick="showPage('receive')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-blue-500 transition-all group">
-                                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-active:bg-blue-600 group-active:text-white transition-colors">
-                                    <i class="fa-solid fa-truck-ramp-box text-lg"></i>
-                                </div>
-                                <div class="text-left">
-                                    <p class="text-sm font-bold text-gray-700">Receive</p>
-                                    <p class="text-[10px] text-gray-400">Add Stock</p>
-                                </div>
-                            </button>
-
-                            <button onclick="showPage('manage')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-purple-500 transition-all group">
-                                <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-active:bg-purple-600 group-active:text-white transition-colors">
-                                    <i class="fa-solid fa-gear text-lg"></i>
-                                </div>
-                                <div class="text-left">
-                                    <p class="text-sm font-bold text-gray-700">Manage</p>
-                                    <p class="text-[10px] text-gray-400">Edit Items</p>
-                                </div>
-                            </button>
-
-                            <button onclick="showPage('report')" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm active:bg-gray-50 active:border-pink-500 transition-all group">
-                                <div class="w-10 h-10 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center group-active:bg-pink-600 group-active:text-white transition-colors">
-                                    <i class="fa-solid fa-chart-pie text-lg"></i>
-                                </div>
-                                <div class="text-left">
-                                    <p class="text-sm font-bold text-gray-700">Report</p>
-                                    <p class="text-[10px] text-gray-400">Summary</p>
-                                </div>
-                            </button>
-                        </div>
-
-                        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm mb-20">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-sm font-bold text-gray-800">Top 5 Issued Items</h3>
-                                <span class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-medium">Monthly</span>
-                            </div>
-                            <div class="relative h-48">
-                                <canvas id="topIssuedItemsChart"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="hidden relative h-64 md:h-72 mt-4"><canvas id="categoryChart"></canvas></div>
-
-                    </div>
 
                     <div id="userDashboardPanel" class="w-full"></div>
                     
