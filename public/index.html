@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         :root {
             --font-family-main: 'Inter', 'Sarabun', sans-serif;
@@ -923,6 +924,81 @@
   </div>
 </div>
 
+<div id="slipModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+    
+    <div class="bg-gray-100 rounded-lg shadow-2xl max-w-sm w-full overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <div class="flex justify-end p-2 bg-transparent absolute top-2 right-2 z-10">
+            <button onclick="closeSlip()" class="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 backdrop-blur-md">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto no-scrollbar">
+            <div id="slipContent" class="bg-white m-4 p-6 rounded-xl shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500"></div>
+                
+                <div class="text-center mb-6 pt-2">
+                    <div class="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fa-solid fa-clipboard-check text-3xl text-teal-600"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800">ทำรายการสำเร็จ</h3>
+                    <p class="text-xs text-gray-500" id="slipDate">14 ม.ค. 67 • 10:30</p>
+                </div>
+
+                <div class="border-b-2 border-dashed border-gray-200 mb-6 relative">
+                    <div class="absolute -left-8 -bottom-3 w-6 h-6 bg-gray-100 rounded-full"></div>
+                    <div class="absolute -right-8 -bottom-3 w-6 h-6 bg-gray-100 rounded-full"></div>
+                </div>
+
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs text-gray-400">ผู้เบิก</span>
+                        <span class="text-sm font-bold text-gray-800 text-right w-2/3" id="slipUser">-</span>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs text-gray-400">แผนก</span>
+                        <span class="text-sm font-medium text-gray-600 text-right w-2/3" id="slipDept">-</span>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs text-gray-400">เลขที่รายการ</span>
+                        <span class="text-sm font-mono text-gray-600" id="slipRef">-</span>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3 mb-6">
+                    <p class="text-xs text-gray-400 mb-2 uppercase font-bold tracking-wider">รายการอุปกรณ์</p>
+                    <div id="slipItemsList" class="space-y-2">
+                        </div>
+                </div>
+
+                <div class="text-center pt-2">
+                    <div class="text-[10px] text-gray-400 mb-2">Scan to check status</div>
+                    <div class="bg-white p-1 inline-block border border-gray-100 rounded">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=PPE_System" class="w-16 h-16 opacity-80 mix-blend-multiply">
+                    </div>
+                    <p class="text-[10px] text-teal-600 mt-2 font-bold">PPE Stock Management System</p>
+                </div>
+
+                <div class="absolute -bottom-3 left-0 w-full flex justify-between px-2">
+                    <div class="w-4 h-4 bg-gray-100 rounded-full"></div>
+                    <div class="w-4 h-4 bg-gray-100 rounded-full"></div>
+                    <div class="w-4 h-4 bg-gray-100 rounded-full"></div>
+                    <div class="w-4 h-4 bg-gray-100 rounded-full"></div>
+                    <div class="w-4 h-4 bg-gray-100 rounded-full"></div>
+                    <div class="w-4 h-4 bg-gray-100 rounded-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 bg-white border-t border-gray-200">
+            <button onclick="downloadSlip()" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-download"></i> บันทึกรูปภาพ
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ===========================================
     // API Configuration
@@ -1785,7 +1861,7 @@
             default: return { text: 'ไม่ทราบสถานะ', color: 'bg-gray-100 text-gray-800' };
         }
     }
-    // ฟังก์ชันวาดประวัติการเบิก + Touch Feedback
+    // ฟังก์ชันวาดประวัติการเบิก + Touch Feedback (เพิ่มปุ่มสลิป)
     function updateHistoryTable(filter = '') {
         const container = document.getElementById('issueHistoryTab');
         const emptyState = document.getElementById('issueHistoryEmptyState');
@@ -1852,8 +1928,15 @@
                     <span class="px-3 py-1 text-xs font-bold rounded-full ${status.color}">
                         ${status.text}
                     </span>
-                    <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                        <i class="fa-solid fa-chevron-right"></i>
+                    
+                    <div class="flex items-center gap-2">
+                        <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
+                            <i class="fa-solid fa-receipt"></i>
+                        </button>
+                        
+                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </div>
                     </div>
                 </div>
 
@@ -1972,7 +2055,7 @@
         .join('');
     }
 
-    // ฟังก์ชันวาดรายการยืมแบบ Card + Touch Feedback
+    // ฟังก์ชันวาดรายการยืมแบบ Card + Touch Feedback (ซ่อนปุ่มรับคืนถ้าไม่ใช่ Admin)
     function updateOnLoanTable() {
         const container = document.getElementById('onLoanListContainer');
         const emptyState = document.getElementById('onLoanEmptyState');
@@ -2015,7 +2098,17 @@
                 ? `<img src="${item.image_url}" class="w-16 h-16 rounded-lg object-cover border border-gray-100">`
                 : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-2xl"><i class="fa-solid fa-box"></i></div>`;
 
-            // 👇👇 เพิ่ม active:scale-95 duration-200 cursor-pointer ตรงนี้ครับ
+            // 👇👇 เช็คตรงนี้: ถ้าเป็น Admin ถึงจะสร้างปุ่มรับคืน 👇👇
+            const returnButton = isAdmin ? `
+                <div class="w-full sm:w-auto mt-3 sm:mt-0 flex justify-end">
+                    <button onclick="handleReturnItem(${loan.loanId}); event.stopPropagation();" 
+                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white active:scale-90">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                        รับคืน
+                    </button>
+                </div>` : ''; 
+            // 👆👆 จบส่วนเช็ค
+
             return `
             <div class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border ${cardBorder} bg-white shadow-sm transition-all duration-200 hover:shadow-md active:scale-95 cursor-pointer">
                 
@@ -2055,13 +2148,8 @@
                     </div>
                 </div>
 
-                <div class="w-full sm:w-auto mt-3 sm:mt-0 flex justify-end">
-                    <button onclick="handleReturnItem(${loan.loanId}); event.stopPropagation();" 
-                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white active:scale-90">
-                        <i class="fa-solid fa-arrow-rotate-left"></i>
-                        รับคืน
-                    </button>
-                </div>
+                ${returnButton}
+
             </div>`;
         }).join('');
     }
@@ -2431,7 +2519,6 @@
         dashboardDiv.innerHTML = `
             <div class="pt-4 pb-24 max-w-md mx-auto">
                 
-                // ใน renderUserDashboard() ตรงส่วน Header Card ให้แทนที่ด้วยก้อนนี้ครับ
                 <div class="relative px-4 mb-6">
                     <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl p-6 text-white shadow-lg shadow-teal-200 relative overflow-hidden">
                         <div class="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
@@ -3623,6 +3710,7 @@
 
             if (typeof hideLoading === 'function') hideLoading();
             showToast('บันทึกใบเบิกเรียบร้อยแล้ว', 'success');
+            showVoucherSlip(newVoucher.id);
 
             // 8. reset ฟอร์ม
             document.getElementById('issueForm').reset();
@@ -3864,6 +3952,68 @@
             
             showToast('ดึงรายการเดิมมาให้แล้ว กรุณาตรวจสอบก่อนบันทึก');
         }, 300);
+    }
+
+    // ==========================================
+    // 🧾 E-SLIP SYSTEM FUNCTIONS
+    // ==========================================
+
+    function showVoucherSlip(voucherId) {
+        const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
+        if (!voucher) return showToast('ไม่พบข้อมูลใบเบิก', 'error');
+
+        // 1. Prepare Data
+        let items = [];
+        try { items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]'); } catch (e) { items = []; }
+
+        // 2. Fill Data to HTML
+        document.getElementById('slipUser').textContent = voucher.user;
+        document.getElementById('slipDept').textContent = voucher.department || '-';
+        document.getElementById('slipRef').textContent = `#${voucher.id}`;
+        document.getElementById('slipDate').textContent = new Date(voucher.timestamp).toLocaleString('th-TH', { 
+            day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute:'2-digit' 
+        });
+
+        // 3. Render Items
+        const listContainer = document.getElementById('slipItemsList');
+        listContainer.innerHTML = items.map(item => {
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : 'Unknown Item';
+            return `
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-700 truncate w-3/4">• ${itemName}</span>
+                <span class="font-bold text-gray-900">x${item.quantity}</span>
+            </div>`;
+        }).join('');
+
+        // 4. Show Modal
+        document.getElementById('slipModal').classList.remove('hidden');
+    }
+
+    function closeSlip() {
+        document.getElementById('slipModal').classList.add('hidden');
+    }
+
+    function downloadSlip() {
+        const element = document.getElementById('slipContent'); // แคปเฉพาะส่วนสีขาว
+        const btn = document.querySelector('#slipModal button[onclick="downloadSlip()"]');
+        
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังบันทึก...';
+        
+        html2canvas(element, { scale: 2 }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `PPE-Slip-${document.getElementById('slipRef').textContent}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            
+            btn.innerHTML = originalText;
+            showToast('บันทึกรูปภาพเรียบร้อย', 'success');
+        }).catch(err => {
+            console.error(err);
+            btn.innerHTML = originalText;
+            showToast('บันทึกไม่สำเร็จ', 'error');
+        });
     }
 
 </script>
