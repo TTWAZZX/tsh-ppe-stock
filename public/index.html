@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --font-family-main: 'Inter', 'Sarabun', sans-serif;
@@ -992,8 +991,8 @@
         </div>
 
         <div class="p-4 bg-white border-t border-gray-200">
-            <button onclick="downloadSlip()" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 transition-all active:scale-95 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-download"></i> บันทึกรูปภาพ
+            <button onclick="closeSlip()" class="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all active:scale-95">
+                ปิดหน้าต่าง
             </button>
         </div>
     </div>
@@ -4038,148 +4037,6 @@
     // ฟังก์ชันเช็คว่าเป็นมือถือหรือไม่
     function isMobileDevice() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
-    }
-
-    // 3. แก้ไขฟังก์ชัน downloadSlip (เวอร์ชันรอรูปโหลดเสร็จ 100%)
-    function downloadSlip() {
-        const originalElement = document.getElementById('slipContent');
-        const btn = document.querySelector('#slipModal button[onclick="downloadSlip()"]');
-        
-        if (!originalElement) return showToast('ไม่พบข้อมูลสลิป', 'error');
-
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังเตรียมรูปภาพ...';
-        btn.disabled = true;
-        btn.classList.add('opacity-75', 'cursor-not-allowed');
-
-        // 1. สร้าง Wrapper
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'fixed';
-        wrapper.style.top = '0';
-        wrapper.style.left = '0';
-        wrapper.style.zIndex = '-9999';
-        wrapper.style.opacity = '0.01'; // ให้ Browser มองเห็น
-        wrapper.style.pointerEvents = 'none';
-        document.body.appendChild(wrapper);
-
-        // 2. Clone เนื้อหา
-        const clone = originalElement.cloneNode(true);
-        
-        // ปรับ Style
-        clone.style.width = '375px'; 
-        clone.style.minWidth = '375px';
-        clone.style.maxWidth = '375px';
-        clone.style.height = 'auto';
-        clone.style.overflow = 'visible';
-        clone.style.backgroundColor = '#ffffff';
-        clone.style.margin = '0';
-        clone.style.padding = '20px';
-        clone.style.borderRadius = '0';
-        clone.style.boxShadow = 'none';
-        clone.style.transform = 'none';
-
-        // 3. จัดการรูปภาพ (เปลี่ยน Profile เป็น Icon + รอโหลด QR)
-        const images = clone.querySelectorAll('img');
-        const imageLoadPromises = [];
-
-        images.forEach(img => {
-            // ถ้าเป็น QR Code ให้เปิด CORS และรอโหลด
-            if (img.src.includes('qrserver')) {
-                img.crossOrigin = "Anonymous";
-                // สร้าง Promise เพื่อรอให้รูปนี้โหลดเสร็จ
-                if (!img.complete) {
-                    imageLoadPromises.push(new Promise(resolve => {
-                        img.onload = resolve;
-                        img.onerror = resolve; // ถ้าพังก็ปล่อยผ่าน
-                    }));
-                }
-            } 
-            // ลบรูป Profile ทิ้ง ใส่ Icon แทน (แก้จอดำ)
-            else {
-                const parent = img.parentElement;
-                if(parent) {
-                    const iconDiv = document.createElement('div');
-                    iconDiv.className = "w-full h-full flex items-center justify-center bg-teal-100 text-teal-600 rounded-full";
-                    iconDiv.innerHTML = '<i class="fa-solid fa-user text-2xl"></i>';
-                    img.remove();
-                    parent.appendChild(iconDiv);
-                    parent.classList.remove('border-white');
-                }
-            }
-        });
-
-        wrapper.appendChild(clone);
-
-        // 4. รอให้รูปทั้งหมดโหลดเสร็จก่อน แล้วค่อยแคป (สำคัญ!)
-        Promise.all(imageLoadPromises).then(() => {
-            // รออีกนิดนึงเพื่อให้ Browser วาด layout เสร็จ (Buffer)
-            setTimeout(() => {
-                html2canvas(clone, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    width: 375,
-                    windowWidth: 375,
-                    scrollY: 0,
-                    scrollX: 0,
-                    imageTimeout: 0, // รอรูปโหลดจนกว่าจะเสร็จ (ไม่ตัดจบ)
-                    removeContainer: false // ห้ามลบ container เอง
-                }).then(canvas => {
-                    document.body.removeChild(wrapper);
-
-                    const imgData = canvas.toDataURL('image/jpeg', 0.9);
-
-                    if (isMobileDevice()) {
-                        // === มือถือ ===
-                        const imgContainer = document.getElementById('generatedImageContainer');
-                        if (imgContainer) {
-                            imgContainer.innerHTML = '';
-                            const img = new Image();
-                            img.src = imgData;
-                            img.className = 'w-full h-auto block rounded-lg shadow-sm border border-gray-200';
-                            
-                            // รอรูปโหลดเสร็จค่อยโชว์
-                            img.onload = () => {
-                                closeSlip();
-                                document.getElementById('imagePreviewModal').classList.remove('hidden');
-                                btn.innerHTML = originalText;
-                                btn.disabled = false;
-                                btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                            };
-                            
-                            imgContainer.appendChild(img);
-                            if(navigator.vibrate) navigator.vibrate(50);
-                        }
-                    } else {
-                        // === คอม ===
-                        const link = document.createElement('a');
-                        const refEl = document.getElementById('slipRef');
-                        const refId = refEl ? refEl.textContent.replace('#','').trim() : 'slip';
-                        link.download = `PPE_Slip_${refId}.jpg`;
-                        link.href = imgData;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        showToast('บันทึกรูปภาพเรียบร้อย', 'success');
-                        
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                    }
-
-                }).catch(err => {
-                    console.error('Slip generation failed:', err);
-                    if(document.body.contains(wrapper)) document.body.removeChild(wrapper);
-                    showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
-                    
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                });
-            }, 500); // รอ Layout 0.5 วิ
-        });
     }
 
 </script>
