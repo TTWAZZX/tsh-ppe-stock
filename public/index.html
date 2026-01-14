@@ -299,83 +299,77 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 sm:p-6 lg:p-8 page-container relative">
-            <div id="dashboardPage" class="page">
-                
-                <div id="adminDashboardPanel" class="hidden">
-                    <div class="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-5 sm:overflow-visible sm:pb-0 mb-8 scrollbar-hide">
-                        
-                        <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                            <div><p class="text-sm font-medium text-gray-500">อุปกรณ์ทั้งหมด</p><p id="totalItems" class="text-3xl font-bold text-gray-800">0</p></div>
-                            <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center"><i class="fas fa-boxes text-xl text-teal-600"></i></div>
-                        </div>
-
-                        <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                            <div><p class="text-sm font-medium text-gray-500">ใกล้หมดสต็อก</p><p id="lowStockItems" class="text-3xl font-bold text-orange-500">0</p></div>
-                            <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center"><i class="fas fa-exclamation-triangle text-xl text-orange-500"></i></div>
-                        </div>
-
-                        <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                            <div><p class="text-sm font-medium text-gray-500">ของหมด</p><p id="outOfStockItems" class="text-3xl font-bold text-red-600">0</p></div>
-                            <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center"><i class="fas fa-times-circle text-xl text-red-600"></i></div>
-                        </div>
-
-                        <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                            <div><p class="text-sm font-medium text-gray-500">รออนุมัติ</p><p id="pendingVouchers" class="text-3xl font-bold text-amber-500">0</p></div>
-                            <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center"><i class="fas fa-clock text-xl text-amber-500"></i></div>
-                        </div>
-
-                        <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                            <div><p class="text-sm font-medium text-gray-500">มูลค่าสต็อกรวม</p><p id="totalStockValue" class="text-2xl font-bold text-gray-800">฿0.00</p></div>
-                            <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center"><i class="fas fa-dollar-sign text-xl text-emerald-600"></i></div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                        <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-200">
-                             <h3 class="text-lg font-semibold mb-4 text-gray-800">เมนูด่วน (Admin)</h3>
-                             <div class="space-y-3">
-                                <button onclick="showPage('issue')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
-                                    <i class="fa-solid fa-file-export text-teal-600 text-lg"></i><span class="font-medium text-gray-700">สร้างใบเบิกใหม่</span>
-                                </button>
-                                <button onclick="showPage('receive')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
-                                    <i class="fa-solid fa-truck-ramp-box text-teal-600 text-lg"></i><span class="font-medium text-gray-700">รับของเข้าสต็อก</span>
-                                </button>
-                                <button onclick="showPage('pending')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
-                                    <i class="fa-solid fa-hourglass-half text-yellow-600 text-lg"></i><span class="font-medium text-gray-700">อนุมัติคำขอ</span>
-                                </button>
-                             </div>
-                        </div>
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">สัดส่วนหมวดหมู่</h3>
-                            <div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
-                        </div>
-                    </div>
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 sm:p-6 lg:p-8 pb-32 page-container relative">
+                <div id="dashboardPage" class="page">
+                    <div class="max-w-7xl mx-auto space-y-6">
                     
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                         <div class="bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์เบิกสูงสุด</h3>
-                            <div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
+                    <div id="adminDashboardPanel" class="hidden">
+                        <div class="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-5 sm:overflow-visible sm:pb-0 mb-8 scrollbar-hide">
+                            <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                <div><p class="text-sm font-medium text-gray-500">อุปกรณ์ทั้งหมด</p><p id="totalItems" class="text-3xl font-bold text-gray-800">0</p></div>
+                                <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center"><i class="fas fa-boxes text-xl text-teal-600"></i></div>
+                            </div>
+                            <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                <div><p class="text-sm font-medium text-gray-500">ใกล้หมดสต็อก</p><p id="lowStockItems" class="text-3xl font-bold text-orange-500">0</p></div>
+                                <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center"><i class="fas fa-exclamation-triangle text-xl text-orange-500"></i></div>
+                            </div>
+                            <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                <div><p class="text-sm font-medium text-gray-500">ของหมด</p><p id="outOfStockItems" class="text-3xl font-bold text-red-600">0</p></div>
+                                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center"><i class="fas fa-times-circle text-xl text-red-600"></i></div>
+                            </div>
+                            <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                <div><p class="text-sm font-medium text-gray-500">รออนุมัติ</p><p id="pendingVouchers" class="text-3xl font-bold text-amber-500">0</p></div>
+                                <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center"><i class="fas fa-clock text-xl text-amber-500"></i></div>
+                            </div>
+                            <div class="min-w-[85%] sm:min-w-0 snap-center bg-white p-5 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                <div><p class="text-sm font-medium text-gray-500">มูลค่าสต็อกรวม</p><p id="totalStockValue" class="text-2xl font-bold text-gray-800">฿0.00</p></div>
+                                <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center"><i class="fas fa-dollar-sign text-xl text-emerald-600"></i></div>
+                            </div>
                         </div>
-                        <div class="bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 class="text-lg font-semibold mb-4">กิจกรรมล่าสุด</h3>
-                            <div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
-                        </div>
-                    </div>
-                </div>
 
-                <div id="userDashboardPanel" class="w-full">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                            <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-200">
+                                <h3 class="text-lg font-semibold mb-4 text-gray-800">เมนูด่วน (Admin)</h3>
+                                <div class="space-y-3">
+                                    <button onclick="showPage('issue')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
+                                        <i class="fa-solid fa-file-export text-teal-600 text-lg"></i><span class="font-medium text-gray-700">สร้างใบเบิกใหม่</span>
+                                    </button>
+                                    <button onclick="showPage('receive')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-gray-50 hover:bg-teal-100 transition-colors">
+                                        <i class="fa-solid fa-truck-ramp-box text-teal-600 text-lg"></i><span class="font-medium text-gray-700">รับของเข้าสต็อก</span>
+                                    </button>
+                                    <button onclick="showPage('pending')" class="w-full text-left flex items-center space-x-3 p-4 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
+                                        <i class="fa-solid fa-hourglass-half text-yellow-600 text-lg"></i><span class="font-medium text-gray-700">อนุมัติคำขอ</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200">
+                                <h3 class="text-lg font-semibold mb-4">สัดส่วนหมวดหมู่</h3>
+                                <div class="relative h-64 md:h-72"><canvas id="categoryChart"></canvas></div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                            <div class="bg-white p-6 rounded-xl border border-gray-200">
+                                <h3 class="text-lg font-semibold mb-4">5 อุปกรณ์เบิกสูงสุด</h3>
+                                <div class="relative h-64 md:h-72"><canvas id="topIssuedItemsChart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl border border-gray-200">
+                                <h3 class="text-lg font-semibold mb-4">กิจกรรมล่าสุด</h3>
+                                <div id="recentActivityFeed" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+                            </div>
+                        </div>
                     </div>
-                
-                <div id="dashboardSkeleton" class="hidden">
-                    <div class="animate-pulse space-y-4"><div class="h-32 bg-gray-200 rounded-xl"></div><div class="h-64 bg-gray-200 rounded-xl"></div></div>
-                </div>
-            </div>
+
+                    <div id="userDashboardPanel" class="w-full"></div>
+                    
+                    <div id="dashboardSkeleton" class="hidden">
+                        <div class="animate-pulse space-y-4"><div class="h-32 bg-gray-200 rounded-xl"></div><div class="h-64 bg-gray-200 rounded-xl"></div></div>
+                    </div>
+
+                </div> </div>
 
             <div id="stockPage" class="page hidden">
-                <div class="max-w-7xl mx-auto space-y-6">
-                    
-                    <div class="sticky top-0 z-30 bg-gray-100/95 backdrop-blur-md pt-2 pb-2 -mx-4 px-4 sm:static sm:bg-transparent sm:p-0 sm:mx-0">
+                <div class="max-w-7xl mx-auto space-y-6"> <div class="sticky top-0 z-30 bg-gray-100/95 backdrop-blur-md pt-2 pb-2 -mx-4 px-4 sm:static sm:bg-transparent sm:p-0 sm:mx-0">
                         <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                             
                             <div class="text-center md:text-left w-full md:w-auto">
@@ -418,279 +412,338 @@
                 </div>
             </div>
 
-        <div id="issuePage" class="page hidden">
-            <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-6 sm:p-8">
-                <h3 class="text-xl font-semibold mb-6 text-gray-800">สร้างใบเบิกจ่ายอุปกรณ์</h3>
-                <form id="issueForm" class="space-y-6">
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้เบิก</label>
-
-                            <!-- เลือกโหมดชื่อ -->
-                            <div class="flex items-center gap-4 mb-2 text-sm">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="issueUserMode" value="line" checked>
-                                    ใช้ชื่อจาก LINE
-                                </label>
-
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="issueUserMode" value="custom">
-                                    พิมพ์ชื่อเอง
-                                </label>
-                            </div>
-
-                            <!-- input ชื่อ -->
-                            <input
-                                type="text"
-                                id="issueUser"
-                                placeholder="ชื่อผู้เบิก"
-                                disabled
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
-                            />
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">รหัสพนักงาน</label>
-                            <input type="text" id="employeeId" required placeholder="เช่น EMP-001" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        </div>
-                    </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
-
-                            <!-- 🔍 ช่องค้นหา -->
-                            <input
-                                id="issueDepartmentSearch"
-                                type="text"
-                                placeholder="ค้นหาแผนก..."
-                                class="w-full mb-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            />
-
-                            <div class="relative">
-                                <select
-                                    id="issueDepartment"
-                                    required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer"
-                                >
-                                    <option value="" disabled selected>-- กรุณาเลือกแผนก --</option>
-                                </select>
-
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                    <i class="fa-solid fa-chevron-down text-xs"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">รายการอุปกรณ์</label>
-                        <div id="issueItemsContainer" class="space-y-3 mb-3">
-                            </div>
-                        
-                        <button type="button" onclick="openIssueCatalog()" class="w-full py-3 border-2 border-dashed border-teal-300 rounded-lg text-teal-600 hover:bg-teal-50 hover:border-teal-500 transition-colors font-medium">
-                            <i class="fas fa-plus-circle mr-2"></i>เลือกอุปกรณ์จากแคตตาล็อก
-                        </button>
-                    </div>
-
-                    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                        <button type="button" onclick="resetIssueForm()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">ล้างฟอร์ม</button>
-                        <button type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">สร้างใบเบิก</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div id="loanPage" class="page hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6">
-                    <h3 class="text-xl font-semibold mb-6 text-gray-800">ยืมอุปกรณ์</h3>
-                    <form id="loanForm" class="space-y-4">
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
-                            <input type="hidden" id="loanItemId" required> 
-                            
-                            <div id="loanItemDisplay" onclick="openLoanCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
-                                <div class="flex items-center gap-3">
-                                    <div id="loanItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
-                                        <i class="fa-solid fa-box-open text-xl"></i>
-                                    </div>
-                                    <img id="loanItemImg" src="" class="w-12 h-12 rounded-md object-cover hidden border border-gray-200">
-                                    
-                                    <div class="overflow-hidden">
-                                        <p id="loanItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
-                                        <p id="loanItemCode" class="text-xs text-gray-400 hidden"></p>
-                                    </div>
-                                </div>
-                                <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
-
-                            <div class="flex items-center gap-4 mb-2 text-sm">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="loanUserMode" value="line" checked>
-                                    ใช้ชื่อจาก LINE
-                                </label>
-
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="loanUserMode" value="custom">
-                                    พิมพ์ชื่อเอง
-                                </label>
-                            </div>
-
-                            <input 
-                                type="text" 
-                                id="loanUser" 
-                                required 
-                                placeholder="ชื่อผู้ยืม"
-                                disabled
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed bg-white transition-colors"
-                            >
-                        </div>
-
-                        <div>
-                            <label for="loanEmployeeId" class="block text-sm font-medium text-gray-700 mb-2">รหัสพนักงาน</label>
-                            <input type="text" id="loanEmployeeId" required placeholder="เช่น EMP-001" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
-
-                            <!-- 🔍 ช่องค้นหา -->
-                            <input
-                                id="departmentSearch"
-                                type="text"
-                                placeholder="ค้นหาแผนก..."
-                                class="w-full mb-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            />
-
-                            <div class="relative">
-                                <select
-                                    id="loanDepartment"
-                                    required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer"
-                                >
-                                    <option value="" disabled selected>-- กรุณาเลือกแผนก --</option>
-                                </select>
-
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                    <i class="fa-solid fa-chevron-down text-xs"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label for="loanDueDate" class="block text-sm font-medium text-gray-700 mb-2">กำหนดคืน</label>
-                            <input type="date" id="loanDueDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        </div>
-
-                        <div>
-                            <label for="loanNotes" class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
-                            <textarea id="loanNotes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
-                        </div>
-
-                        <div class="flex justify-end pt-2">
-                            <button type="button" onclick="saveLoanTransaction()" class="w-full px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-md active:scale-95 transform duration-150">
-                                บันทึกการยืม
-                            </button>
-                        </div>
-                        </form>
-                        </div>
-
-                <div class="lg:col-span-2 flex flex-col h-full">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
-                        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                <i class="fa-solid fa-clock-rotate-left text-teal-600"></i> 
-                                รายการที่กำลังถูกยืม
-                            </h3>
-                            <span class="bg-teal-100 text-teal-700 text-xs font-bold px-2.5 py-1 rounded-full border border-teal-200" id="onLoanCountBadge">0 รายการ</span>
-                        </div>
-                        
-                        <div id="onLoanListContainer" class="p-4 overflow-y-auto max-h-[600px] bg-gray-50/30 space-y-3">
-                            </div>
-                        
-                        <div id="onLoanEmptyState" class="hidden flex-1 flex flex-col items-center justify-center py-12 text-gray-400">
-                            </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-            
-        <div id="allHistoryPage" class="page hidden">
-            <div class="max-w-5xl mx-auto space-y-6">
-                
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                    
-                    <div class="text-center md:text-left w-full md:w-auto">
-                        <h3 class="text-xl font-bold text-gray-800">
-                            <i class="fa-solid fa-clock-rotate-left text-teal-600 mr-2"></i>ประวัติการใช้งาน
+            <div id="issuePage" class="page hidden">
+                <div class="max-w-4xl mx-auto p-4 lg:p-8 pb-24"> <div class="bg-white rounded-xl shadow-sm border p-6 sm:p-8">
+                        <h3 class="text-xl font-semibold mb-6 text-gray-800 flex items-center gap-2">
+                            <i class="fa-solid fa-file-circle-plus text-teal-600"></i>
+                            สร้างใบเบิกจ่ายอุปกรณ์
                         </h3>
-                        <p class="text-sm text-gray-500 mt-1">ตรวจสอบรายการเบิกและยืม-คืนย้อนหลัง</p>
-                    </div>
-                    
-                    <div class="w-full md:w-72 relative group">
-                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors"></i>
-                        <input type="text" id="historySearch" placeholder="ค้นหาชื่อ, เลขที่, หรืออุปกรณ์..." class="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
                         
-                        <button onclick="document.getElementById('historySearch').value=''; updateHistoryTable(); updateLoanHistoryTable();" 
-                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
-                            <i class="fa-solid fa-circle-xmark"></i>
-                        </button>
+                        <form id="issueForm" class="space-y-6">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้เบิก</label>
+
+                                    <div class="flex items-center gap-4 mb-2 text-sm bg-gray-50 p-2 rounded-lg border border-gray-200">
+                                        <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600 transition-colors">
+                                            <input type="radio" name="issueUserMode" value="line" checked class="text-teal-600 focus:ring-teal-500">
+                                            <span class="font-medium">ใช้ชื่อจาก LINE</span>
+                                        </label>
+
+                                        <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600 transition-colors">
+                                            <input type="radio" name="issueUserMode" value="custom" class="text-teal-600 focus:ring-teal-500">
+                                            <span class="font-medium">พิมพ์ชื่อเอง</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="relative">
+                                        <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            id="issueUser"
+                                            placeholder="ชื่อผู้เบิก"
+                                            disabled
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">รหัสพนักงาน</label>
+                                    <div class="relative">
+                                        <i class="fa-solid fa-id-card absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input type="text" id="employeeId" required placeholder="เช่น EMP-001" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
+
+                                <div class="relative mb-2">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input
+                                        id="issueDepartmentSearch"
+                                        type="text"
+                                        placeholder="ค้นหาแผนก..."
+                                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-gray-50"
+                                    />
+                                </div>
+
+                                <div class="relative">
+                                    <i class="fa-solid fa-building absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10"></i>
+                                    <select
+                                        id="issueDepartment"
+                                        required
+                                        class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer relative"
+                                    >
+                                        <option value="" disabled selected>-- กรุณาเลือกแผนก --</option>
+                                    </select>
+
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">รายการอุปกรณ์ <span class="text-red-500">*</span></label>
+                                <div id="issueItemsContainer" class="space-y-3 mb-3">
+                                    </div>
+                                
+                                <button type="button" onclick="openIssueCatalog()" class="w-full py-4 border-2 border-dashed border-teal-300 rounded-xl text-teal-600 hover:bg-teal-50 hover:border-teal-500 transition-all font-medium flex items-center justify-center gap-2 group">
+                                    <div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                                        <i class="fas fa-plus text-teal-700"></i>
+                                    </div>
+                                    เลือกอุปกรณ์จากแคตตาล็อก
+                                </button>
+                            </div>
+
+                            <div class="flex justify-end gap-3 pt-6 border-t border-gray-100">
+                                <button type="button" onclick="resetIssueForm()" class="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                                    ล้างฟอร์ม
+                                </button>
+                                <button type="submit" class="flex-[2] px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all shadow-md active:scale-95 font-bold flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-paper-plane"></i> ส่งคำขอเบิก
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
+            </div>
 
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="border-b border-gray-200 bg-gray-50/50 px-2">
-                        <nav class="flex -mb-px space-x-4" aria-label="Tabs">
-                            <button onclick="showHistoryTab('issue')" class="history-tab flex-1 md:flex-none text-center py-4 px-4 border-b-2 font-semibold text-sm transition-colors border-teal-500 text-teal-600">
-                                <i class="fas fa-file-invoice mr-2"></i>ประวัติการเบิก
-                            </button>
-                            <button onclick="showHistoryTab('loan')" class="history-tab flex-1 md:flex-none text-center py-4 px-4 border-b-2 font-semibold text-sm transition-colors text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300">
-                                <i class="fas fa-hand-holding-hand mr-2"></i>ประวัติยืม-คืน
-                            </button>
-                        </nav>
-                    </div>
-
-                    <div class="p-4 bg-gray-50 min-h-[400px]">
+            <div id="loanPage" class="page hidden">
+                <div class="max-w-7xl mx-auto space-y-6"> <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         
-                        <div id="issueHistoryTab" class="history-tab-content space-y-3">
-                            </div>
-                        <div id="issueHistoryEmptyState" class="hidden py-12 text-center text-gray-400"></div>
+                        <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6">
+                            <h3 class="text-xl font-semibold mb-6 text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-hand-holding-hand text-teal-600"></i>
+                                ยืมอุปกรณ์
+                            </h3>
+                            
+                            <form id="loanForm" class="space-y-4">
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ที่ต้องการยืม</label>
+                                    <input type="hidden" id="loanItemId" required> 
+                                    
+                                    <div id="loanItemDisplay" onclick="openLoanCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
+                                        <div class="flex items-center gap-3">
+                                            <div id="loanItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
+                                                <i class="fa-solid fa-box-open text-xl"></i>
+                                            </div>
+                                            <img id="loanItemImg" src="" class="w-12 h-12 rounded-md object-cover hidden border border-gray-200">
+                                            
+                                            <div class="overflow-hidden">
+                                                <p id="loanItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
+                                                <p id="loanItemCode" class="text-xs text-gray-400 hidden"></p>
+                                            </div>
+                                        </div>
+                                        <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
+                                    </div>
+                                </div>
 
-                        <div id="loanHistoryTab" class="history-tab-content hidden space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ยืม</label>
+
+                                    <div class="flex items-center gap-4 mb-2 text-sm bg-gray-50 p-2 rounded-lg border border-gray-200">
+                                        <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600 transition-colors">
+                                            <input type="radio" name="loanUserMode" value="line" checked class="text-teal-600 focus:ring-teal-500">
+                                            <span class="font-medium">ใช้ชื่อจาก LINE</span>
+                                        </label>
+
+                                        <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600 transition-colors">
+                                            <input type="radio" name="loanUserMode" value="custom" class="text-teal-600 focus:ring-teal-500">
+                                            <span class="font-medium">พิมพ์ชื่อเอง</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="relative">
+                                        <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input 
+                                            type="text" 
+                                            id="loanUser" 
+                                            required 
+                                            placeholder="ชื่อผู้ยืม"
+                                            disabled
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed bg-white transition-colors"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="loanEmployeeId" class="block text-sm font-medium text-gray-700 mb-2">รหัสพนักงาน</label>
+                                    <div class="relative">
+                                        <i class="fa-solid fa-id-card absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input type="text" id="loanEmployeeId" required placeholder="เช่น EMP-001" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
+
+                                    <div class="relative mb-2">
+                                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            id="departmentSearch"
+                                            type="text"
+                                            placeholder="ค้นหาแผนก..."
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-gray-50"
+                                        />
+                                    </div>
+
+                                    <div class="relative">
+                                        <i class="fa-solid fa-building absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10"></i>
+                                        <select
+                                            id="loanDepartment"
+                                            required
+                                            class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none bg-white cursor-pointer relative"
+                                        >
+                                            <option value="" disabled selected>-- กรุณาเลือกแผนก --</option>
+                                        </select>
+
+                                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="loanDueDate" class="block text-sm font-medium text-gray-700 mb-2">กำหนดคืน</label>
+                                    <input type="date" id="loanDueDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                </div>
+
+                                <div>
+                                    <label for="loanNotes" class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
+                                    <textarea id="loanNotes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
+                                </div>
+
+                                <div class="flex justify-end pt-4">
+                                    <button type="submit" class="w-full px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors shadow-md active:scale-95 transform duration-150 font-bold flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-save"></i> บันทึกการยืม
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="lg:col-span-2 flex flex-col h-full">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
+                                <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                        <i class="fa-solid fa-clock-rotate-left text-teal-600"></i> 
+                                        รายการที่กำลังถูกยืม
+                                    </h3>
+                                    <span class="bg-teal-100 text-teal-700 text-xs font-bold px-3 py-1 rounded-full border border-teal-200" id="onLoanCountBadge">0 รายการ</span>
+                                </div>
+                                
+                                <div id="onLoanListContainer" class="p-4 overflow-y-auto max-h-[600px] bg-gray-50/30 space-y-3">
+                                    </div>
+                                
+                                <div id="onLoanEmptyState" class="hidden flex-1 flex flex-col items-center justify-center py-12 text-gray-400">
+                                    </div>
                             </div>
-                        <div id="loanHistoryEmptyState" class="hidden py-12 text-center text-gray-400"></div>
+                        </div>
 
                     </div>
                 </div>
             </div>
-        </div>
+            
+            <div id="allHistoryPage" class="page hidden">
+                <div class="max-w-5xl mx-auto space-y-6 p-4 lg:p-8 pb-24"> <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        
+                        <div class="text-center md:text-left w-full md:w-auto">
+                            <h3 class="text-xl font-bold text-gray-800">
+                                <i class="fa-solid fa-clock-rotate-left text-teal-600 mr-2"></i>ประวัติการใช้งาน
+                            </h3>
+                            <p class="text-sm text-gray-500 mt-1">ตรวจสอบรายการเบิกและยืม-คืนย้อนหลัง</p>
+                        </div>
+                        
+                        <div class="w-full md:w-72 relative group">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors"></i>
+                            <input type="text" id="historySearch" placeholder="ค้นหาชื่อ, เลขที่, หรืออุปกรณ์..." 
+                                class="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                            
+                            <button onclick="document.getElementById('historySearch').value=''; updateHistoryTable(); updateLoanHistoryTable();" 
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors" title="ล้างคำค้นหา">
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px] flex flex-col">
+                        
+                        <div class="border-b border-gray-200 bg-gray-50/80 px-2 sticky top-0 z-10 backdrop-blur-sm">
+                            <nav class="flex -mb-px space-x-4" aria-label="Tabs">
+                                <button onclick="showHistoryTab('issue')" id="tab-issue" class="history-tab flex-1 md:flex-none text-center py-4 px-6 border-b-2 font-bold text-sm transition-all border-teal-500 text-teal-700 bg-white/50">
+                                    <i class="fas fa-file-invoice mr-2"></i>ประวัติการเบิก
+                                </button>
+                                <button onclick="showHistoryTab('loan')" id="tab-loan" class="history-tab flex-1 md:flex-none text-center py-4 px-6 border-b-2 font-bold text-sm transition-all border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                    <i class="fas fa-hand-holding-hand mr-2"></i>ประวัติยืม-คืน
+                                </button>
+                            </nav>
+                        </div>
+
+                        <div class="p-4 bg-gray-50/30 flex-1">
+                            
+                            <div id="issueHistoryTab" class="history-tab-content space-y-3">
+                                </div>
+                            <div id="issueHistoryEmptyState" class="hidden py-20 text-center text-gray-400 flex flex-col items-center justify-center">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                    <i class="fa-solid fa-file-circle-xmark text-2xl text-gray-300"></i>
+                                </div>
+                                <p>ไม่พบประวัติการเบิก</p>
+                            </div>
+
+                            <div id="loanHistoryTab" class="history-tab-content hidden space-y-3">
+                                </div>
+                            <div id="loanHistoryEmptyState" class="hidden py-20 text-center text-gray-400 flex flex-col items-center justify-center">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                    <i class="fa-solid fa-hand-holding text-2xl text-gray-300"></i>
+                                </div>
+                                <p>ไม่พบประวัติการยืม-คืน</p>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div id="pendingPage" class="page hidden admin-page">
-                <div class="max-w-7xl mx-auto space-y-6"> <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-                        <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-xl font-semibold text-gray-800">
-                                <i class="fa-solid fa-clock text-yellow-500 mr-2"></i>รายการรออนุมัติ
-                            </h3>
+                <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24"> <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px]">
+                        
+                        <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-clock text-yellow-500"></i> รายการรออนุมัติ
+                                </h3>
+                                <p class="text-sm text-gray-500 mt-1">จัดการคำขอเบิกอุปกรณ์ที่เข้ามาใหม่</p>
+                            </div>
+                            <span id="pendingCountBadge" class="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">0 รายการ</span>
                         </div>
-                        <div class="overflow-x-auto">
+
+                        <div class="overflow-x-auto flex-1">
                             <table class="w-full text-sm pending-card-table">
                                 <thead class="bg-gray-50 text-left">
                                     <tr>
-                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">เลขที่ใบเบิก</th>
-                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้เบิก</th>
-                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">แผนก</th>
-                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider text-center">การดำเนินการ</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">เลขที่ใบเบิก</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">วันที่</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">ผู้เบิก</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">แผนก</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider text-center whitespace-nowrap">การดำเนินการ</th>
                                     </tr>
                                 </thead>
-                                <tbody id="pendingTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                                <tbody id="pendingTableBody" class="bg-white divide-y divide-gray-200">
+                                    </tbody>
                             </table>
-                            <div id="pendingEmptyState" class="hidden"></div>
+                            
+                            <div id="pendingEmptyState" class="hidden flex flex-col items-center justify-center py-16 text-center">
+                                <div class="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mb-4 border border-yellow-100">
+                                    <i class="fa-solid fa-clipboard-check text-4xl text-yellow-300"></i>
+                                </div>
+                                <h4 class="text-lg font-medium text-gray-800">ไม่มีรายการรออนุมัติ</h4>
+                                <p class="text-gray-500 text-sm mt-1">คำขอเบิกใหม่จะปรากฏที่นี่</p>
+                            </div>
                         </div>
                     </div>
 
@@ -698,110 +751,114 @@
             </div>
 
             <div id="managePage" class="page hidden admin-page">
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"> <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-fit">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-bold text-gray-800" id="manageFormTitle">
-                                <i class="fa-solid fa-plus-circle text-teal-600 mr-2"></i>เพิ่มอุปกรณ์ใหม่
-                            </h3>
-                            <button onclick="resetManageForm()" class="text-xs text-gray-500 hover:text-teal-600 underline">ล้างค่า</button>
-                        </div>
+                <div class="max-w-7xl mx-auto p-4 lg:p-8 pb-24"> <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        
+                        <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-fit sticky top-4">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-xl font-bold text-gray-800" id="manageFormTitle">
+                                    <i class="fa-solid fa-plus-circle text-teal-600 mr-2"></i>เพิ่มอุปกรณ์ใหม่
+                                </h3>
+                                <button onclick="resetManageForm()" class="text-xs text-gray-500 hover:text-teal-600 underline">ล้างค่า</button>
+                            </div>
 
-                        <form id="manageForm" class="space-y-4">
-                            <input type="hidden" id="editItemId">
-                            
-                            <div class="flex flex-col items-center mb-4">
-                                <div class="w-32 h-32 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group mb-3">
-                                    <img id="adminImagePreview" src="" class="w-full h-full object-contain hidden p-1">
-                                    <div id="adminImagePlaceholder" class="text-center text-gray-400">
-                                        <i class="fa-solid fa-image text-3xl mb-1"></i>
-                                        <p class="text-[10px]">ตัวอย่างรูป</p>
+                            <form id="manageForm" class="space-y-4">
+                                <input type="hidden" id="editItemId">
+                                
+                                <div class="flex flex-col items-center mb-4">
+                                    <div class="w-32 h-32 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group mb-3">
+                                        <img id="adminImagePreview" src="" class="w-full h-full object-contain hidden p-1">
+                                        <div id="adminImagePlaceholder" class="text-center text-gray-400">
+                                            <i class="fa-solid fa-image text-3xl mb-1"></i>
+                                            <p class="text-[10px]">ตัวอย่างรูป</p>
+                                        </div>
                                     </div>
+                                    <input type="url" id="itemImage" placeholder="วางลิงก์รูปภาพ (URL) ที่นี่..." 
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-center"
+                                        oninput="updateImagePreview(this.value)">
                                 </div>
-                                <input type="url" id="itemImage" placeholder="วางลิงก์รูปภาพ (URL) ที่นี่..." 
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-center"
-                                    oninput="updateImagePreview(this.value)">
-                            </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">ชื่ออุปกรณ์ <span class="text-red-500">*</span></label>
-                                <input type="text" id="itemName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 mb-1">รหัส (Code) <span class="text-red-500">*</span></label>
-                                    <input type="text" id="itemCode" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">ชื่ออุปกรณ์ <span class="text-red-500">*</span></label>
+                                    <input type="text" id="itemName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 mb-1">หน่วยนับ <span class="text-red-500">*</span></label>
-                                    <input type="text" id="itemUnit" required placeholder="เช่น อัน, คู่, ชุด" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                </div>
-                            </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">หมวดหมู่ <span class="text-red-500">*</span></label>
-                                <div class="flex gap-2">
-                                    <select id="itemCategory" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"></select>
-                                    <button type="button" onclick="showCategoryModal()" class="px-3 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 border border-gray-200" title="จัดการหมวดหมู่">
-                                        <i class="fa-solid fa-tags"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
-                                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">การจัดการสต็อก</p>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label class="block text-xs text-gray-600 mb-1">คงเหลือปัจจุบัน</label>
-                                        <input type="number" id="itemStock" required min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 font-bold text-gray-800">
+                                        <label class="block text-xs font-bold text-gray-700 mb-1">รหัส (Code) <span class="text-red-500">*</span></label>
+                                        <input type="text" id="itemCode" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs text-gray-600 mb-1">จุดสั่งซื้อ (Min)</label>
-                                        <input type="number" id="itemReorderPoint" required min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                        <label class="block text-xs font-bold text-gray-700 mb-1">หน่วยนับ <span class="text-red-500">*</span></label>
+                                        <input type="text" id="itemUnit" required placeholder="เช่น อัน, คู่, ชุด" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
                                     </div>
                                 </div>
+
                                 <div>
-                                    <label class="block text-xs text-gray-600 mb-1">ราคาต่อหน่วย (บาท)</label>
-                                    <input type="number" id="itemPrice" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="0.00">
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">หมวดหมู่ <span class="text-red-500">*</span></label>
+                                    <div class="flex gap-2">
+                                        <select id="itemCategory" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"></select>
+                                        <button type="button" onclick="showCategoryModal()" class="px-3 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 border border-gray-200" title="จัดการหมวดหมู่">
+                                            <i class="fa-solid fa-tags"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                                <input type="hidden" id="onLoanQuantity" value="0">
-                            </div>
 
-                            <div class="pt-2 flex gap-2">
-                                <button type="button" onclick="resetManageForm()" class="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">ยกเลิก</button>
-                                <button type="submit" class="flex-1 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md transition-transform active:scale-95 font-bold">
-                                    <i class="fa-solid fa-save mr-2"></i>บันทึก
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">การจัดการสต็อก</p>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs text-gray-600 mb-1">คงเหลือปัจจุบัน</label>
+                                            <input type="number" id="itemStock" required min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 font-bold text-gray-800">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-600 mb-1">จุดสั่งซื้อ (Min)</label>
+                                            <input type="number" id="itemReorderPoint" required min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">ราคาต่อหน่วย (บาท)</label>
+                                        <input type="number" id="itemPrice" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="0.00">
+                                    </div>
+                                    <input type="hidden" id="onLoanQuantity" value="0">
+                                </div>
 
-                    <div class="lg:col-span-8 space-y-4">
-                        
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-3 justify-between items-center sticky top-0 z-30">
-                            <div class="w-full md:w-auto flex items-center gap-2">
-                                <div class="bg-teal-100 p-2 rounded-lg text-teal-700">
-                                    <i class="fa-solid fa-list-check"></i>
+                                <div class="pt-2 flex gap-2">
+                                    <button type="button" onclick="resetManageForm()" class="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">ยกเลิก</button>
+                                    <button type="submit" class="flex-1 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md transition-transform active:scale-95 font-bold">
+                                        <i class="fa-solid fa-save mr-2"></i>บันทึก
+                                    </button>
                                 </div>
-                                <h3 class="font-bold text-gray-800">รายการอุปกรณ์ทั้งหมด</h3>
-                            </div>
-                            
-                            <div class="flex gap-2 w-full md:w-auto">
-                                <div class="relative flex-1 md:w-64">
-                                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                                    <input type="text" id="manageSearch" placeholder="ค้นหาชื่อ หรือรหัส..." 
-                                        class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500"
-                                        oninput="updateManageItemsList()">
-                                </div>
-                                <select id="manageCategoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-teal-500"
-                                    onchange="updateManageItemsList()">
-                                    <option value="">ทุกหมวดหมู่</option>
-                                </select>
-                            </div>
+                            </form>
                         </div>
 
-                        <div id="manageItemsList" class="grid grid-cols-1 gap-3 pb-20">
+                        <div class="lg:col-span-8 space-y-4">
+                            
+                            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-3 justify-between items-center sticky top-0 z-30">
+                                <div class="w-full md:w-auto flex items-center gap-2">
+                                    <div class="bg-teal-100 p-2 rounded-lg text-teal-700">
+                                        <i class="fa-solid fa-list-check"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800">รายการอุปกรณ์ทั้งหมด</h3>
+                                </div>
+                                
+                                <div class="flex gap-2 w-full md:w-auto">
+                                    <div class="relative flex-1 md:w-64">
+                                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                        <input type="text" id="manageSearch" placeholder="ค้นหาชื่อ หรือรหัส..." 
+                                            class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500"
+                                            oninput="updateManageItemsList()">
+                                    </div>
+                                    <select id="manageCategoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-teal-500"
+                                        onchange="updateManageItemsList()">
+                                        <option value="">ทุกหมวดหมู่</option>
+                                    </select>
+                                </div>
                             </div>
+
+                            <div id="manageItemsList" class="grid grid-cols-1 gap-3 pb-20">
+                                </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -904,89 +961,98 @@
             </div>
 
             <div id="reportPage" class="page hidden admin-page">
-                <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24">
-                    
-                    <div id="reportHeaderPrint" class="hidden text-center mb-6">
+                <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24"> <div id="reportHeaderPrint" class="hidden text-center mb-6">
                         <h1 class="text-2xl font-bold text-gray-800">รายงานสรุปการเบิกจ่ายอุปกรณ์ PPE</h1>
                         <p class="text-gray-600" id="printDateRange">ประจำวันที่ ...</p>
                         <hr class="mt-4 border-gray-300">
                     </div>
 
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 no-print">
-                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 no-print">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                             <div>
-                                <h2 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-chart-line text-teal-600 mr-2"></i>รายงานสรุป (Report)</h2>
-                                <p class="text-sm text-gray-500">เรียกดูข้อมูลรายวัน รายเดือน หรือรายปี</p>
+                                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-chart-line text-teal-600"></i> รายงานสรุป (Report)
+                                </h2>
+                                <p class="text-sm text-gray-500 mt-1">เรียกดูข้อมูลรายวัน รายเดือน หรือรายปี</p>
                             </div>
-                            <div class="flex gap-2">
-                                <button onclick="printReport()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow flex items-center gap-2 text-sm">
+                            <div class="flex gap-2 w-full md:w-auto">
+                                <button onclick="printReport()" class="flex-1 md:flex-none bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm flex items-center justify-center gap-2 text-sm font-medium transition-colors">
                                     <i class="fa-solid fa-file-pdf"></i> PDF / Print
                                 </button>
-                                <button onclick="exportReportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow flex items-center gap-2 text-sm">
+                                <button onclick="exportReportToCSV()" class="flex-1 md:flex-none bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm flex items-center justify-center gap-2 text-sm font-medium transition-colors">
                                     <i class="fa-solid fa-file-excel"></i> Excel
                                 </button>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-gray-50 p-4 rounded-xl border border-gray-100">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">ตั้งแต่วันที่</label>
-                                <input type="date" id="reportStartDate" class="w-full border-gray-300 rounded-md text-sm focus:ring-teal-500 focus:border-teal-500">
+                                <label class="block text-xs font-semibold text-gray-700 mb-1">ตั้งแต่วันที่</label>
+                                <input type="date" id="reportStartDate" class="w-full border-gray-300 rounded-lg text-sm focus:ring-teal-500 focus:border-teal-500 cursor-pointer">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">ถึงวันที่</label>
-                                <input type="date" id="reportEndDate" class="w-full border-gray-300 rounded-md text-sm focus:ring-teal-500 focus:border-teal-500">
+                                <label class="block text-xs font-semibold text-gray-700 mb-1">ถึงวันที่</label>
+                                <input type="date" id="reportEndDate" class="w-full border-gray-300 rounded-lg text-sm focus:ring-teal-500 focus:border-teal-500 cursor-pointer">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">แผนก</label>
-                                <select id="reportDeptFilter" class="w-full border-gray-300 rounded-md text-sm">
+                                <label class="block text-xs font-semibold text-gray-700 mb-1">แผนก</label>
+                                <select id="reportDeptFilter" class="w-full border-gray-300 rounded-lg text-sm focus:ring-teal-500 focus:border-teal-500 cursor-pointer bg-white">
                                     <option value="">ทุกแผนก</option>
                                 </select>
                             </div>
-                            <button onclick="filterReports()" class="w-full bg-teal-600 text-white py-2 rounded-md hover:bg-teal-700 font-medium text-sm shadow-sm transition-transform active:scale-95">
-                                <i class="fa-solid fa-magnifying-glass mr-2"></i>ค้นหาข้อมูล
+                            <button onclick="filterReports()" class="w-full bg-teal-600 text-white py-2 rounded-lg hover:bg-teal-700 font-bold text-sm shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-magnifying-glass"></i> ค้นหาข้อมูล
                             </button>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
-                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
-                            <div class="text-blue-100 text-xs mb-1">จำนวนใบเบิก</div>
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <i class="fa-solid fa-file-invoice absolute right-3 top-3 text-blue-400/30 text-6xl"></i>
+                            <div class="text-blue-100 text-sm font-medium mb-1">จำนวนใบเบิก</div>
                             <div class="text-3xl font-bold" id="rptTotalVouchers">0</div>
-                            <div class="text-right text-xs mt-1 opacity-80">รายการ</div>
+                            <div class="text-right text-xs mt-2 opacity-80">รายการทั้งหมดในช่วงเวลา</div>
                         </div>
-                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
-                            <div class="text-purple-100 text-xs mb-1">จำนวนชิ้นที่ออก</div>
+                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <i class="fa-solid fa-cubes absolute right-3 top-3 text-purple-400/30 text-6xl"></i>
+                            <div class="text-purple-100 text-sm font-medium mb-1">จำนวนชิ้นที่ออก</div>
                             <div class="text-3xl font-bold" id="rptTotalItems">0</div>
-                            <div class="text-right text-xs mt-1 opacity-80">ชิ้น</div>
+                            <div class="text-right text-xs mt-2 opacity-80">ชิ้น</div>
                         </div>
-                        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
-                            <div class="text-orange-100 text-xs mb-1">แผนกที่เบิกเยอะสุด</div>
-                            <div class="text-xl font-bold truncate" id="rptTopDept">-</div>
-                            <div class="text-right text-xs mt-1 opacity-80">Top Spender</div>
+                        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <i class="fa-solid fa-crown absolute right-3 top-3 text-orange-400/30 text-6xl"></i>
+                            <div class="text-orange-100 text-sm font-medium mb-1">แผนกที่เบิกเยอะสุด</div>
+                            <div class="text-xl font-bold truncate pr-8" id="rptTopDept">-</div>
+                            <div class="text-right text-xs mt-2 opacity-80">Top Spender</div>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div class="overflow-x-auto">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px]">
+                        <div class="overflow-x-auto flex-1">
                             <table class="w-full text-sm text-left text-gray-500">
-                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-100 border-b">
                                     <tr>
-                                        <th class="px-6 py-3 w-32">วันที่</th>
-                                        <th class="px-6 py-3 w-24">เลขที่</th>
-                                        <th class="px-6 py-3">ผู้เบิก / แผนก</th>
-                                        <th class="px-6 py-3">รายการสินค้า</th>
-                                        <th class="px-6 py-3 text-center w-20">จำนวน</th>
+                                        <th class="px-6 py-4 font-bold w-32 whitespace-nowrap">วันที่</th>
+                                        <th class="px-6 py-4 font-bold w-24 whitespace-nowrap">เลขที่</th>
+                                        <th class="px-6 py-4 font-bold whitespace-nowrap">ผู้เบิก / แผนก</th>
+                                        <th class="px-6 py-4 font-bold min-w-[200px]">รายการสินค้า</th>
+                                        <th class="px-6 py-4 font-bold text-center w-24 whitespace-nowrap">จำนวน</th>
                                     </tr>
                                 </thead>
-                                <tbody id="reportTableBody"></tbody>
+                                <tbody id="reportTableBody" class="divide-y divide-gray-100">
+                                    </tbody>
                             </table>
-                        </div>
-                        <div id="reportEmptyState" class="hidden p-12 text-center text-gray-400">
-                            <i class="fa-solid fa-file-circle-xmark text-4xl mb-3 text-gray-300"></i>
-                            <p>ไม่พบข้อมูลในช่วงเวลาที่เลือก</p>
+                            
+                            <div id="reportEmptyState" class="hidden flex flex-col items-center justify-center py-16 text-center">
+                                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
+                                    <i class="fa-solid fa-magnifying-glass-minus text-3xl text-gray-300"></i>
+                                </div>
+                                <p class="text-gray-500 font-medium">ไม่พบข้อมูลในช่วงเวลาที่เลือก</p>
+                                <p class="text-xs text-gray-400 mt-1">ลองเปลี่ยนวันที่ หรือเลือกแผนกอื่น</p>
+                            </div>
                         </div>
                     </div>
+
                 </div>
             </div>
 
