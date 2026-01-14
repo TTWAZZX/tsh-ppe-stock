@@ -2569,7 +2569,7 @@
     // 5. User Interface Setup (Line LIFF)
     // ==========================================
 
-    // 🎨 User Dashboard เวอร์ชัน 2.0 (Personalized & Premium)
+    // 🎨 User Dashboard เวอร์ชัน 3.0 (Responsive: Mobile & Desktop)
     function renderUserDashboard() {
         const dashboardDiv = document.getElementById('userDashboardPanel');
         if (!dashboardDiv) return;
@@ -2584,13 +2584,13 @@
             ? `<img src="${pictureUrl}" class="w-14 h-14 rounded-full border-4 border-white shadow-md object-cover">`
             : `<div class="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-4 border-white shadow-md"><i class="fa-solid fa-user text-xl"></i></div>`;
 
-        // 2. เตรียมข้อมูลสถิติ (Personal Stats)
+        // 2. เตรียมข้อมูลสถิติ
         const myActiveLoans = currentData.loanTransactions?.filter(l => l.borrowerName === displayName && l.status === 'on_loan') || [];
         const myPendingVouchers = currentData.issueVouchers?.filter(v => v.user === displayName && v.status === 'pending') || [];
         const myTotalHistoryCount = (currentData.issueVouchers?.filter(v => v.user === displayName).length || 0) + 
                                     (currentData.loanTransactions?.filter(l => l.borrowerName === displayName).length || 0);
 
-        // 3. เตรียมข้อมูล "ชั้นวางของ" (Active Gear)
+        // 3. เตรียม HTML ชั้นวางของ (Active Gear)
         let myGearHtml = '';
         if (myActiveLoans.length > 0) {
             const gearItems = myActiveLoans.map(loan => {
@@ -2616,18 +2616,18 @@
             }).join('');
 
             myGearHtml = `
-            <div class="mb-8 animate-fade-in-up delay-100">
-                <div class="flex justify-between items-end px-4 mb-3">
+            <div class="bg-white lg:bg-transparent rounded-2xl p-4 lg:p-0 shadow-sm lg:shadow-none border lg:border-0 border-gray-100 mb-6 lg:mb-0 animate-fade-in-up delay-100">
+                <div class="flex justify-between items-end mb-3">
                     <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-toolbox mr-2 text-teal-500"></i>ของที่ยืมอยู่</h3>
                     <button onclick="showPage('loan')" class="text-[10px] text-teal-600 bg-teal-50 px-2 py-1 rounded-lg">ดูทั้งหมด</button>
                 </div>
-                <div class="flex overflow-x-auto gap-3 px-4 pb-2 snap-x scrollbar-hide">
+                <div class="flex overflow-x-auto gap-3 pb-2 snap-x scrollbar-hide lg:grid lg:grid-cols-4 lg:gap-4">
                     ${gearItems}
                 </div>
             </div>`;
         }
 
-        // 4. เตรียมข้อมูล Timeline ล่าสุด (Active Request)
+        // 4. Timeline ล่าสุด
         const lastVoucher = currentData.issueVouchers
             ?.filter(v => v.user === displayName)
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
@@ -2635,7 +2635,7 @@
         let timelineHtml = '';
         if (lastVoucher && lastVoucher.status === 'pending') {
              timelineHtml = `
-            <div class="px-4 mb-8 animate-fade-in-up cursor-pointer active:scale-95 transition-transform" onclick="showTimelineDetails(${lastVoucher.id})">
+            <div class="mb-6 animate-fade-in-up cursor-pointer active:scale-95 transition-transform" onclick="showTimelineDetails(${lastVoucher.id})">
                 <div class="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm shadow-orange-50/50 relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-1.5 h-full bg-orange-400"></div>
                     <div class="flex justify-between items-start pl-2">
@@ -2653,12 +2653,11 @@
             </div>`;
         }
 
-        // 5. เตรียมข้อมูล "ประวัติล่าสุด" (Combined History List)
-        // รวมทั้ง Issue และ Loan ของ User คนนี้มาเรียงกัน
+        // 5. ประวัติล่าสุด
         const recentHistoryList = [
             ...(currentData.issueVouchers || []).filter(v => v.user === displayName).map(v => ({...v, type: 'issue', date: v.timestamp})),
             ...(currentData.loanTransactions || []).filter(l => l.borrowerName === displayName).map(l => ({...l, type: 'loan', date: l.borrowDate}))
-        ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5); // เอาแค่ 5 อันล่าสุด
+        ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
         const historyHtml = recentHistoryList.length > 0 ? recentHistoryList.map(h => {
             let icon, title, subtitle, statusColor, clickAction;
@@ -2668,7 +2667,6 @@
                 title = `เบิกอุปกรณ์ #${h.id}`;
                 subtitle = `${new Date(h.date).toLocaleDateString('th-TH')} • ใบเบิก`;
                 clickAction = `showVoucherDetails(${h.id})`;
-                // สีไอคอนตามสถานะ
                 if(h.status === 'approved') statusColor = 'text-emerald-500 bg-emerald-50';
                 else if(h.status === 'pending') statusColor = 'text-orange-500 bg-orange-50';
                 else if(h.status === 'rejected') statusColor = 'text-red-500 bg-red-50';
@@ -2679,14 +2677,14 @@
                 icon = 'fa-screwdriver-wrench';
                 title = `ยืม: ${itemName}`;
                 subtitle = `${new Date(h.date).toLocaleDateString('th-TH')} • ยืมเครื่องมือ`;
-                clickAction = "showPage('loan')"; // ไปหน้า Loan
+                clickAction = "showPage('loan')";
                 
                 if(h.status === 'on_loan') statusColor = 'text-blue-500 bg-blue-50';
                 else statusColor = 'text-gray-400 bg-gray-100';
             }
 
             return `
-            <div onclick="${clickAction}" class="flex items-center gap-4 p-3 bg-white border border-gray-100 rounded-xl shadow-sm active:bg-gray-50 transition-colors cursor-pointer">
+            <div onclick="${clickAction}" class="flex items-center gap-4 p-3 bg-white border border-gray-100 rounded-xl shadow-sm active:bg-gray-50 transition-colors cursor-pointer hover:border-teal-200">
                 <div class="w-10 h-10 rounded-full ${statusColor} flex items-center justify-center text-sm">
                     <i class="fa-solid ${icon}"></i>
                 </div>
@@ -2698,21 +2696,19 @@
             </div>`;
         }).join('') : `<div class="text-center py-8 text-gray-400 text-sm">ยังไม่มีประวัติการใช้งาน</div>`;
 
-
-        // 6. Safety Quote
         const quotes = ["Safety First", "อุบัติเหตุเป็นศูนย์", "ตรวจสอบ PPE", "ปลอดภัยไว้ก่อน"];
         const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
-        // --- Render HTML ---
+        // --- Render HTML Grid Layout ---
         dashboardDiv.innerHTML = `
-            <div class="pt-4 pb-24 max-w-md mx-auto">
+            <div class="pt-4 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
                 
-                <div class="relative px-4 mb-6">
-                    <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl p-6 text-white shadow-lg shadow-teal-200 relative overflow-hidden">
+                <div class="relative">
+                    <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl p-6 text-white shadow-lg shadow-teal-200 relative overflow-hidden lg:flex lg:items-center lg:justify-between">
                         <div class="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                         <div class="absolute -left-6 -bottom-6 w-32 h-32 bg-teal-400/20 rounded-full blur-xl"></div>
                         
-                        <div class="relative z-10 flex justify-between items-start">
+                        <div class="relative z-10 flex justify-between items-start w-full lg:w-auto gap-4">
                             <div>
                                 <p class="text-teal-100 text-xs mb-1">สวัสดี, คุณ${displayName}</p>
                                 <h2 class="text-2xl font-bold mb-2">PPE Stock</h2>
@@ -2721,74 +2717,102 @@
                                     <span class="text-[10px] font-medium">${randomQuote}</span>
                                 </div>
                             </div>
-                            <div class="flex flex-col items-center gap-2">
+                            <div class="flex flex-col items-center gap-2 lg:hidden">
                                 ${profileImgHtml}
                                 <button onclick="refreshDashboardData(this)" class="text-teal-200 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
                                     <i class="fa-solid fa-arrows-rotate text-xs"></i>
                                 </button>
                             </div>
                         </div>
+
+                        <div class="hidden lg:flex items-center gap-4 relative z-10">
+                             <div class="text-right">
+                                <p class="text-sm font-medium opacity-90">${displayName}</p>
+                                <p class="text-xs text-teal-200">พนักงานทั่วไป</p>
+                             </div>
+                             ${profileImgHtml}
+                             <button onclick="refreshDashboardData(this)" class="ml-2 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-colors" title="รีเฟรชข้อมูล">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="mb-8">
-                    <div class="flex overflow-x-auto gap-4 px-4 pb-4 snap-x snap-mandatory scrollbar-hide">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <div class="lg:col-span-2 space-y-6">
                         
-                        <div onclick="showPage('allHistory'); showHistoryTab('issue');" class="min-w-[140px] snap-center bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex flex-col justify-between h-28 active:scale-95 transition-transform cursor-pointer relative overflow-hidden">
-                            <div class="absolute right-0 top-0 p-3 opacity-10">
-                                <i class="fa-solid fa-clock text-4xl text-orange-500"></i>
+                        <div class="flex overflow-x-auto gap-4 pb-2 snap-x snap-mandatory scrollbar-hide lg:grid lg:grid-cols-3 lg:pb-0 lg:snap-none">
+                            
+                            <div onclick="showPage('allHistory'); showHistoryTab('issue');" class="min-w-[140px] flex-1 snap-center bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex flex-col justify-between h-28 hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                                <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <i class="fa-solid fa-clock text-4xl text-orange-500"></i>
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm mb-2">
+                                    <i class="fa-solid fa-hourglass-half"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-2xl font-bold text-gray-800">${myPendingVouchers.length}</span>
+                                    <span class="text-[10px] text-gray-500 font-medium">รายการรออนุมัติ</span>
+                                </div>
                             </div>
-                            <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm mb-2">
-                                <i class="fa-solid fa-hourglass-half"></i>
+
+                            <div onclick="showPage('loan')" class="min-w-[140px] flex-1 snap-center bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col justify-between h-28 hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                                <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <i class="fa-solid fa-tools text-4xl text-blue-500"></i>
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm mb-2">
+                                    <i class="fa-solid fa-hand-holding-hand"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-2xl font-bold text-gray-800">${myActiveLoans.length}</span>
+                                    <span class="text-[10px] text-gray-500 font-medium">อุปกรณ์ที่กำลังยืม</span>
+                                </div>
                             </div>
-                            <div>
-                                <span class="block text-2xl font-bold text-gray-800">${myPendingVouchers.length}</span>
-                                <span class="text-[10px] text-gray-500 font-medium">รายการรออนุมัติ</span>
+
+                            <div onclick="showPage('allHistory')" class="min-w-[140px] flex-1 snap-center bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-between h-28 hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                                <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <i class="fa-solid fa-clipboard-list text-4xl text-emerald-500"></i>
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm mb-2">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-2xl font-bold text-gray-800">${myTotalHistoryCount}</span>
+                                    <span class="text-[10px] text-gray-500 font-medium">ประวัติการใช้งานรวม</span>
+                                </div>
                             </div>
+
                         </div>
 
-                        <div onclick="showPage('loan')" class="min-w-[140px] snap-center bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col justify-between h-28 active:scale-95 transition-transform cursor-pointer relative overflow-hidden">
-                            <div class="absolute right-0 top-0 p-3 opacity-10">
-                                <i class="fa-solid fa-tools text-4xl text-blue-500"></i>
-                            </div>
-                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm mb-2">
-                                <i class="fa-solid fa-hand-holding-hand"></i>
-                            </div>
-                            <div>
-                                <span class="block text-2xl font-bold text-gray-800">${myActiveLoans.length}</span>
-                                <span class="text-[10px] text-gray-500 font-medium">อุปกรณ์ที่กำลังยืม</span>
-                            </div>
-                        </div>
+                        ${timelineHtml}
 
-                        <div onclick="showPage('allHistory')" class="min-w-[140px] snap-center bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-between h-28 active:scale-95 transition-transform cursor-pointer relative overflow-hidden">
-                            <div class="absolute right-0 top-0 p-3 opacity-10">
-                                <i class="fa-solid fa-clipboard-list text-4xl text-emerald-500"></i>
+                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 animate-fade-in-up delay-200">
+                            <div class="flex justify-between items-end mb-3">
+                                <h3 class="font-bold text-gray-800 text-sm">ประวัติล่าสุดของฉัน</h3>
+                                <button onclick="showPage('allHistory')" class="text-xs text-teal-600 hover:text-teal-700">ดูทั้งหมด</button>
                             </div>
-                            <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm mb-2">
-                                <i class="fa-solid fa-check"></i>
-                            </div>
-                            <div>
-                                <span class="block text-2xl font-bold text-gray-800">${myTotalHistoryCount}</span>
-                                <span class="text-[10px] text-gray-500 font-medium">ประวัติการใช้งานรวม</span>
+                            <div class="space-y-3">
+                                ${historyHtml}
                             </div>
                         </div>
 
                     </div>
+
+                    <div class="lg:col-span-1 space-y-6">
+                        ${myGearHtml || `
+                        <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center text-gray-400 hidden lg:block">
+                            <i class="fa-solid fa-box-open text-3xl mb-2"></i>
+                            <p class="text-sm">ไม่มีอุปกรณ์ที่ยืมอยู่</p>
+                        </div>`}
+                        
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-md hidden lg:block">
+                            <h4 class="font-bold text-sm mb-1">💡 Tips</h4>
+                            <p class="text-xs opacity-90">ตรวจสอบสภาพอุปกรณ์ PPE ทุกครั้งก่อนใช้งาน เพื่อความปลอดภัยของคุณ</p>
+                        </div>
+                    </div>
+
                 </div>
-
-                ${timelineHtml}
-
-                ${myGearHtml}
-
-                <div class="px-4 mb-6 animate-fade-in-up delay-200">
-                    <div class="flex justify-between items-end mb-3">
-                        <h3 class="font-bold text-gray-800 text-sm">ประวัติล่าสุดของฉัน</h3>
-                    </div>
-                    <div class="space-y-3">
-                        ${historyHtml}
-                    </div>
-                </div>
-
             </div>
         `;
     }
