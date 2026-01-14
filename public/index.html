@@ -4026,26 +4026,114 @@
         document.getElementById('slipModal').classList.add('hidden');
     }
 
+    // ==========================================
+    // 🛠️ ฟังก์ชันเสริมสำหรับระบบบันทึกรูป
+    // ==========================================
+    
+    // ฟังก์ชันปิด Modal แสดงรูป
+    function closeImagePreview() {
+        document.getElementById('imagePreviewModal').classList.add('hidden');
+    }
+
+    // ฟังก์ชันเช็คว่าเป็นมือถือหรือไม่
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+    }
+
+    // 3. แก้ไขฟังก์ชัน downloadSlip แบบยกเครื่องใหม่
     function downloadSlip() {
-        const element = document.getElementById('slipContent'); // แคปเฉพาะส่วนสีขาว
+        const originalElement = document.getElementById('slipContent');
         const btn = document.querySelector('#slipModal button[onclick="downloadSlip()"]');
-        
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังบันทึก...';
+
+        // 3.1 เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังสร้างรูปภาพ...';
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+        // --- เริ่มเทคนิค Cloning เพื่อแก้ปัญหาแคปไม่ครบ ---
         
-        html2canvas(element, { scale: 2 }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = `PPE-Slip-${document.getElementById('slipRef').textContent}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
-            
-            btn.innerHTML = originalText;
-            showToast('บันทึกรูปภาพเรียบร้อย', 'success');
-        }).catch(err => {
-            console.error(err);
-            btn.innerHTML = originalText;
-            showToast('บันทึกไม่สำเร็จ', 'error');
-        });
+        // สร้าง container ชั่วคราวไว้นอกจอ
+        const cloneContainer = document.createElement('div');
+        cloneContainer.style.position = 'fixed';
+        cloneContainer.style.top = '-10000px';
+        cloneContainer.style.left = '-10000px';
+        // บังคับความกว้างให้เท่ากับของจริง เพื่อให้จัด responsive ได้ถูกต้อง
+        cloneContainer.style.width = originalElement.offsetWidth + 'px'; 
+        cloneContainer.style.zIndex = '-1';
+        document.body.appendChild(cloneContainer);
+
+        // Clone ตัว slip content ไปใส่
+        const clone = originalElement.cloneNode(true);
+        // ปรับ style ของ clone ให้แสดงผลครบถ้วน ไม่มีการซ่อน scroll
+        clone.style.transform = 'none';
+        clone.style.overflow = 'visible';
+        clone.style.maxHeight = 'none';
+        clone.style.borderRadius = '0'; // ลบมุมโค้งออกชั่วคราวเพื่อให้ขอบคมชัด
+        clone.style.boxShadow = 'none';
+        clone.style.margin = '0';
+        
+        // บังคับให้ background เป็นสีขาวทึบ
+        clone.style.backgroundColor = '#ffffff';
+
+        cloneContainer.appendChild(clone);
+        // --- จบเทคนิค Cloning ---
+
+        // รอสักนิดเพื่อให้ clone render เสร็จสมบูรณ์
+        setTimeout(() => {
+            html2canvas(clone, {
+                scale: 3, // เพิ่มความคมชัดเป็น 3 เท่า
+                useCORS: true, // อนุญาตให้โหลดรูปข้าม domain (สำคัญสำหรับ QR Code)
+                logging: false,
+                backgroundColor: '#ffffff', // พื้นหลังสีขาว
+                scrollY: 0, // แก้ปัญหาเลื่อนจอ
+                windowWidth: document.documentElement.offsetWidth,
+                windowHeight: document.documentElement.offsetHeight
+            }).then(canvas => {
+                // ลบ clone ทิ้งทันทีที่แคปเสร็จ
+                document.body.removeChild(cloneContainer);
+
+                const imgData = canvas.toDataURL('image/jpeg', 1.0); // ใช้ JPEG คุณภาพสูงสุด
+
+                if (isMobileDevice()) {
+                    // === กรณีมือถือ: แสดง Modal ให้กดเซฟเอง ===
+                    const imgContainer = document.getElementById('generatedImageContainer');
+                    imgContainer.innerHTML = ''; // เคลียร์ของเก่า
+                    const img = new Image();
+                    img.src = imgData;
+                    img.className = 'w-full h-auto block'; // block เพื่อแก้ช่องว่างด้านล่าง
+                    imgContainer.appendChild(img);
+
+                    // ปิด Modal สลิปเดิม แล้วแสดง Modal รูปภาพแทน
+                    closeSlip();
+                    document.getElementById('imagePreviewModal').classList.remove('hidden');
+                    
+                    // สั่นเตือนเบาๆ (ถ้าอุปกรณ์รองรับ)
+                    if(navigator.vibrate) navigator.vibrate(50);
+
+                } else {
+                    // === กรณีคอมพิวเตอร์: ดาวน์โหลดอัตโนมัติเหมือนเดิม ===
+                    const link = document.createElement('a');
+                    const refId = document.getElementById('slipRef').textContent.replace('#','').trim();
+                    link.download = `PPE_Slip_${refId}.jpg`;
+                    link.href = imgData;
+                    document.body.appendChild(link); // Firefox ต้องการให้ append ก่อน click
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('บันทึกรูปภาพเรียบร้อย', 'success');
+                }
+
+            }).catch(err => {
+                console.error('Slip generation failed:', err);
+                if(document.body.contains(cloneContainer)) document.body.removeChild(cloneContainer);
+                showToast('เกิดข้อผิดพลาดในการสร้างรูปภาพ กรุณาลองใหม่', 'error');
+            }).finally(() => {
+                // คืนค่าปุ่มกดสู่สภาพเดิม
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            });
+        }, 300); // รอ 300ms เพื่อความชัวร์
     }
 
 </script>
