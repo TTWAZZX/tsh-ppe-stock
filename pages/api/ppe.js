@@ -93,16 +93,22 @@ export default async function handler(req, res) {
         result = await checkAdminCredentials(payload.username, payload.password);
         break;
 
-      case 'deletePpeItem':  // 👈 เพิ่มตรงนี้
+      case 'deletePpeItem':
         result = await deletePpeItem(payload);
         break;
+
+      // ⭐⭐⭐ เพิ่มส่วนนี้: บันทึก Feedback ลง Supabase ⭐⭐⭐
+      case 'saveFeedback':
+        result = await saveFeedback(payload);
+        break;
+      // ⭐⭐⭐ จบส่วนที่เพิ่ม ⭐⭐⭐
 
       default:
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
 
     // ส่ง version กลับไปเพื่อเช็คว่า Server อัปเดตโค้ดแล้ว
-    return res.status(200).json({ status: 'success', data: result, version: '1.3-fix-lowercase' });
+    return res.status(200).json({ status: 'success', data: result, version: '1.4-feedback-added' });
   } catch (err) {
     console.error('API Error:', err);
     return res.status(500).json({ status: 'error', message: err.message });
@@ -127,6 +133,44 @@ function getRawBody(req) {
 
 // ------------------------- ฟังก์ชันหลักแปลงจาก Code.gs -------------------------
 
+// ... (ฟังก์ชัน getInitialData และอื่นๆ ให้คงเดิมไว้) ...
+// เพื่อความกระชับ ผมจะใส่เฉพาะฟังก์ชัน saveFeedback ที่เพิ่มมาใหม่นะครับ
+// คุณสามารถ Copy ฟังก์ชัน saveFeedback นี้ไปวางต่อท้ายไฟล์ หรือวางก่อน getInitialData ก็ได้ครับ
+
+// ⭐⭐⭐ ฟังก์ชันบันทึก Feedback ลง Supabase ⭐⭐⭐
+async function saveFeedback(payload) {
+  const { transactionId, itemId, itemName, type, rating, comment, user } = payload;
+
+  if (!rating) {
+    throw new Error('Rating is required');
+  }
+
+  // Insert ลงตาราง feedback
+  const { data, error } = await supabase
+    .from('feedback')
+    .insert([
+      {
+        transaction_id: transactionId,
+        item_id: itemId,
+        item_name: itemName,
+        feedback_type: type,
+        rating: parseInt(rating),
+        comment: comment,
+        user_name: user
+      }
+    ])
+    .select();
+
+  if (error) {
+    console.error('Supabase Feedback Error:', error);
+    throw new Error(error.message);
+  }
+
+  return { status: 'success', data };
+}
+
+// ------------------------- ฟังก์ชันเดิมของคุณ (ไม่ต้องแก้) -------------------------
+
 async function getInitialData() {
   const [
     ppeItemsRes,
@@ -134,14 +178,16 @@ async function getInitialData() {
     receiveTransactionsRes,
     loanTransactionsRes,
     categoriesRes,
-    departmentsRes
+    departmentsRes,
+    feedbackRes // ⭐ 1. เพิ่มตัวแปรรับผลลัพธ์
   ] = await Promise.all([
     supabase.from('ppe_items').select('*'),
     supabase.from('issue_vouchers').select('*'),
     supabase.from('receive_transactions').select('*'),
     supabase.from('loan_transactions').select('*'),
     supabase.from('categories').select('*'),
-    supabase.from('departments').select('*').order('name')
+    supabase.from('departments').select('*').order('name'),
+    supabase.from('feedback').select('*').order('created_at', { ascending: false }) // ⭐ 2. เพิ่มคำสั่งดึง Feedback ล่าสุดมา
   ]);
 
   const ppeItems = ppeItemsRes.data || [];
@@ -149,6 +195,7 @@ async function getInitialData() {
   const receiveTransactions = receiveTransactionsRes.data || [];
   const loanTransactions = loanTransactionsRes.data || [];
   const categories = categoriesRes.data || [];
+  const feedback = feedbackRes.data || []; // ⭐ 3. ดึง data ออกมา
 
   const totalStockValue = calculateTotalStockValue(ppeItems);
   const topIssuedItems = getTopIssuedItems(issueVouchers, ppeItems, 5);
@@ -167,7 +214,8 @@ async function getInitialData() {
     receiveTransactions,
     loanTransactions,
     categories,
-    departments: departmentsRes.data || [],   // ⭐ เพิ่มบรรทัดนี้
+    departments: departmentsRes.data || [],
+    feedbackData: feedback, // ⭐ 4. ส่งกลับไปหน้าบ้าน (ตั้งชื่อว่า feedbackData)
     dashboardMetrics: {
       totalStockValue,
       topIssuedItems,

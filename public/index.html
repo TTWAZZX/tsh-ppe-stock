@@ -1028,7 +1028,9 @@
             </div>
 
             <div id="reportPage" class="page hidden admin-page">
-                <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24"> <div id="reportHeaderPrint" class="hidden text-center mb-6">
+                <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24"> 
+                    
+                    <div id="reportHeaderPrint" class="hidden text-center mb-6">
                         <h1 class="text-2xl font-bold text-gray-800">รายงานสรุปการเบิกจ่ายอุปกรณ์ PPE</h1>
                         <p class="text-gray-600" id="printDateRange">ประจำวันที่ ...</p>
                         <hr class="mt-4 border-gray-300">
@@ -1107,7 +1109,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="reportTableBody" class="divide-y divide-gray-100">
-                                    </tbody>
+                                </tbody>
                             </table>
                             
                             <div id="reportEmptyState" class="hidden flex flex-col items-center justify-center py-16 text-center">
@@ -1120,7 +1122,39 @@
                         </div>
                     </div>
 
-                </div>
+                    <div class="mt-8 border-t border-gray-200 pt-8 no-print">
+                        <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <i class="fa-solid fa-comments text-teal-600"></i> เสียงตอบรับจากผู้ใช้ (Feedback)
+                        </h3>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-teal-50 rounded-2xl p-8 flex flex-col items-center justify-center text-center border border-teal-100 shadow-sm h-full">
+                                <div class="text-6xl font-extrabold text-teal-700 mb-2" id="avgRatingScore">0.0</div>
+                                <div class="flex text-yellow-400 text-2xl mb-3" id="avgRatingStars">
+                                    <i class="fa-regular fa-star text-gray-300"></i>
+                                    <i class="fa-regular fa-star text-gray-300"></i>
+                                    <i class="fa-regular fa-star text-gray-300"></i>
+                                    <i class="fa-regular fa-star text-gray-300"></i>
+                                    <i class="fa-regular fa-star text-gray-300"></i>
+                                </div>
+                                <p class="text-sm text-gray-500">จากทั้งหมด <span id="totalReviewCount" class="font-bold text-gray-800 text-lg">0</span> รีวิว</p>
+                            </div>
+
+                            <div class="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-0 h-[400px] flex flex-col shadow-sm overflow-hidden">
+                                <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                    <span class="text-sm font-bold text-gray-700">รีวิวล่าสุด</span>
+                                    <span class="text-xs text-gray-400">เลื่อนเพื่อดูเพิ่มเติม</span>
+                                </div>
+                                <div class="overflow-y-auto flex-1 p-4 space-y-3" id="feedbackList">
+                                    <div class="text-center text-gray-400 py-20 flex flex-col items-center">
+                                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                                        กำลังโหลดข้อมูล...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
             </div>
 
         </main>
@@ -1406,6 +1440,53 @@
     </div>
 </div>
 
+<div id="feedbackModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform transition-all scale-100">
+        
+        <div class="bg-gradient-to-r from-teal-600 to-teal-500 p-4 text-white flex justify-between items-center">
+            <h3 class="font-bold flex items-center gap-2 text-lg">
+                <i class="fa-solid fa-star text-yellow-300"></i> ให้คะแนนอุปกรณ์
+            </h3>
+            <button onclick="closeFeedbackModal()" class="text-white/80 hover:text-white transition-colors bg-white/20 rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="p-6 flex flex-col items-center gap-5">
+            <input type="hidden" id="feedbackTransactionId">
+            <input type="hidden" id="feedbackItemId">
+            <input type="hidden" id="feedbackType"> <div class="flex flex-col items-center">
+                <div class="w-24 h-24 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-gray-100 shadow-sm mb-3">
+                    <img id="feedbackItemImg" src="" class="w-full h-full object-contain p-2">
+                </div>
+                <h4 class="font-bold text-gray-800 text-lg text-center leading-tight" id="feedbackItemName">ชื่ออุปกรณ์</h4>
+                <p class="text-xs text-gray-400 mt-1">ใช้งานแล้วเป็นอย่างไรบ้าง?</p>
+            </div>
+
+            <div class="flex gap-3 justify-center" id="starContainer">
+                <button onclick="setRating(1)" class="star-btn text-4xl text-gray-200 hover:text-yellow-400 transition-transform hover:scale-110 active:scale-95" data-val="1"><i class="fa-solid fa-star"></i></button>
+                <button onclick="setRating(2)" class="star-btn text-4xl text-gray-200 hover:text-yellow-400 transition-transform hover:scale-110 active:scale-95" data-val="2"><i class="fa-solid fa-star"></i></button>
+                <button onclick="setRating(3)" class="star-btn text-4xl text-gray-200 hover:text-yellow-400 transition-transform hover:scale-110 active:scale-95" data-val="3"><i class="fa-solid fa-star"></i></button>
+                <button onclick="setRating(4)" class="star-btn text-4xl text-gray-200 hover:text-yellow-400 transition-transform hover:scale-110 active:scale-95" data-val="4"><i class="fa-solid fa-star"></i></button>
+                <button onclick="setRating(5)" class="star-btn text-4xl text-gray-200 hover:text-yellow-400 transition-transform hover:scale-110 active:scale-95" data-val="5"><i class="fa-solid fa-star"></i></button>
+            </div>
+            <input type="hidden" id="feedbackScore" value="0">
+
+            <div class="w-full">
+                <label class="text-xs font-semibold text-gray-500 ml-1 mb-1 block">ความคิดเห็นเพิ่มเติม (ถ้ามี)</label>
+                <textarea id="feedbackComment" rows="3" class="w-full border border-gray-200 bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-teal-500 focus:bg-white outline-none resize-none transition-all" placeholder="เช่น ใส่สบาย, ทนทาน, ชำรุดง่าย..."></textarea>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+            <button onclick="closeFeedbackModal()" class="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-200 rounded-xl transition-colors">ยกเลิก</button>
+            <button onclick="submitFeedback()" class="flex-1 py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-200 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" id="btnSubmitFeedback" disabled>
+                ส่งรีวิว
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ===========================================
     // API Configuration
@@ -1662,6 +1743,8 @@
         updateAllTablesAndLists();
         populateAllDropdowns();
         if(typeof renderCategoryList === 'function') renderCategoryList();
+
+        renderFeedbackSection();
     }
 
     // แทนที่ฟังก์ชัน showPage เดิม
@@ -2310,7 +2393,8 @@
             default: return { text: 'ไม่ทราบสถานะ', color: 'bg-gray-100 text-gray-800' };
         }
     }
-    // ฟังก์ชันวาดประวัติการเบิก + Touch Feedback (เพิ่มปุ่มสลิป)
+
+    // ฟังก์ชันวาดประวัติการเบิก + Touch Feedback (เพิ่มปุ่มสลิป + ปุ่มรีวิว)
     function updateHistoryTable(filter = '') {
         const container = document.getElementById('issueHistoryTab');
         const emptyState = document.getElementById('issueHistoryEmptyState');
@@ -2340,12 +2424,25 @@
             const dateStr = new Date(v.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute:'2-digit' });
             
             let itemCount = 0;
+            let firstItemData = {}; // เก็บข้อมูลชิ้นแรกไว้ทำรีวิว
             try {
                 const items = Array.isArray(v.itemsJson) ? v.itemsJson : JSON.parse(v.itemsJson || '[]');
                 itemCount = items.length;
+                if(items.length > 0) firstItemData = items[0];
             } catch(e) { itemCount = 0; }
 
-            // 👇👇 เพิ่ม active:scale-95 duration-200 cursor-pointer ตรงนี้ครับ
+            // หาข้อมูล Item จาก ID เพื่อเอารูปมาโชว์ใน Modal รีวิว
+            const ppeItem = currentData.ppeItems.find(p => p.id == firstItemData.itemId) || { name: 'อุปกรณ์', image_url: '' };
+
+            // สร้างปุ่มรีวิว (แสดงเฉพาะถ้ารายการนั้นสำเร็จแล้ว หรือจะให้กดได้ตลอดก็ได้ - อันนี้เปิดให้กดได้ตลอด)
+            const reviewBtn = `
+                <button onclick="openFeedbackModal({id: '${firstItemData.itemId || 0}', name: '${ppeItem.name}', image_url: '${ppeItem.image_url}'}, '${v.id}', 'issue'); event.stopPropagation();" 
+                        class="w-8 h-8 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center hover:bg-yellow-100 transition-colors border border-yellow-100" 
+                        title="ให้คะแนน">
+                    <i class="fa-regular fa-star"></i>
+                </button>
+            `;
+
             return `
             <div onclick="showVoucherDetails(${v.id})" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 
@@ -2379,7 +2476,7 @@
                     </span>
                     
                     <div class="flex items-center gap-2">
-                        <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
+                        ${reviewBtn} <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
                             <i class="fa-solid fa-receipt"></i>
                         </button>
                         
@@ -4761,6 +4858,158 @@
         
         document.getElementById('printDateRange').innerText = `ข้อมูลตั้งแต่วันที่ ${d1} ถึง ${d2}`;
         window.print();
+    }
+
+    // --- 🌟 Logic ระบบ Feedback (Supabase Version) ---
+    
+    function openFeedbackModal(itemData, transactionId, type) {
+        // 1. Reset ค่าในฟอร์ม
+        document.getElementById('feedbackScore').value = 0;
+        document.getElementById('feedbackComment').value = '';
+        document.getElementById('btnSubmitFeedback').disabled = true;
+        updateStars(0);
+
+        // 2. Set ค่าที่จะส่งไป DB
+        document.getElementById('feedbackTransactionId').value = transactionId;
+        document.getElementById('feedbackItemId').value = itemData.id;
+        document.getElementById('feedbackType').value = type;
+        
+        // 3. Set UI
+        document.getElementById('feedbackItemName').textContent = itemData.name;
+        const img = document.getElementById('feedbackItemImg');
+        img.src = itemData.image_url || 'https://placehold.co/150?text=No+Img';
+
+        // 4. Show Modal
+        document.getElementById('feedbackModal').classList.remove('hidden');
+    }
+
+    function closeFeedbackModal() {
+        document.getElementById('feedbackModal').classList.add('hidden');
+    }
+
+    // จัดการเปลี่ยนสีดาว
+    function setRating(val) {
+        document.getElementById('feedbackScore').value = val;
+        updateStars(val);
+        document.getElementById('btnSubmitFeedback').disabled = false; // ปลดล็อคปุ่มส่ง
+    }
+
+    function updateStars(val) {
+        const stars = document.querySelectorAll('.star-btn');
+        stars.forEach((btn, index) => {
+            if (index < val) {
+                btn.classList.remove('text-gray-200');
+                btn.classList.add('text-yellow-400');
+            } else {
+                btn.classList.add('text-gray-200');
+                btn.classList.remove('text-yellow-400');
+            }
+        });
+    }
+
+    // ฟังก์ชันส่งข้อมูลไปหลังบ้าน
+    async function submitFeedback() {
+        const payload = {
+            transactionId: document.getElementById('feedbackTransactionId').value,
+            itemId: document.getElementById('feedbackItemId').value,
+            itemName: document.getElementById('feedbackItemName').textContent,
+            type: document.getElementById('feedbackType').value,
+            rating: document.getElementById('feedbackScore').value,
+            comment: document.getElementById('feedbackComment').value,
+            user: (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : 'Guest'
+        };
+
+        if(payload.rating == 0) return showToast('กรุณาให้คะแนนก่อนส่ง', 'error');
+
+        closeFeedbackModal();
+        showLoading();
+
+        try {
+            // เรียก API ของคุณ (Vercel) โดยส่ง action 'saveFeedback'
+            await callServerFunction('saveFeedback', payload);
+            
+            showToast('ขอบคุณสำหรับรีวิวครับ! ⭐');
+            // อาจจะ Refresh ข้อมูลเพื่อให้ปุ่มหายไปหรือเปลี่ยนสถานะ
+            // const data = await callServerFunction('getInitialData');
+            // onDataLoaded(data); 
+            
+        } catch (error) {
+            console.error("Feedback Error:", error);
+            showToast('ส่งรีวิวไม่สำเร็จ: ' + error.message, 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ⭐⭐⭐ 2. ฟังก์ชันวาดส่วน Feedback (เพิ่มใหม่) ⭐⭐⭐
+    function renderFeedbackSection() {
+        // รับค่า feedbackData ที่ส่งมาจาก Backend (ถ้าไม่มีให้เป็นอาเรย์ว่าง)
+        const feedbacks = currentData.feedbackData || []; 
+        const container = document.getElementById('feedbackList');
+        
+        if (!container) return;
+
+        // 1. คำนวณคะแนนเฉลี่ย
+        const totalReviews = feedbacks.length;
+        if (totalReviews === 0) {
+            document.getElementById('avgRatingScore').textContent = "0.0";
+            document.getElementById('totalReviewCount').textContent = "0";
+            container.innerHTML = `<div class="text-center text-gray-400 py-10 flex flex-col items-center"><i class="fa-regular fa-comment-dots text-4xl mb-2"></i><p>ยังไม่มีการรีวิว</p></div>`;
+            
+            // รีเซ็ตดาวใหญ่เป็นสีเทา
+            document.getElementById('avgRatingStars').innerHTML = '<i class="fa-regular fa-star text-gray-300"></i>'.repeat(5);
+            return;
+        }
+
+        const sumRating = feedbacks.reduce((sum, f) => sum + (Number(f.rating) || 0), 0);
+        const avg = (sumRating / totalReviews).toFixed(1);
+
+        document.getElementById('avgRatingScore').textContent = avg;
+        document.getElementById('totalReviewCount').textContent = totalReviews;
+
+        // วาดดาวเฉลี่ย (ดาวใหญ่)
+        let starsHtml = '';
+        for (let i = 1; i <= 5; i++) {
+            if (i <= Math.round(avg)) starsHtml += '<i class="fa-solid fa-star"></i>';
+            else starsHtml += '<i class="fa-regular fa-star text-gray-300"></i>';
+        }
+        document.getElementById('avgRatingStars').innerHTML = starsHtml;
+
+        // 2. วาดรายการรีวิว (List)
+        container.innerHTML = feedbacks.map(f => {
+            const date = new Date(f.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+            
+            // สร้างดาวรายคน (ดาวเล็ก)
+            let userStars = '';
+            for(let i=1; i<=5; i++) {
+                userStars += i <= f.rating ? '<i class="fa-solid fa-star text-yellow-400 text-xs"></i>' : '<i class="fa-regular fa-star text-gray-300 text-xs"></i>';
+            }
+
+            const commentHtml = f.comment ? `<p class="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded-lg border border-gray-100 italic">"${f.comment}"</p>` : '';
+
+            return `
+                <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-3 hover:border-teal-100 transition-colors">
+                    <div class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold shrink-0 text-sm">
+                        ${f.user_name ? f.user_name.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs text-gray-500 font-bold truncate">${f.user_name || 'Guest'}</p>
+                                <p class="text-xs text-teal-600 font-medium bg-teal-50 px-1.5 py-0.5 rounded inline-block mt-0.5 truncate max-w-[150px]">
+                                    <i class="fa-solid fa-box text-[10px]"></i> ${f.item_name || 'อุปกรณ์'}
+                                </p>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <div class="flex gap-0.5 justify-end">${userStars}</div>
+                                <span class="text-[10px] text-gray-300 block mt-0.5">${date}</span>
+                            </div>
+                        </div>
+                        ${commentHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
 </script>
