@@ -93,6 +93,10 @@ export default async function handler(req, res) {
         result = await checkAdminCredentials(payload.username, payload.password);
         break;
 
+      case 'deletePpeItem':  // 👈 เพิ่มตรงนี้
+        result = await deletePpeItem(payload);
+        break;
+
       default:
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
@@ -712,4 +716,24 @@ async function confirmReceive(payload) {
   }
 
   return { status: 'received', voucherId };
+}
+
+// ✅ ฟังก์ชันลบอุปกรณ์ (เวอร์ชัน Supabase)
+async function deletePpeItem(payload) {
+  if (!payload || !payload.id) {
+    throw new Error('Missing Item ID');
+  }
+
+  // สั่งลบข้อมูลในตาราง ppe_items ที่ id ตรงกัน
+  const { error } = await supabase
+    .from('ppe_items')
+    .delete()
+    .eq('id', payload.id); 
+
+  if (error) {
+    console.error('Error deleting item:', error);
+    throw error;
+  }
+
+  return { status: "success", message: "Deleted successfully" };
 }

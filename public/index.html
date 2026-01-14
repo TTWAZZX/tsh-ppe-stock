@@ -694,69 +694,112 @@
             </div>
 
             <div id="managePage" class="page hidden admin-page">
-                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6">
-                        <h3 class="text-xl font-semibold mb-6 text-gray-800">เพิ่ม/แก้ไขอุปกรณ์</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    
+                    <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-fit sticky top-4">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-gray-800" id="manageFormTitle">
+                                <i class="fa-solid fa-plus-circle text-teal-600 mr-2"></i>เพิ่มอุปกรณ์ใหม่
+                            </h3>
+                            <button onclick="resetManageForm()" class="text-xs text-gray-500 hover:text-teal-600 underline">ล้างค่า</button>
+                        </div>
+
                         <form id="manageForm" class="space-y-4">
                             <input type="hidden" id="editItemId">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ชื่ออุปกรณ์</label>
-                                <input type="text" id="itemName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            
+                            <div class="flex flex-col items-center mb-4">
+                                <div class="w-32 h-32 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group mb-3">
+                                    <img id="adminImagePreview" src="" class="w-full h-full object-contain hidden p-1">
+                                    <div id="adminImagePlaceholder" class="text-center text-gray-400">
+                                        <i class="fa-solid fa-image text-3xl mb-1"></i>
+                                        <p class="text-[10px]">ตัวอย่างรูป</p>
+                                    </div>
+                                </div>
+                                <input type="url" id="itemImage" placeholder="วางลิงก์รูปภาพ (URL) ที่นี่..." 
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-center"
+                                    oninput="updateImagePreview(this.value)">
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">รหัสอุปกรณ์</label>
-                                    <input type="text" id="itemCode" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">หน่วย</label>
-                                    <input type="text" id="itemUnit" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                </div>
-                            </div>
-                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่</label>
-                                <div class="flex items-center gap-2">
-                                    <select id="itemCategory" required class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
-                                    <button type="button" onclick="showCategoryModal()" class="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"><i class="fa-solid fa-pen-to-square text-gray-600"></i></button>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">คงเหลือ</label>
-                                    <input type="number" id="itemStock" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">จุดสั่งซื้อ</label>
-                                    <input type="number" id="itemReorderPoint" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                </div>
 
-                            <div class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ราคาต่อหน่วย (บาท)</label>
-                                <input type="number" id="itemPrice" min="0" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="0.00">
-                            </div>
-                            <input type="hidden" id="onLoanQuantity" value="0">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ลิงก์รูปภาพ (URL)</label>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">ชื่ออุปกรณ์ <span class="text-red-500">*</span></label>
+                                <input type="text" id="itemName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">รหัส (Code) <span class="text-red-500">*</span></label>
+                                    <input type="text" id="itemCode" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">หน่วยนับ <span class="text-red-500">*</span></label>
+                                    <input type="text" id="itemUnit" required placeholder="เช่น อัน, คู่, ชุด" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">หมวดหมู่ <span class="text-red-500">*</span></label>
                                 <div class="flex gap-2">
-                                    <input type="url" id="itemImage" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                    <button type="button" onclick="previewImageAdmin()" class="px-3 py-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200">
-                                        <i class="fa-solid fa-image"></i>
+                                    <select id="itemCategory" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"></select>
+                                    <button type="button" onclick="showCategoryModal()" class="px-3 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 border border-gray-200" title="จัดการหมวดหมู่">
+                                        <i class="fa-solid fa-tags"></i>
                                     </button>
                                 </div>
-                                <img id="adminImagePreview" src="" class="mt-2 h-20 w-20 object-cover rounded-md hidden border border-gray-300">
                             </div>
-                            <div class="flex space-x-3 pt-4">
-                                <button type="button" onclick="resetManageForm()" class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">ยกเลิก</button>
-                                <button type="submit" class="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">บันทึก</button>
+
+                            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">การจัดการสต็อก</p>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">คงเหลือปัจจุบัน</label>
+                                        <input type="number" id="itemStock" required min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 font-bold text-gray-800">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">จุดสั่งซื้อ (Min)</label>
+                                        <input type="number" id="itemReorderPoint" required min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">ราคาต่อหน่วย (บาท)</label>
+                                    <input type="number" id="itemPrice" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="0.00">
+                                </div>
+                                <input type="hidden" id="onLoanQuantity" value="0">
+                            </div>
+
+                            <div class="pt-2 flex gap-2">
+                                <button type="button" onclick="resetManageForm()" class="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">ยกเลิก</button>
+                                <button type="submit" class="flex-1 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md transition-transform active:scale-95 font-bold">
+                                    <i class="fa-solid fa-save mr-2"></i>บันทึก
+                                </button>
                             </div>
                         </form>
                     </div>
-                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border p-6">
-                        <h3 class="text-xl font-semibold mb-6 text-gray-800">รายการอุปกรณ์ทั้งหมด</h3>
-                        <div class="space-y-2 max-h-[60vh] overflow-y-auto pr-2" id="manageItemsList"></div>
+
+                    <div class="lg:col-span-8 space-y-4">
+                        
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-3 justify-between items-center sticky top-0 z-10">
+                            <div class="w-full md:w-auto flex items-center gap-2">
+                                <div class="bg-teal-100 p-2 rounded-lg text-teal-700">
+                                    <i class="fa-solid fa-list-check"></i>
+                                </div>
+                                <h3 class="font-bold text-gray-800">รายการอุปกรณ์ทั้งหมด</h3>
+                            </div>
+                            
+                            <div class="flex gap-2 w-full md:w-auto">
+                                <div class="relative flex-1 md:w-64">
+                                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input type="text" id="manageSearch" placeholder="ค้นหาชื่อ หรือรหัส..." 
+                                        class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500"
+                                        oninput="updateManageItemsList()">
+                                </div>
+                                <select id="manageCategoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-teal-500"
+                                    onchange="updateManageItemsList()">
+                                    <option value="">ทุกหมวดหมู่</option>
+                                    </select>
+                            </div>
+                        </div>
+
+                        <div id="manageItemsList" class="grid grid-cols-1 gap-3 pb-20">
+                            </div>
                     </div>
                 </div>
             </div>
@@ -2206,41 +2249,97 @@
         }).join('');
     }
 
+    // 🛠️ อัปเดตรายการหน้าจัดการ (เวอร์ชัน 2.0: Search + Status + Delete)
     function updateManageItemsList() {
-    const listContainer = document.getElementById('manageItemsList');
+        const listContainer = document.getElementById('manageItemsList');
+        const search = document.getElementById('manageSearch').value.toLowerCase();
+        const category = document.getElementById('manageCategoryFilter').value;
 
-    // ถ้าไม่มีข้อมูล PPE เลย
-    if (!currentData.ppeItems || currentData.ppeItems.length === 0) {
-        listContainer.innerHTML = createEmptyState(
-        'ยังไม่มีอุปกรณ์ในระบบ',
-        'fa-solid fa-box-open'
-        );
-        return;
+        // อัปเดต Dropdown Filter ให้ตรงกับข้อมูลจริง (ถ้ายังไม่มี option)
+        const filterSelect = document.getElementById('manageCategoryFilter');
+        if (filterSelect.options.length <= 1) {
+            currentData.categories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.name; opt.innerText = c.name;
+                filterSelect.appendChild(opt);
+            });
+        }
+
+        // กรองข้อมูล
+        const filteredItems = currentData.ppeItems.filter(item => {
+            const matchSearch = (item.name || '').toLowerCase().includes(search) || (item.code || '').toLowerCase().includes(search);
+            const matchCat = category === '' || item.category === category;
+            return matchSearch && matchCat;
+        });
+
+        // Empty State
+        if (filteredItems.length === 0) {
+            listContainer.innerHTML = createEmptyState('ไม่พบอุปกรณ์ที่ค้นหา', 'fa-solid fa-box-open');
+            return;
+        }
+
+        // Render List
+        listContainer.innerHTML = filteredItems.sort((a,b) => a.name.localeCompare(b.name)).map(item => {
+            const stock = Number(item.stock);
+            const min = Number(item.reorderPoint);
+            const img = item.image_url || 'https://placehold.co/100?text=NoImg';
+            
+            // Logic สีสถานะ
+            let statusColor = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+            let statusText = 'ปกติ';
+            if(stock === 0) { statusColor = 'bg-red-100 text-red-700 border-red-200'; statusText = 'หมด'; }
+            else if(stock <= min) { statusColor = 'bg-orange-100 text-orange-700 border-orange-200'; statusText = 'ต่ำกว่าเกณฑ์'; }
+
+            return `
+            <div class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
+                <div class="w-16 h-16 rounded-lg bg-gray-50 flex-shrink-0 border border-gray-100 overflow-hidden relative">
+                    <img src="${img}" class="w-full h-full object-cover">
+                    ${stock === 0 ? '<div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[10px]">หมด</div>' : ''}
+                </div>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${statusColor}">${statusText}</span>
+                        <span class="text-[10px] text-gray-400 border px-1.5 rounded bg-gray-50">${item.category}</span>
+                    </div>
+                    <h4 class="font-bold text-gray-800 text-sm truncate">${item.name}</h4>
+                    <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                        <span><i class="fa-solid fa-barcode mr-1"></i>${item.code}</span>
+                        <span><i class="fa-solid fa-cubes mr-1"></i>เหลือ: <b class="text-gray-800">${stock}</b> ${item.unit}</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="editItem(${item.id})" class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:bg-teal-50 hover:text-teal-600 border border-transparent hover:border-teal-200 transition-all" title="แก้ไข">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteItem(${item.id})" class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200 transition-all" title="ลบ">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
-    // มีข้อมูล → เอามา sort ตามชื่อ แล้ว map เป็น HTML
-    listContainer.innerHTML = currentData.ppeItems
-        .slice() // กัน side-effect
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(
-        (item) => `
-            <div class="flex justify-between items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <div>
-                <p class="font-medium text-gray-900">${item.name} (${item.code})</p>
-                <p class="text-sm text-gray-600">
-                คงเหลือ: ${item.stock} ${item.unit} | ยืม: ${item.onLoanQuantity || 0}
-                </p>
-            </div>
-            <button
-                onclick="editItem(${item.id})"
-                class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-            >
-                <i class="fas fa-edit"></i>
-            </button>
-            </div>
-        `
-        )
-        .join('');
+    // ฟังก์ชันโชว์รูปทันทีตอนพิมพ์ URL
+    function updateImagePreview(url) {
+        const img = document.getElementById('adminImagePreview');
+        const placeholder = document.getElementById('adminImagePlaceholder');
+        
+        if (url && url.length > 10) { // เช็คคร่าวๆ ว่ามี URL
+            img.src = url;
+            img.onload = () => {
+                img.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            };
+            img.onerror = () => { // ถ้าโหลดไม่ได้ ให้กลับไปโชว์ placeholder
+                img.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            };
+        } else {
+            img.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+        }
     }
 
     // ฟังก์ชันวาดรายการยืมแบบ Card + Touch Feedback (ซ่อนปุ่มรับคืนถ้าไม่ใช่ Admin)
@@ -3587,6 +3686,7 @@
     function editItem(itemId) {
         const item = currentData.ppeItems.find(p => p.id == itemId);
         if (item) {
+            // ... (โค้ด set value เดิม) ...
             document.getElementById('editItemId').value = item.id;
             document.getElementById('itemCode').value = item.code;
             document.getElementById('itemName').value = item.name;
@@ -3597,15 +3697,51 @@
             document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
             document.getElementById('itemPrice').value = item.price || 0;
             document.getElementById('itemImage').value = item.image_url || '';
-            previewImageAdmin();
-            showToast('กำลังแก้ไข: ' + item.name);
+            
+            // ⭐ เพิ่มบรรทัดนี้: เปลี่ยนหัวข้อ และโชว์รูป
+            document.getElementById('manageFormTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-orange-500 mr-2"></i>แก้ไขข้อมูลอุปกรณ์';
+            updateImagePreview(item.image_url); 
+            
+            // เลื่อนจอขึ้นไปหาฟอร์ม (Mobile สะดวกขึ้น)
+            document.getElementById('managePage').scrollIntoView({ behavior: 'smooth' });
         }
     }
+
+    async function deleteItem(itemId) {
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        
+        const confirm = await showConfirmationModal(
+            'ยืนยันการลบ', 
+            'คุณต้องการลบอุปกรณ์นี้ออกจากระบบถาวรใช่หรือไม่?'
+        );
+
+        if (confirm) {
+            showLoading();
+            // หมายเหตุ: คุณต้องไปเพิ่มฟังก์ชัน deletePpeItem ใน Google Apps Script ด้วยนะ
+            // แต่ถ้ายังไม่เพิ่ม JS ฝั่งหน้าบ้านจะ error. 
+            // ถ้า Backend ยังไม่มี ให้ใช้การส่ง items: [] หรือ logic อื่นแทน
+            // สมมติว่า Backend มีแล้ว:
+            try {
+                await callServerFunction('deletePpeItem', { id: itemId });
+                showToast('ลบอุปกรณ์เรียบร้อยแล้ว', 'success');
+                
+                // รีโหลดข้อมูล
+                const data = await callServerFunction('getInitialData');
+                onDataLoaded(data);
+            } catch (e) {
+                console.error(e);
+                showToast('ลบไม่สำเร็จ: ' + e.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+    }
+
     function resetManageForm() {
         document.getElementById('manageForm').reset();
         document.getElementById('editItemId').value = '';
-        document.getElementById('adminImagePreview').classList.add('hidden');
-        document.getElementById('adminImagePreview').src = '';
+        document.getElementById('manageFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle text-teal-600 mr-2"></i>เพิ่มอุปกรณ์ใหม่';
+        updateImagePreview(''); // รีเซ็ตรูป
     }
 
     function handleReceiveSubmit(e) {
