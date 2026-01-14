@@ -72,12 +72,7 @@
             .responsive-table td:before { content: attr(data-label); font-weight: 600; color: #6b7280; margin-right: 1rem; }
         }
 
-        /* บังคับให้ Grid ในฟอร์มต่างๆ เรียงเป็นแถวเดียวบนมือถือ */
-        @media (max-width: 640px) {
-            .grid-cols-2 {
-                grid-template-columns: 1fr !important; /* เปลี่ยนเป็น 1 คอลัมน์ */
-            }
-            
+        @media (max-width: 640px) {            
             /* ปรับระยะห่าง main content ให้เต็มจอ */
             main {
                 padding-left: 0 !important;
@@ -299,7 +294,7 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 pt-2 px-2 sm:pt-4 sm:px-6 lg:px-8 pb-32 page-container relative">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 px-2 sm:pt-4 sm:px-6 lg:px-8 pb-32 page-container relative">
                 <div id="dashboardPage" class="page">
                     <div class="max-w-7xl mx-auto space-y-6">
                     
@@ -2911,7 +2906,7 @@
 
         // --- Render HTML Grid Layout ---
         dashboardDiv.innerHTML = `
-            <div class="pt-4 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+            <div class="pt-1 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
                 
                 <div class="relative">
                     <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl p-6 text-white shadow-lg shadow-teal-200 relative overflow-hidden lg:flex lg:items-center lg:justify-between">
