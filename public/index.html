@@ -307,9 +307,9 @@
                 <div class="max-w-7xl mx-auto space-y-6">
                     
                     <div class="sticky top-0 z-30 bg-gray-100/95 backdrop-blur-md pt-2 pb-2 -mx-4 px-4 sm:static sm:bg-transparent sm:p-0 sm:mx-0">
-                        <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                             
-                            <div>
+                            <div class="text-center md:text-left w-full md:w-auto">
                                 <h3 class="text-xl font-bold text-gray-800">
                                     <i class="fa-solid fa-boxes-stacked text-teal-600 mr-2"></i>คลังอุปกรณ์ (Stock)
                                 </h3>
@@ -317,19 +317,15 @@
                             </div>
                             
                             <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                                
                                 <div class="relative flex-1 md:w-64 group">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors"></i>
                                     <input type="text" id="stockSearch" placeholder="ค้นหาชื่อ หรือรหัส..." 
                                         class="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
-                                    
                                     <button onclick="document.getElementById('stockSearch').value=''; filterStock();" 
-                                            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors"
-                                            title="ล้างคำค้นหา">
+                                            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
                                         <i class="fa-solid fa-circle-xmark"></i>
                                     </button>
                                 </div>
-
                                 <div class="relative md:w-48">
                                     <select id="categoryFilter" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none cursor-pointer text-gray-700">
                                         <option value="">ทุกหมวดหมู่</option>
@@ -558,17 +554,23 @@
         <div id="allHistoryPage" class="page hidden">
             <div class="max-w-5xl mx-auto space-y-6">
                 
-                <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                    <div>
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                    
+                    <div class="text-center md:text-left w-full md:w-auto">
                         <h3 class="text-xl font-bold text-gray-800">
                             <i class="fa-solid fa-clock-rotate-left text-teal-600 mr-2"></i>ประวัติการใช้งาน
                         </h3>
                         <p class="text-sm text-gray-500 mt-1">ตรวจสอบรายการเบิกและยืม-คืนย้อนหลัง</p>
                     </div>
                     
-                    <div class="w-full md:w-72 relative">
-                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="historySearch" placeholder="ค้นหาชื่อ, เลขที่, หรืออุปกรณ์..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                    <div class="w-full md:w-72 relative group">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors"></i>
+                        <input type="text" id="historySearch" placeholder="ค้นหาชื่อ, เลขที่, หรืออุปกรณ์..." class="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                        
+                        <button onclick="document.getElementById('historySearch').value=''; updateHistoryTable(); updateLoanHistoryTable();" 
+                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -2291,6 +2293,7 @@
     // 5. User Interface Setup (Line LIFF)
     // ==========================================
 
+    // 🎨 User Dashboard โฉมใหม่ (Premium Style)
     function renderUserDashboard() {
         const dashboardDiv = document.getElementById('userDashboardPanel'); 
         if (!dashboardDiv) return;
@@ -2303,121 +2306,167 @@
         
         // รูปโปรไฟล์
         const profileImgHtml = pictureUrl 
-            ? `<img src="${pictureUrl}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">`
-            : `<div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-2 border-white shadow-sm"><i class="fa-solid fa-user"></i></div>`;
+            ? `<img src="${pictureUrl}" class="w-14 h-14 rounded-full border-4 border-white shadow-md object-cover">`
+            : `<div class="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 border-4 border-white shadow-md"><i class="fa-solid fa-user text-xl"></i></div>`;
 
         // ข้อมูลสถิติ
         const myLoans = currentData.loanTransactions?.filter(l => l.borrowerName === displayName && l.status === 'on_loan') || [];
         const myRequests = currentData.issueVouchers?.filter(v => v.user === displayName && v.status === 'pending') || [];
 
-        // --- ส่วนที่เพิ่มใหม่: หาคำขอล่าสุดเพื่อทำ Timeline ---
-        const lastVoucher = currentData.issueVouchers
-            ?.filter(v => v.user === displayName)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]; // เอาใบล่าสุด
+        // --- 1. สร้างส่วน "ชั้นวางของส่วนตัว" (My Active Gear) ---
+        let myGearHtml = '';
+        if (myLoans.length > 0) {
+            const gearItems = myLoans.map(loan => {
+                const item = currentData.ppeItems.find(p => p.id == loan.itemId);
+                const img = item?.image_url || 'https://placehold.co/100?text=Item';
+                // คำนวณวันคืน
+                const dueDate = new Date(loan.dueDate);
+                const today = new Date(); today.setHours(0,0,0,0); dueDate.setHours(0,0,0,0);
+                const isOverdue = dueDate < today;
+                const dateText = isOverdue ? 'เกินกำหนด!' : `คืน: ${dueDate.getDate()}/${dueDate.getMonth()+1}`;
+                const statusColor = isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600';
 
-        let timelineHtml = '';
-        
-        if (lastVoucher) {
-            // กำหนดสีและสถานะตามข้อมูลจริง
-            let statusColor = 'bg-gray-300';
-            let statusText = 'รอดำเนินการ';
-            let step2Class = 'opacity-50'; // ขั้นตอนตรวจสอบ
-            let step3Class = 'opacity-50'; // ขั้นตอนรับของ
-
-            if (lastVoucher.status === 'pending') {
-                statusColor = 'bg-yellow-400 animate-pulse';
-                statusText = 'กำลังรออนุมัติ';
-                step2Class = ''; // เปิดขั้นตอน 2
-            } else if (lastVoucher.status === 'approved') {
-                statusColor = 'bg-teal-500';
-                statusText = 'อนุมัติแล้ว';
-                step2Class = '';
-                step3Class = ''; // เปิดขั้นตอน 3
-            } else if (lastVoucher.status === 'rejected') {
-                statusColor = 'bg-red-500';
-                statusText = 'ถูกปฏิเสธ';
-                step2Class = '';
-            }
-
-            timelineHtml = `
-            <div onclick="showTimelineDetails(${lastVoucher.id})" class="cursor-pointer bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6 mx-2 animate-fade-in-up hover:shadow-md transition-shadow relative group">
-                
-                <div class="absolute top-5 right-5 text-gray-300 group-hover:text-teal-500 transition-colors">
-                    <i class="fa-solid fa-magnifying-glass-plus"></i>
-                </div>
-                
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold text-gray-700">คำขอล่าสุด #${lastVoucher.id}</h3>
-                    <span class="text-[10px] text-gray-400">${new Date(lastVoucher.timestamp).toLocaleDateString('th-TH')}</span>
-                </div>
-                
-                <div class="relative pl-4 border-l-2 border-gray-200 space-y-6">
-                    <div class="relative">
-                        <div class="absolute -left-[21px] bg-teal-500 h-4 w-4 rounded-full border-2 border-white"></div>
-                        <p class="text-xs text-gray-500">ส่งคำขอเรียบร้อย</p>
+                return `
+                <div class="flex-shrink-0 w-24 flex flex-col gap-2 snap-center">
+                    <div class="w-24 h-24 rounded-2xl bg-white border border-gray-100 shadow-sm p-2 flex items-center justify-center relative overflow-hidden">
+                        <img src="${img}" class="w-full h-full object-contain">
+                        ${isOverdue ? '<div class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>' : ''}
                     </div>
-
-                    <div class="relative ${step2Class}">
-                        <div class="absolute -left-[21px] ${statusColor} h-4 w-4 rounded-full border-2 border-white"></div>
-                        <p class="text-sm font-bold text-gray-800">${statusText}</p>
-                        ${lastVoucher.status === 'rejected' ? '<p class="text-xs text-red-400">กรุณาติดต่อแอดมิน</p>' : ''}
+                    <div class="text-center">
+                        <p class="text-xs font-bold text-gray-700 truncate w-full">${item?.name || 'Unknown'}</p>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full ${statusColor}">${dateText}</span>
                     </div>
+                </div>`;
+            }).join('');
 
-                    <div class="relative ${step3Class}">
-                        <div class="absolute -left-[21px] ${lastVoucher.status === 'approved' ? 'bg-teal-500' : 'bg-gray-200'} h-4 w-4 rounded-full border-2 border-white"></div>
-                        <p class="text-xs text-gray-500">รับของที่จุดจ่าย</p>
+            myGearHtml = `
+            <div class="mb-6 animate-fade-in-up">
+                <div class="flex justify-between items-end px-4 mb-3">
+                    <h3 class="font-bold text-gray-800">🎒 อุปกรณ์ที่ใช้อยู่</h3>
+                    <button onclick="showPage('loan')" class="text-xs text-teal-600 font-medium">ดูทั้งหมด</button>
+                </div>
+                <div class="flex overflow-x-auto gap-4 px-4 pb-4 snap-x scrollbar-hide">
+                    ${gearItems}
+                </div>
+            </div>`;
+        } else {
+            // ถ้าไม่มีของที่ยืม แสดงการ์ดชื่นชม
+            myGearHtml = `
+            <div class="px-4 mb-6 animate-fade-in-up">
+                <div class="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-4 border border-emerald-100 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-500 shadow-sm text-xl">
+                        <i class="fa-solid fa-check-double"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-emerald-800">เยี่ยมมาก! ไม่มีของค้างส่ง</p>
+                        <p class="text-xs text-emerald-600">คุณคืนอุปกรณ์ครบทุกรายการแล้ว</p>
                     </div>
                 </div>
             </div>`;
         }
-        // -----------------------------------------------------
 
-        dashboardDiv.innerHTML = `
-            <div class="pt-4 pb-24 max-w-md mx-auto animate-fade-in">
-                <div class="px-2 flex items-center justify-between mb-6 bg-gradient-to-r from-teal-50 to-white p-4 rounded-2xl border border-teal-100 shadow-sm mx-2">
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-800">สวัสดี, คุณ${displayName}</h2>
-                        <p class="text-gray-500 text-xs mt-1">ขอให้วันนี้เป็นวันที่ปลอดภัย :)</p>
+        // --- 2. สร้าง Timeline (ย่อส่วน) ---
+        const lastVoucher = currentData.issueVouchers
+            ?.filter(v => v.user === displayName)
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+        
+        let timelineHtml = '';
+        if (lastVoucher && lastVoucher.status === 'pending') {
+             timelineHtml = `
+            <div class="px-4 mb-6 animate-fade-in-up" onclick="showTimelineDetails(${lastVoucher.id})">
+                <div class="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm shadow-orange-50 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-orange-400"></div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-orange-500 font-bold mb-1 uppercase tracking-wide">สถานะล่าสุด</p>
+                            <h4 class="font-bold text-gray-800">คำขอใบเบิก #${lastVoucher.id}</h4>
+                            <p class="text-xs text-gray-500 mt-1">กำลังรอการอนุมัติจากหัวหน้า</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center animate-pulse">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                        </div>
                     </div>
-                    ${profileImgHtml}
+                </div>
+            </div>`;
+        }
+
+        // --- 3. Safety Quote (สุ่มคำคม) ---
+        const quotes = [
+            "Safety First: ปลอดภัยไว้ก่อนเสมอ",
+            "อุปกรณ์ PPE คือเกราะป้องกันชีวิตคุณ",
+            "ตรวจสอบอุปกรณ์ก่อนเริ่มงานทุกครั้ง",
+            "อุบัติเหตุเป็นศูนย์ เริ่มที่ตัวเรา"
+        ];
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+
+        // ประกอบร่าง HTML
+        dashboardDiv.innerHTML = `
+            <div class="pt-4 pb-24 max-w-md mx-auto">
+                
+                <div class="relative px-4 mb-6">
+                    <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl p-6 text-white shadow-lg shadow-teal-200 relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                        <div class="absolute -left-6 -bottom-6 w-32 h-32 bg-teal-400/20 rounded-full blur-xl"></div>
+                        
+                        <div class="relative z-10 flex justify-between items-center">
+                            <div>
+                                <p class="text-teal-100 text-xs mb-1">ยินดีต้อนรับกลับ,</p>
+                                <h2 class="text-2xl font-bold">คุณ${displayName}</h2>
+                                <div class="mt-3 inline-flex items-center bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
+                                    <i class="fa-solid fa-shield-halved text-xs mr-2 text-yellow-300"></i>
+                                    <span class="text-[10px] font-medium">${randomQuote}</span>
+                                </div>
+                            </div>
+                            ${profileImgHtml}
+                        </div>
+                    </div>
                 </div>
 
                 ${timelineHtml}
 
-                <div class="grid grid-cols-2 gap-3 mb-6 px-2">
-                    <div onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg"><i class="fa-solid fa-hand-holding-box"></i></div>
-                        <div class="text-center">
-                            <span class="block text-2xl font-bold text-gray-800">${myLoans.length}</span>
-                            <span class="text-xs text-gray-500 font-medium">อุปกรณ์ที่ยืมอยู่</span>
-                        </div>
-                    </div>
-                    <div onclick="showPage('allHistory')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg"><i class="fa-solid fa-clock"></i></div>
-                        <div class="text-center">
-                            <span class="block text-2xl font-bold text-gray-800">${myRequests.length}</span>
-                            <span class="text-xs text-gray-500 font-medium">รออนุมัติ</span>
-                        </div>
+                ${myGearHtml}
+
+                <div class="px-4 mb-2">
+                    <h3 class="font-bold text-gray-800 mb-3">เมนูลัด</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        
+                        <button onclick="showPage('issue')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 hover:shadow-md transition-all active:scale-95">
+                            <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-box-open"></i>
+                            </div>
+                            <span class="font-bold text-gray-700 text-sm">เบิกอุปกรณ์</span>
+                        </button>
+
+                        <button onclick="showPage('loan')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 hover:shadow-md transition-all active:scale-95">
+                            <div class="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-screwdriver-wrench"></i>
+                            </div>
+                            <span class="font-bold text-gray-700 text-sm">ยืมเครื่องมือ</span>
+                        </button>
+
+                        <button onclick="showPage('allHistory'); showHistoryTab('issue');" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 hover:shadow-md transition-all active:scale-95">
+                            <div class="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-history"></i>
+                            </div>
+                            <div class="text-center">
+                                <span class="font-bold text-gray-700 text-sm block">ประวัติการเบิก</span>
+                                <span class="text-[10px] text-gray-400">${myRequests.length} รออนุมัติ</span>
+                            </div>
+                        </button>
+
+                        <button onclick="showPage('allHistory'); showHistoryTab('loan');" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 hover:shadow-md transition-all active:scale-95">
+                            <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
+                            <div class="text-center">
+                                <span class="font-bold text-gray-700 text-sm block">ของที่ยืมอยู่</span>
+                                <span class="text-[10px] text-gray-400">${myLoans.length} รายการ</span>
+                            </div>
+                        </button>
+
                     </div>
                 </div>
 
-                <h3 class="text-sm font-bold text-gray-700 mb-3 px-3">เมนูด่วน</h3>
-                <div class="space-y-3 mb-8 px-2">
-                     <button onclick="showPage('issue')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class="fa-solid fa-box-open"></i></div>
-                            <div class="text-left"><p class="font-bold text-gray-800 text-sm">เบิกอุปกรณ์</p><p class="text-[10px] text-gray-400">หน้ากาก, ถุงมือ, ชุด PPE</p></div>
-                        </div>
-                        <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-blue-500"></i>
-                    </button>
-                     <button onclick="showPage('loan')" class="w-full bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between active:bg-gray-50 transition-colors group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl"><i class="fa-solid fa-screwdriver-wrench"></i></div>
-                            <div class="text-left"><p class="font-bold text-gray-800 text-sm">ยืม-คืน เครื่องมือ</p><p class="text-[10px] text-gray-400">สว่าน, เครื่องวัด, อุปกรณ์เซฟตี้</p></div>
-                        </div>
-                        <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-purple-500"></i>
-                    </button>
-                </div>
             </div>
         `;
     }
