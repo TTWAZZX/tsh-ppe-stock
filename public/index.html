@@ -149,6 +149,72 @@
         .mb-safe {
             margin-bottom: env(safe-area-inset-bottom);
         }
+
+        /* --- 🖨️ CSS สำหรับโหมดพิมพ์ / Save as PDF --- */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            
+            /* โชว์เฉพาะส่วน Report */
+            #reportPage, #reportPage * {
+                visibility: visible;
+            }
+
+            /* จัดตำแหน่งให้ Report ไปอยู่ที่มุมบนซ้ายของกระดาษ */
+            #reportPage {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 20px;
+                background: white;
+                display: block !important;
+            }
+
+            /* ซ่อนปุ่มกดต่างๆ ในหน้า Report ไม่ให้ติดไปใน PDF */
+            .no-print, button, input, select, label, .fa-search {
+                display: none !important;
+            }
+
+            /* ปรับตารางให้สวยงามในกระดาษ */
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+            }
+            
+            th, td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+
+            /* 👇👇 แก้ไขบรรทัดนี้: เพิ่ม print-color-adjust มาตรฐานเข้าไป 👇👇 */
+            th {
+                background-color: #f3f4f6 !important;
+                -webkit-print-color-adjust: exact; /* สำหรับ Chrome/Safari */
+                print-color-adjust: exact;         /* มาตรฐานใหม่ */
+            }
+
+            /* หัวกระดาษสำหรับ PDF */
+            #reportHeaderPrint {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            
+            /* ซ่อน Scrollbar */
+            ::-webkit-scrollbar {
+                display: none;
+            }
+        }
+
+        /* ซ่อนหัวกระดาษ PDF ในหน้าปกติ */
+        #reportHeaderPrint {
+            display: none;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -194,6 +260,9 @@
                 </a>
                 <a href="#" onclick="showPage('receive')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
                     <i class="fa-solid fa-truck-ramp-box w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รับของเข้า
+                </a>
+                <a href="#" onclick="showPage('report')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
+                    <i class="fa-solid fa-chart-line w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รายงานสรุป
                 </a>
             </div>
         </nav>
@@ -746,6 +815,93 @@
                 </div>
             </div>
 
+            <div id="reportPage" class="page hidden admin-page">
+                <div class="max-w-7xl mx-auto space-y-6">
+                    
+                    <div id="reportHeaderPrint" class="hidden text-center mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800">รายงานสรุปการเบิกจ่ายอุปกรณ์ PPE</h1>
+                        <p class="text-gray-600" id="printDateRange">ประจำวันที่ ...</p>
+                        <hr class="mt-4 border-gray-300">
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 no-print">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-chart-line text-teal-600 mr-2"></i>รายงานสรุป (Report)</h2>
+                                <p class="text-sm text-gray-500">เรียกดูข้อมูลรายวัน รายเดือน หรือรายปี</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="printReport()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow flex items-center gap-2 text-sm">
+                                    <i class="fa-solid fa-file-pdf"></i> PDF / Print
+                                </button>
+                                <button onclick="exportReportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow flex items-center gap-2 text-sm">
+                                    <i class="fa-solid fa-file-excel"></i> Excel
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">ตั้งแต่วันที่</label>
+                                <input type="date" id="reportStartDate" class="w-full border-gray-300 rounded-md text-sm focus:ring-teal-500 focus:border-teal-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">ถึงวันที่</label>
+                                <input type="date" id="reportEndDate" class="w-full border-gray-300 rounded-md text-sm focus:ring-teal-500 focus:border-teal-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">แผนก</label>
+                                <select id="reportDeptFilter" class="w-full border-gray-300 rounded-md text-sm">
+                                    <option value="">ทุกแผนก</option>
+                                </select>
+                            </div>
+                            <button onclick="filterReports()" class="w-full bg-teal-600 text-white py-2 rounded-md hover:bg-teal-700 font-medium text-sm shadow-sm transition-transform active:scale-95">
+                                <i class="fa-solid fa-magnifying-glass mr-2"></i>ค้นหาข้อมูล
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
+                            <div class="text-blue-100 text-xs mb-1">จำนวนใบเบิก</div>
+                            <div class="text-3xl font-bold" id="rptTotalVouchers">0</div>
+                            <div class="text-right text-xs mt-1 opacity-80">รายการ</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+                            <div class="text-purple-100 text-xs mb-1">จำนวนชิ้นที่ออก</div>
+                            <div class="text-3xl font-bold" id="rptTotalItems">0</div>
+                            <div class="text-right text-xs mt-1 opacity-80">ชิ้น</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
+                            <div class="text-orange-100 text-xs mb-1">แผนกที่เบิกเยอะสุด</div>
+                            <div class="text-xl font-bold truncate" id="rptTopDept">-</div>
+                            <div class="text-right text-xs mt-1 opacity-80">Top Spender</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-500">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                                    <tr>
+                                        <th class="px-6 py-3 w-32">วันที่</th>
+                                        <th class="px-6 py-3 w-24">เลขที่</th>
+                                        <th class="px-6 py-3">ผู้เบิก / แผนก</th>
+                                        <th class="px-6 py-3">รายการสินค้า</th>
+                                        <th class="px-6 py-3 text-center w-20">จำนวน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div id="reportEmptyState" class="hidden p-12 text-center text-gray-400">
+                            <i class="fa-solid fa-file-circle-xmark text-4xl mb-3 text-gray-300"></i>
+                            <p>ไม่พบข้อมูลในช่วงเวลาที่เลือก</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
         
         <nav id="mobileNav" class="lg:hidden bg-white border-t flex justify-around p-2 pb-safe text-xs text-gray-500 fixed bottom-0 w-full z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
@@ -783,6 +939,9 @@
                         </a>
                         <a onclick="showPage('manage'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-blue-50 text-gray-700 hover:text-blue-700 rounded-lg flex items-center cursor-pointer">
                             <i class="fa-solid fa-gear mr-3 text-blue-500 w-5 text-center"></i> จัดการของ
+                        </a>
+                        <a onclick="showPage('report'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-purple-50 text-gray-700 hover:text-purple-700 rounded-lg flex items-center cursor-pointer">
+                            <i class="fa-solid fa-chart-line mr-3 text-purple-500 w-5 text-center"></i> รายงาน
                         </a>
                     </div>
 
@@ -1282,6 +1441,18 @@
         document.querySelectorAll('.nav-item, .nav-item-mobile').forEach(item => {
             item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold');
         });
+
+        // ⭐⭐⭐ ส่วนที่เพิ่มสำหรับหน้า Report ⭐⭐⭐
+        if (pageName === 'report') {
+            if (!isAdmin) {
+                showToast('เฉพาะ Admin เท่านั้น', 'error');
+                return showPage('dashboard');
+            }
+            // เรียกฟังก์ชันเตรียมข้อมูล (ต้องมีฟังก์ชัน initReportPage ที่ให้ไปก่อนหน้านี้ด้วยนะ)
+            if(typeof initReportPage === 'function') {
+                initReportPage(); 
+            }
+        }
 
         // --- Dashboard ---
         if (pageName === 'dashboard') {
@@ -4037,6 +4208,176 @@
     // ฟังก์ชันเช็คว่าเป็นมือถือหรือไม่
     function isMobileDevice() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+    }
+
+    // ==========================================
+    // 📊 ADMIN REPORT SYSTEM
+    // ==========================================
+    let currentReportData = []; // เก็บข้อมูลเพื่อ Export
+
+    // เรียกฟังก์ชันนี้ตอนกดเมนู "รายงาน"
+    function initReportPage() {
+        // 1. ตั้งค่าวันที่ (Default: วันที่ 1 ของเดือนปัจจุบัน - วันนี้)
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        
+        // แปลงเป็น YYYY-MM-DD
+        const formatDate = (d) => d.toISOString().split('T')[0];
+        
+        if(!document.getElementById('reportStartDate').value) {
+            document.getElementById('reportStartDate').value = formatDate(firstDay);
+            document.getElementById('reportEndDate').value = formatDate(today);
+        }
+
+        // 2. เติม Option แผนก (ดึงจากประวัติที่มีอยู่จริงเพื่อให้ครบ)
+        const deptSelect = document.getElementById('reportDeptFilter');
+        deptSelect.innerHTML = '<option value="">ทุกแผนก</option>';
+        
+        const depts = new Set();
+        (currentData.issueVouchers || []).forEach(v => { if(v.department) depts.add(v.department); });
+        
+        Array.from(depts).sort().forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.innerText = d;
+            deptSelect.appendChild(opt);
+        });
+
+        // 3. โหลดข้อมูล
+        filterReports();
+    }
+
+    function filterReports() {
+        const startStr = document.getElementById('reportStartDate').value;
+        const endStr = document.getElementById('reportEndDate').value;
+        const deptFilter = document.getElementById('reportDeptFilter').value;
+
+        const startDate = startStr ? new Date(startStr) : new Date('2000-01-01');
+        startDate.setHours(0,0,0,0);
+        
+        const endDate = endStr ? new Date(endStr) : new Date();
+        endDate.setHours(23,59,59,999);
+
+        // 1. กรอง Voucher
+        const filteredVouchers = (currentData.issueVouchers || []).filter(v => {
+            const vDate = new Date(v.timestamp);
+            const matchDate = vDate >= startDate && vDate <= endDate;
+            const matchDept = deptFilter === '' || v.department === deptFilter;
+            // เอาเฉพาะรายการที่ไม่อยู่ในสถานะ rejected (หรือจะเอาหมดก็ได้แล้วแต่ requirement)
+            const isValidStatus = v.status !== 'rejected'; 
+            return matchDate && matchDept && isValidStatus;
+        });
+
+        // 2. แตก Data เป็นรายชิ้น (Flatten)
+        let flatData = [];
+        let totalItemsCount = 0;
+        let deptCounts = {};
+
+        filteredVouchers.forEach(v => {
+            const d = v.department || 'ไม่ระบุ';
+            deptCounts[d] = (deptCounts[d] || 0) + 1;
+
+            let items = [];
+            try { items = Array.isArray(v.itemsJson) ? v.itemsJson : JSON.parse(v.itemsJson || '[]'); } catch(e) {}
+
+            items.forEach(item => {
+                const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+                flatData.push({
+                    date: v.timestamp,
+                    voucherId: v.id,
+                    user: v.user,
+                    department: v.department || '-',
+                    itemName: ppe ? ppe.name : 'Unknown',
+                    itemCode: ppe ? ppe.code : '-',
+                    quantity: parseInt(item.quantity)
+                });
+                totalItemsCount += parseInt(item.quantity);
+            });
+        });
+
+        // เรียงวันที่ล่าสุดขึ้นก่อน
+        flatData.sort((a, b) => new Date(b.date) - new Date(a.date));
+        currentReportData = flatData;
+
+        // 3. แสดงผล Summary
+        document.getElementById('rptTotalVouchers').innerText = filteredVouchers.length;
+        document.getElementById('rptTotalItems').innerText = totalItemsCount;
+        
+        let topDept = '-';
+        let maxCount = 0;
+        for (const [d, c] of Object.entries(deptCounts)) {
+            if (c > maxCount) { maxCount = c; topDept = d; }
+        }
+        document.getElementById('rptTopDept').innerText = topDept;
+
+        // 4. วาดตาราง
+        const tbody = document.getElementById('reportTableBody');
+        const emptyState = document.getElementById('reportEmptyState');
+        tbody.innerHTML = '';
+
+        if (flatData.length === 0) {
+            emptyState.classList.remove('hidden');
+        } else {
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = flatData.map(row => `
+                <tr class="bg-white border-b hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap align-top">
+                        <div class="font-medium text-gray-900">${new Date(row.date).toLocaleDateString('th-TH', {day:'2-digit', month:'short', year:'2-digit'})}</div>
+                        <div class="text-xs text-gray-400">${new Date(row.date).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}</div>
+                    </td>
+                    <td class="px-6 py-4 align-top font-mono text-xs text-teal-600 font-bold">#${row.voucherId}</td>
+                    <td class="px-6 py-4 align-top">
+                        <div class="font-medium text-gray-900 text-sm">${row.user}</div>
+                        <div class="text-xs text-gray-500">${row.department}</div>
+                    </td>
+                    <td class="px-6 py-4 align-top text-gray-700 text-sm">
+                        ${row.itemName} <span class="text-xs text-gray-400">(${row.itemCode})</span>
+                    </td>
+                    <td class="px-6 py-4 align-top text-center font-bold text-gray-800">
+                        ${row.quantity}
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // ฟังก์ชัน Export Excel (CSV)
+    function exportReportToCSV() {
+        if (!currentReportData || currentReportData.length === 0) return showToast('ไม่มีข้อมูลให้ Export', 'error');
+
+        let csvContent = "Date,Time,Voucher ID,User,Department,Item Code,Item Name,Quantity\n";
+
+        currentReportData.forEach(row => {
+            const d = new Date(row.date);
+            const dateStr = d.toLocaleDateString('th-TH');
+            const timeStr = d.toLocaleTimeString('th-TH');
+            const cleanItem = `"${row.itemName.replace(/"/g, '""')}"`; // Escape comma
+            const cleanUser = `"${row.user.replace(/"/g, '""')}"`;
+
+            csvContent += `${dateStr},${timeStr},${row.voucherId},${cleanUser},${row.department},${row.itemCode},${cleanItem},${row.quantity}\n`;
+        });
+
+        // BOM \uFEFF เพื่อให้ Excel อ่านไทยออก
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `PPE_Report_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // ฟังก์ชัน Print / PDF
+    function printReport() {
+        // อัปเดตหัวกระดาษสำหรับ Print
+        const s = document.getElementById('reportStartDate').value;
+        const e = document.getElementById('reportEndDate').value;
+        const d1 = s ? new Date(s).toLocaleDateString('th-TH') : 'เริ่มต้น';
+        const d2 = e ? new Date(e).toLocaleDateString('th-TH') : 'ปัจจุบัน';
+        
+        document.getElementById('printDateRange').innerText = `ข้อมูลตั้งแต่วันที่ ${d1} ถึง ${d2}`;
+        window.print();
     }
 
 </script>
