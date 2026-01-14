@@ -4040,99 +4040,102 @@
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
     }
 
-    // 3. แก้ไขฟังก์ชัน downloadSlip แบบยกเครื่องใหม่ (Fix Black Screen Issue)
+    // 3. แก้ไขฟังก์ชัน downloadSlip (แก้จอดำ + ลดการใช้เมมโมรี่)
     function downloadSlip() {
         const originalElement = document.getElementById('slipContent');
         const btn = document.querySelector('#slipModal button[onclick="downloadSlip()"]');
+        
+        if (!originalElement) {
+            showToast('ไม่พบข้อมูลสลิป', 'error');
+            return;
+        }
+
         const originalText = btn.innerHTML;
 
-        // 3.1 เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังสร้างรูปภาพ...';
+        // 3.1 เปลี่ยนสถานะปุ่ม
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังประมวลผล...';
         btn.disabled = true;
         btn.classList.add('opacity-75', 'cursor-not-allowed');
 
-        // --- เริ่มเทคนิค Cloning ---
-        
-        // สร้าง container ชั่วคราวไว้นอกจอ
-        const cloneContainer = document.createElement('div');
-        cloneContainer.style.position = 'fixed';
-        cloneContainer.style.top = '0'; // Change to 0 to ensure it's "visible" to html2canvas
-        cloneContainer.style.left = '0';
-        cloneContainer.style.width = originalElement.offsetWidth + 'px'; 
-        cloneContainer.style.zIndex = '-9999'; // Hide behind everything
-        cloneContainer.style.opacity = '0'; // Make invisible but rendered
-        document.body.appendChild(cloneContainer);
+        // --- เทคนิค Cloning (ปรับปรุงใหม่) ---
+        // สร้าง Wrapper เพื่อบังคับให้ Element อยู่ในจอแต่อยู่เลเยอร์หลังสุด
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '0';
+        wrapper.style.left = '0';
+        wrapper.style.zIndex = '-9999'; // ซ่อนไว้ข้างหลังสุด
+        wrapper.style.opacity = '0'; // มองไม่เห็น แต่ Browser ยัง Render อยู่ (สำคัญ!)
+        wrapper.style.pointerEvents = 'none';
+        document.body.appendChild(wrapper);
 
-        // Clone ตัว slip content ไปใส่
         const clone = originalElement.cloneNode(true);
         
-        // ปรับ style ของ clone
-        clone.style.transform = 'none';
+        // บังคับ Style ให้เหมาะกับการแคป (ขนาดคงที่ 375px มาตรฐานมือถือ)
+        clone.style.width = '375px'; 
+        clone.style.minWidth = '375px';
+        clone.style.maxWidth = '375px';
+        clone.style.height = 'auto';
         clone.style.overflow = 'visible';
-        clone.style.maxHeight = 'none';
-        clone.style.borderRadius = '0'; 
-        clone.style.boxShadow = 'none';
-        clone.style.margin = '0';
         clone.style.backgroundColor = '#ffffff';
+        clone.style.margin = '0';
+        clone.style.padding = '20px';
+        clone.style.borderRadius = '0';
+        clone.style.transform = 'none';
+        clone.style.boxShadow = 'none';
 
-        // ⭐ CRITICAL FIX: Add crossOrigin to all images in the clone ⭐
+        // จัดการเรื่องภาพข้ามโดเมน (CORS)
         const images = clone.querySelectorAll('img');
         images.forEach(img => {
-            // Force verify crossOrigin for external images
-            if (img.src.startsWith('http')) {
+            if (img.src && img.src.startsWith('http')) {
                 img.crossOrigin = "Anonymous";
             }
         });
 
-        cloneContainer.appendChild(clone);
-        
-        // --- จบเทคนิค Cloning ---
+        wrapper.appendChild(clone);
 
-        // รอสักนิดเพื่อให้ clone render เสร็จสมบูรณ์ (เพิ่มเวลาเป็น 500ms)
+        // รอให้ Browser วาด Clone เสร็จ (500ms)
         setTimeout(() => {
             html2canvas(clone, {
-                scale: 3, 
-                useCORS: true, // ยังคงต้องเปิดไว้
-                allowTaint: true, // Allow tainted canvas (might help in some cases)
+                scale: 2, // ⚠️ ลดจาก 3 เหลือ 2 เพื่อแก้ปัญหาจอดำบนมือถือ
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
                 logging: false,
-                backgroundColor: '#ffffff', 
-                scrollY: 0, 
-                windowWidth: document.documentElement.offsetWidth,
-                windowHeight: document.documentElement.offsetHeight,
-                // Explicitly ignore elements that might cause issues if needed
-                ignoreElements: (element) => {
-                    return element.tagName === 'IFRAME'; 
-                }
+                width: 375, // บังคับกว้างเท่า Clone
+                windowWidth: 375,
+                scrollY: 0,
+                scrollX: 0
             }).then(canvas => {
-                // ลบ clone ทิ้งทันทีที่แคปเสร็จ
-                document.body.removeChild(cloneContainer);
+                // ลบ Wrapper ทิ้ง
+                document.body.removeChild(wrapper);
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.9); // Use 0.9 quality
+                // แปลงเป็น PNG (เสถียรกว่า JPEG ในบาง Browser)
+                const imgData = canvas.toDataURL('image/png');
 
                 if (isMobileDevice()) {
-                    // === กรณีมือถือ: แสดง Modal ให้กดเซฟเอง ===
+                    // === มือถือ: แสดง Modal รูปภาพ ===
                     const imgContainer = document.getElementById('generatedImageContainer');
-                    imgContainer.innerHTML = ''; 
-                    const img = new Image();
-                    img.src = imgData;
-                    img.className = 'w-full h-auto block rounded-lg'; 
-                    imgContainer.appendChild(img);
+                    if (imgContainer) {
+                        imgContainer.innerHTML = '';
+                        const img = new Image();
+                        img.src = imgData;
+                        img.className = 'w-full h-auto block rounded-lg shadow-sm border border-gray-200';
+                        imgContainer.appendChild(img);
 
-                    closeSlip();
-                    document.getElementById('imagePreviewModal').classList.remove('hidden');
-                    
-                    if(navigator.vibrate) navigator.vibrate(50);
-
+                        closeSlip(); // ปิดสลิปตัวจริง
+                        document.getElementById('imagePreviewModal').classList.remove('hidden'); // เปิดตัวโชว์รูป
+                        
+                        // สั่นเตือน
+                        if(navigator.vibrate) navigator.vibrate(50);
+                    }
                 } else {
-                    // === กรณีคอมพิวเตอร์ ===
+                    // === คอมพิวเตอร์: ดาวน์โหลดเลย ===
                     const link = document.createElement('a');
-                    // Check if slipRef exists before accessing textContent
                     const refEl = document.getElementById('slipRef');
-                    const refId = refEl ? refEl.textContent.replace('#','').trim() : 'download';
-                    
-                    link.download = `PPE_Slip_${refId}.jpg`;
+                    const refId = refEl ? refEl.textContent.replace('#','').trim() : 'slip';
+                    link.download = `PPE_Slip_${refId}.png`;
                     link.href = imgData;
-                    document.body.appendChild(link); 
+                    document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     showToast('บันทึกรูปภาพเรียบร้อย', 'success');
@@ -4140,15 +4143,15 @@
 
             }).catch(err => {
                 console.error('Slip generation failed:', err);
-                if(document.body.contains(cloneContainer)) document.body.removeChild(cloneContainer);
+                if(document.body.contains(wrapper)) document.body.removeChild(wrapper);
                 showToast('เกิดข้อผิดพลาดในการสร้างรูปภาพ', 'error');
             }).finally(() => {
-                // คืนค่าปุ่มกดสู่สภาพเดิม
+                // คืนค่าปุ่ม
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.classList.remove('opacity-75', 'cursor-not-allowed');
             });
-        }, 500); // Increased timeout to 500ms
+        }, 800); // เพิ่มเวลาเป็น 800ms เผื่อรูปโหลด
     }
 
 </script>
