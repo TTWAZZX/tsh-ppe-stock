@@ -1440,7 +1440,7 @@
     </div>
 </div>
 
-<div id="feedbackModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+<div id="feedbackModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform transition-all scale-100">
         
         <div class="bg-gradient-to-r from-teal-600 to-teal-500 p-4 text-white flex justify-between items-center">
@@ -2417,7 +2417,7 @@
         }
     }
 
-    // ฟังก์ชันวาดประวัติการเบิก + Touch Feedback (เพิ่มปุ่มสลิป + ปุ่มรีวิว)
+    // ฟังก์ชันวาดประวัติการเบิก + Logic ซ่อนปุ่มรีวิวถ้าไม่ใช่เจ้าของ
     function updateHistoryTable(filter = '') {
         const container = document.getElementById('issueHistoryTab');
         const emptyState = document.getElementById('issueHistoryEmptyState');
@@ -2442,29 +2442,35 @@
 
         if(emptyState) emptyState.classList.add('hidden');
         
+        // 🔒 หาชื่อคนล็อกอินปัจจุบัน (ถ้าไม่มี LIFF ให้เป็นว่าง)
+        const currentUser = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : '';
+
         container.innerHTML = sortedVouchers.map(v => {
             const status = getStatusInfo(v.status);
             const dateStr = new Date(v.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute:'2-digit' });
             
             let itemCount = 0;
-            let firstItemData = {}; // เก็บข้อมูลชิ้นแรกไว้ทำรีวิว
+            let firstItemData = {}; 
             try {
                 const items = Array.isArray(v.itemsJson) ? v.itemsJson : JSON.parse(v.itemsJson || '[]');
                 itemCount = items.length;
                 if(items.length > 0) firstItemData = items[0];
             } catch(e) { itemCount = 0; }
 
-            // หาข้อมูล Item จาก ID เพื่อเอารูปมาโชว์ใน Modal รีวิว
             const ppeItem = currentData.ppeItems.find(p => p.id == firstItemData.itemId) || { name: 'อุปกรณ์', image_url: '' };
 
-            // สร้างปุ่มรีวิว -> คลิกแล้วเปิดหน้าเลือกของ (Item Selector)
-            const reviewBtn = `
+            // 🔒🔒🔒 เช็คความเป็นเจ้าของ 🔒🔒🔒
+            // ปุ่มรีวิวจะแสดงก็ต่อเมื่อ: ชื่อคนเบิก ตรงกับ ชื่อคนล็อกอินปัจจุบัน
+            const isOwner = v.user === currentUser;
+            
+            const reviewBtn = isOwner ? `
                 <button onclick="openRatingSelector('${v.id}'); event.stopPropagation();" 
                         class="w-8 h-8 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center hover:bg-yellow-100 transition-colors border border-yellow-100 shadow-sm" 
                         title="ให้คะแนนสินค้า">
                     <i class="fa-regular fa-star"></i>
                 </button>
-            `;
+            ` : ''; 
+            // ^^^ ถ้าไม่ใช่เจ้าของ ให้เป็นค่าว่าง (ไม่แสดงปุ่ม)
 
             return `
             <div onclick="showVoucherDetails(${v.id})" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -4986,16 +4992,23 @@
     
     let isMandatoryReview = false; // ตัวแปรเช็คสถานะการบังคับ
 
-    // 1. ฟังก์ชันเปิดหน้าเลือกของ (ปรับปรุงใหม่)
+    // ฟังก์ชันเปิดหน้าเลือกของ (ปรับปรุง Logic ความปลอดภัย)
     function openRatingSelector(voucherId, mandatory = false) {
-        isMandatoryReview = mandatory; // จำค่าไว้
+        isMandatoryReview = mandatory;
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
         
-        // ถ้าหาไม่เจอ ให้โหลดข้อมูลใหม่ก่อนแล้วลองอีกที (กันเหนียว)
         if (!voucher) {
-            console.error("Voucher not found in memory, reloading...");
+            console.error("Voucher not found");
             return; 
         }
+
+        // 🔒🔒🔒 Security Check: กันเหนียวอีกชั้น 🔒🔒🔒
+        const currentUser = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : '';
+        // ถ้าชื่อไม่ตรง และ ไม่ใช่โหมดบังคับ (โหมดบังคับจะปลอดภัยเพราะมาจาก ConfirmFlow) -> ห้ามเปิด
+        if (!mandatory && voucher.user !== currentUser && !isAdmin) {
+             return showToast('คุณไม่ใช่เจ้าของรายการนี้ ไม่สามารถประเมินได้', 'error');
+        }
+        // 🔒🔒🔒 ------------------------------- 🔒🔒🔒
 
         let items = [];
         try { items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]'); } catch (e) { items = []; }
@@ -5003,20 +5016,22 @@
         const listContainer = document.getElementById('rateItemList');
         listContainer.innerHTML = '';
 
-        let allRated = true; // สมมติไว้ก่อนว่ารีวิวครบแล้ว
+        let allRated = true;
 
         items.forEach(item => {
-            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            // ... (โค้ดสร้างรายการเหมือนเดิม ไม่ต้องแก้ข้างใน loop) ...
+            // คัดลอกไส้ใน loop เดิมมาใส่ตรงนี้ได้เลย
+            // หรือใช้โค้ดเต็มด้านล่างนี้
+             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : 'Unknown Item';
             const imgUrl = ppe?.image_url || 'https://placehold.co/100?text=Item';
 
-            // เช็คว่ารายการนี้เคยรีวิวหรือยัง (ดูจาก feedbackData)
             const isRated = (currentData.feedbackData || []).some(f => 
                 String(f.transaction_id) === String(voucherId) && 
                 String(f.item_id) === String(item.itemId)
             );
 
-            if (!isRated) allRated = false; // เจอตัวยังไม่รีวิว ปรับ flag ลง
+            if (!isRated) allRated = false;
 
             const cardClass = isRated 
                 ? 'bg-green-50 border-green-200 opacity-80' 
@@ -5026,7 +5041,6 @@
                 ? `<div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><i class="fa-solid fa-check"></i></div>`
                 : `<div class="w-8 h-8 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i class="fa-regular fa-star text-lg"></i></div>`;
 
-            // ถ้ายังไม่รีวิว -> กดแล้วเปิด Modal รีวิว, ถ้ารีวิวแล้ว -> กดไม่ได้
             const onClick = isRated ? '' : `onclick="openFeedbackModal({id: '${item.itemId}', name: '${itemName}', image_url: '${imgUrl}'}, '${voucherId}', 'issue');"`;
 
             const html = `
@@ -5043,17 +5057,16 @@
             listContainer.insertAdjacentHTML('beforeend', html);
         });
 
-        // จัดการปุ่มและ UI ตามโหมดบังคับ
+        // ... (ส่วนจัดการปุ่มเหมือนเดิม) ...
         const closeBtn = document.getElementById('btnCloseRateSelector');
         const finishBtn = document.getElementById('btnFinishRating');
 
         if (isMandatoryReview) {
-            closeBtn.classList.add('hidden'); // ซ่อนปุ่มปิด
+            closeBtn.classList.add('hidden');
         } else {
-            closeBtn.classList.remove('hidden'); // แสดงปุ่มปิด (ถ้ากดมาจากประวัติ)
+            closeBtn.classList.remove('hidden');
         }
 
-        // เช็คสถานะปุ่มเสร็จสิ้น
         if (allRated) {
             finishBtn.disabled = false;
             finishBtn.classList.remove('bg-gray-400');
@@ -5064,7 +5077,6 @@
             finishBtn.innerHTML = '<span>กรุณารีวิวให้ครบทุกชิ้น</span>';
         }
 
-        // แสดง Modal
         document.getElementById('rateItemSelectorModal').classList.remove('hidden');
     }
 
