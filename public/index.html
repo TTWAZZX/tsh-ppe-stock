@@ -1487,6 +1487,29 @@
     </div>
 </div>
 
+<div id="rateItemSelectorModal" class="fixed inset-0 z-[65] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh]">
+        
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-50">
+            <h3 class="font-bold text-teal-800 flex items-center gap-2">
+                <i class="fa-solid fa-star-half-stroke"></i> เลือกรายการรีวิว
+            </h3>
+            <button id="btnCloseRateSelector" onclick="closeRateSelector()" class="text-gray-400 hover:text-gray-600">
+                <i class="fa-solid fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <div class="p-3 overflow-y-auto space-y-2 flex-1 bg-gray-50/50" id="rateItemList">
+            </div>
+
+        <div class="p-4 border-t border-gray-100 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+            <button id="btnFinishRating" onclick="finishMandatoryRating()" class="w-full py-3 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed bg-teal-600 text-white hover:bg-teal-700 active:scale-95" disabled>
+                <span>กรุณารีวิวให้ครบทุกชิ้น</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ===========================================
     // API Configuration
@@ -2434,11 +2457,11 @@
             // หาข้อมูล Item จาก ID เพื่อเอารูปมาโชว์ใน Modal รีวิว
             const ppeItem = currentData.ppeItems.find(p => p.id == firstItemData.itemId) || { name: 'อุปกรณ์', image_url: '' };
 
-            // สร้างปุ่มรีวิว (แสดงเฉพาะถ้ารายการนั้นสำเร็จแล้ว หรือจะให้กดได้ตลอดก็ได้ - อันนี้เปิดให้กดได้ตลอด)
+            // สร้างปุ่มรีวิว -> คลิกแล้วเปิดหน้าเลือกของ (Item Selector)
             const reviewBtn = `
-                <button onclick="openFeedbackModal({id: '${firstItemData.itemId || 0}', name: '${ppeItem.name}', image_url: '${ppeItem.image_url}'}, '${v.id}', 'issue'); event.stopPropagation();" 
-                        class="w-8 h-8 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center hover:bg-yellow-100 transition-colors border border-yellow-100" 
-                        title="ให้คะแนน">
+                <button onclick="openRatingSelector('${v.id}'); event.stopPropagation();" 
+                        class="w-8 h-8 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center hover:bg-yellow-100 transition-colors border border-yellow-100 shadow-sm" 
+                        title="ให้คะแนนสินค้า">
                     <i class="fa-regular fa-star"></i>
                 </button>
             `;
@@ -3882,14 +3905,11 @@
         initializeApp();
     }
 
-    let isConfirmingReceive = false;
-
     async function handleLiffConfirmReceive() {
-
         console.log('🔥 handleLiffConfirmReceive CALLED');
-
+        
+        // 1. อ่านค่าจาก URL และเก็บลง Session (กรณีเปิดลิงก์ครั้งแรก)
         const params = new URLSearchParams(window.location.search);
-
         const modeFromUrl = params.get('mode');
         const voucherIdFromUrl = params.get('voucherId');
 
@@ -3898,77 +3918,76 @@
             sessionStorage.setItem('confirm_voucher_id', voucherIdFromUrl);
         }
 
+        // 2. อ่านค่าจาก Session เพื่อใช้งาน
         const mode = sessionStorage.getItem('confirm_mode');
-        const voucherId = Number(sessionStorage.getItem('confirm_voucher_id'));
+        const voucherId = sessionStorage.getItem('confirm_voucher_id');
 
+        // ถ้าไม่ใช่โหมดรับของ หรือไม่มี ID ให้หยุด
         if (mode !== 'confirmReceive' || !voucherId) return;
-        if (isConfirmingReceive) return;
+        if (isConfirmingReceive) return; // ป้องกันรันซ้ำ
 
-        if (!liff.isLoggedIn()) {
-            liff.login();
-            return;
-        }
+        // ถ้ายังไม่ล็อกอิน ให้ไปล็อกอินก่อน
+        if (!liff.isLoggedIn()) { liff.login(); return; }
 
         try {
             isConfirmingReceive = true;
+            hideLoading(); // ปลดล็อคจอเพื่อให้กด Modal ยืนยันได้
 
-            const profile = await liff.getProfile();
-
-            // 👇👇 ปลดล็อคหน้าจอ เพื่อให้ Popup แสดงขึ้นมาได้
-            hideLoading(); 
-            // 👆👆
-
-            // เรียก Modal ยืนยัน
-            const ok = await showConfirmationModal(
-                'ยืนยันรับของ',
-                `ยืนยันว่าคุณได้รับอุปกรณ์จากใบเบิก #${voucherId} แล้วใช่หรือไม่`
-            );
-
-            if (!ok) {
-                // ถ้ากดยกเลิก ก็ให้จบแค่นี้ (Loading หายไปแล้วจากคำสั่งข้างบน)
-                isConfirmingReceive = false; // อย่าลืม reset flag
-                return;
+            // 3. ถามยืนยัน "ได้รับของแล้วใช่ไหม?"
+            const confirm = await showConfirmationModal('ยืนยันรับของ', 'ยืนยันว่าคุณได้รับอุปกรณ์แล้วใช่หรือไม่?');
+            
+            if (!confirm) { 
+                // ถ้ากด "ยกเลิก" -> จบการทำงาน (ไม่บังคับทำอะไรต่อ)
+                isConfirmingReceive = false; 
+                return; 
             }
 
-            showLoading(); // 🔒 ล็อคอีกครั้งตอนกำลังยิง API
+            // 4. เริ่มกระบวนการรับของ
+            showLoading(); // ล็อคจออีกครั้ง
+            const profile = await liff.getProfile();
 
-            const res = await callServerFunction('confirmReceive', {
-                voucherId,
+            // ยิง API ยืนยันรับของ (Backend)
+            await callServerFunction('confirmReceive', {
+                voucherId: Number(voucherId),
                 userId: profile.userId,
                 userName: profile.displayName
             });
 
-            console.log('✅ confirmReceive success:', res);
-
-            // 🔔 ส่ง Flex ใหม่ (รับของแล้ว)
-            await fetch('/api/push', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'received',
-                    voucherId,
-                    userId: profile.userId
-                })
-            });
-
-            showToast('ยืนยันรับของเรียบร้อยแล้ว', 'success');
-
+            // แจ้งเตือนสำเร็จ
+            showToast('ยืนยันรับของเรียบร้อย', 'success');
+            
+            // เคลียร์ค่าจาก Session (เพราะทำรายการเสร็จแล้ว)
             sessionStorage.removeItem('confirm_mode');
+            const confirmedId = sessionStorage.getItem('confirm_voucher_id'); // เก็บ ID ไว้ใช้เปิดหน้า Review
             sessionStorage.removeItem('confirm_voucher_id');
 
-            if (liff.isInClient()) {
-                liff.closeWindow();
-            }
+            // --- ⚡ จุดสำคัญ: บังคับรีวิวทันที ---
+            
+            // 5. โหลดข้อมูลใหม่ (เพื่อให้ App รู้จัก Voucher นี้)
+            const updatedData = await callServerFunction('getInitialData');
+            onDataLoaded(updatedData);
+            hideLoading();
+            
+            // กลับไปหน้า Dashboard รอไว้ก่อน
+            showPage('dashboard'); 
+            
+            // 6. เปิดหน้าเลือกของแบบบังคับ (ส่ง true ไปในพารามิเตอร์ที่ 2)
+            // หน่วงเวลาเล็กน้อยเพื่อให้ UI พร้อม
+            setTimeout(() => {
+                // เรียก openRatingSelector(id, mandatory=true)
+                openRatingSelector(confirmedId, true);
+            }, 500);
+            
+            // ----------------------------------------------------
 
         } catch (err) {
-            console.error('❌ confirmReceive error:', err);
-            showToast('เกิดข้อผิดพลาดของระบบ', 'error');
+            console.error(err);
+            showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+            hideLoading();
         } finally {
-            hideLoading();          // ⭐ สำคัญมาก
             isConfirmingReceive = false;
         }
     }
-
 
     function previewImageAdmin() {
         const url = document.getElementById('itemImage').value;
@@ -4921,88 +4940,253 @@
 
         if(payload.rating == 0) return showToast('กรุณาให้คะแนนก่อนส่ง', 'error');
 
-        closeFeedbackModal();
+        // ปิดหน้าให้คะแนน (เพื่อกลับไปหน้าเลือกของ)
+        closeFeedbackModal(); 
         showLoading();
 
         try {
-            // เรียก API ของคุณ (Vercel) โดยส่ง action 'saveFeedback'
             await callServerFunction('saveFeedback', payload);
             
-            showToast('ขอบคุณสำหรับรีวิวครับ! ⭐');
-            // อาจจะ Refresh ข้อมูลเพื่อให้ปุ่มหายไปหรือเปลี่ยนสถานะ
-            // const data = await callServerFunction('getInitialData');
-            // onDataLoaded(data); 
+            showToast('บันทึกคะแนนแล้ว ⭐');
+
+            // ✅✅✅ ส่วนที่เพิ่ม: อัปเดตข้อมูล Local ทันทีเพื่อให้ List ขึ้นติ๊กถูก ✅✅✅
+            if (!currentData.feedbackData) currentData.feedbackData = [];
+            currentData.feedbackData.push({
+                transaction_id: payload.transactionId,
+                item_id: payload.itemId,
+                rating: payload.rating,
+                comment: payload.comment,
+                user_name: payload.user,
+                item_name: payload.itemName,
+                created_at: new Date().toISOString()
+            });
+
+            // ถ้าหน้าเลือกของยังเปิดอยู่ (หรือถูกซ่อนไว้ใต้ Modal ให้คะแนน) ให้ Refresh มัน
+            // โดยเรียก openRatingSelector ซ้ำด้วย ID เดิม และสถานะบังคับเดิม
+            const selectorModal = document.getElementById('rateItemSelectorModal');
+            if (!selectorModal.classList.contains('hidden')) {
+                // หา Voucher ID จาก input ที่ซ่อนอยู่ หรือจากตัวแปร global (ถ้ามี)
+                // แต่ในที่นี้เราส่ง payload.transactionId ไปได้เลย
+                openRatingSelector(payload.transactionId, isMandatoryReview);
+            }
+            // ✅✅✅ จบส่วนที่เพิ่ม ✅✅✅
             
         } catch (error) {
-            console.error("Feedback Error:", error);
-            showToast('ส่งรีวิวไม่สำเร็จ: ' + error.message, 'error');
+            // ... (Error handling เดิม) ...
         } finally {
             hideLoading();
         }
     }
 
-    // ⭐⭐⭐ 2. ฟังก์ชันวาดส่วน Feedback (เพิ่มใหม่) ⭐⭐⭐
+    // ==========================================
+    // 🌟 MANDATORY REVIEW SYSTEM LOGIC
+    // ==========================================
+    
+    let isMandatoryReview = false; // ตัวแปรเช็คสถานะการบังคับ
+
+    // 1. ฟังก์ชันเปิดหน้าเลือกของ (ปรับปรุงใหม่)
+    function openRatingSelector(voucherId, mandatory = false) {
+        isMandatoryReview = mandatory; // จำค่าไว้
+        const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
+        
+        // ถ้าหาไม่เจอ ให้โหลดข้อมูลใหม่ก่อนแล้วลองอีกที (กันเหนียว)
+        if (!voucher) {
+            console.error("Voucher not found in memory, reloading...");
+            return; 
+        }
+
+        let items = [];
+        try { items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]'); } catch (e) { items = []; }
+
+        const listContainer = document.getElementById('rateItemList');
+        listContainer.innerHTML = '';
+
+        let allRated = true; // สมมติไว้ก่อนว่ารีวิวครบแล้ว
+
+        items.forEach(item => {
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const itemName = ppe ? ppe.name : 'Unknown Item';
+            const imgUrl = ppe?.image_url || 'https://placehold.co/100?text=Item';
+
+            // เช็คว่ารายการนี้เคยรีวิวหรือยัง (ดูจาก feedbackData)
+            const isRated = (currentData.feedbackData || []).some(f => 
+                String(f.transaction_id) === String(voucherId) && 
+                String(f.item_id) === String(item.itemId)
+            );
+
+            if (!isRated) allRated = false; // เจอตัวยังไม่รีวิว ปรับ flag ลง
+
+            const cardClass = isRated 
+                ? 'bg-green-50 border-green-200 opacity-80' 
+                : 'bg-white border-gray-200 hover:border-teal-400 hover:shadow-md cursor-pointer animate-pulse-slow';
+            
+            const iconHtml = isRated
+                ? `<div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><i class="fa-solid fa-check"></i></div>`
+                : `<div class="w-8 h-8 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i class="fa-regular fa-star text-lg"></i></div>`;
+
+            // ถ้ายังไม่รีวิว -> กดแล้วเปิด Modal รีวิว, ถ้ารีวิวแล้ว -> กดไม่ได้
+            const onClick = isRated ? '' : `onclick="openFeedbackModal({id: '${item.itemId}', name: '${itemName}', image_url: '${imgUrl}'}, '${voucherId}', 'issue');"`;
+
+            const html = `
+            <div ${onClick} class="flex items-center gap-3 p-3 rounded-xl border ${cardClass} transition-all group relative overflow-hidden">
+                <img src="${imgUrl}" class="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100">
+                <div class="flex-1 min-w-0">
+                    <h4 class="font-bold text-gray-800 text-sm truncate">${itemName}</h4>
+                    <p class="text-xs text-gray-500">จำนวน: ${item.quantity}</p>
+                </div>
+                <div>${iconHtml}</div>
+                ${!isRated ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-orange-400"></div>' : ''}
+            </div>`;
+            
+            listContainer.insertAdjacentHTML('beforeend', html);
+        });
+
+        // จัดการปุ่มและ UI ตามโหมดบังคับ
+        const closeBtn = document.getElementById('btnCloseRateSelector');
+        const finishBtn = document.getElementById('btnFinishRating');
+
+        if (isMandatoryReview) {
+            closeBtn.classList.add('hidden'); // ซ่อนปุ่มปิด
+        } else {
+            closeBtn.classList.remove('hidden'); // แสดงปุ่มปิด (ถ้ากดมาจากประวัติ)
+        }
+
+        // เช็คสถานะปุ่มเสร็จสิ้น
+        if (allRated) {
+            finishBtn.disabled = false;
+            finishBtn.classList.remove('bg-gray-400');
+            finishBtn.classList.add('bg-teal-600', 'hover:bg-teal-700', 'text-white');
+            finishBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> เสร็จสิ้น';
+        } else {
+            finishBtn.disabled = true;
+            finishBtn.innerHTML = '<span>กรุณารีวิวให้ครบทุกชิ้น</span>';
+        }
+
+        // แสดง Modal
+        document.getElementById('rateItemSelectorModal').classList.remove('hidden');
+    }
+
+    // 2. ฟังก์ชันปิดหน้าเลือกของ
+    function closeRateSelector() {
+        document.getElementById('rateItemSelectorModal').classList.add('hidden');
+        isMandatoryReview = false; // Reset flag
+    }
+
+    // 3. ฟังก์ชันเมื่อกดปุ่ม "เสร็จสิ้น" (Mandatory Flow)
+    function finishMandatoryRating() {
+        closeRateSelector();
+        showToast('ขอบคุณสำหรับข้อมูลครับ! 🙏');
+        
+        // ปิด LIFF ทันที
+        if (liff.isInClient()) {
+            setTimeout(() => { liff.closeWindow(); }, 1000);
+        }
+    }
+
+    // ปรับ Report ให้สรุปรายอุปกรณ์ (Item Summary)
     function renderFeedbackSection() {
-        // รับค่า feedbackData ที่ส่งมาจาก Backend (ถ้าไม่มีให้เป็นอาเรย์ว่าง)
-        const feedbacks = currentData.feedbackData || []; 
+        const feedbacks = currentData.feedbackData || [];
         const container = document.getElementById('feedbackList');
         
         if (!container) return;
 
-        // 1. คำนวณคะแนนเฉลี่ย
-        const totalReviews = feedbacks.length;
-        if (totalReviews === 0) {
-            document.getElementById('avgRatingScore').textContent = "0.0";
-            document.getElementById('totalReviewCount').textContent = "0";
-            container.innerHTML = `<div class="text-center text-gray-400 py-10 flex flex-col items-center"><i class="fa-regular fa-comment-dots text-4xl mb-2"></i><p>ยังไม่มีการรีวิว</p></div>`;
+        // --- ส่วนที่ 1: คำนวณคะแนนแยกตามอุปกรณ์ (Group by Item) ---
+        const itemStats = {};
+        feedbacks.forEach(f => {
+            const name = f.item_name || 'Unknown';
+            if (!itemStats[name]) {
+                itemStats[name] = { sum: 0, count: 0, image: null };
+            }
+            itemStats[name].sum += Number(f.rating);
+            itemStats[name].count += 1;
+            // พยายามหา item_id เพื่อดึงรูป (ถ้ามี)
+            if(!itemStats[name].image) {
+                const ppe = currentData.ppeItems.find(p => p.id == f.item_id);
+                if(ppe) itemStats[name].image = ppe.image_url;
+            }
+        });
+
+        // แปลง Object เป็น Array แล้วเรียงตามคะแนนเฉลี่ย
+        const sortedItems = Object.keys(itemStats).map(key => {
+            const s = itemStats[key];
+            return {
+                name: key,
+                avg: (s.sum / s.count).toFixed(1),
+                count: s.count,
+                image: s.image
+            };
+        }).sort((a, b) => b.avg - a.avg); // เรียงคะแนนมาก -> น้อย
+
+        // --- ส่วนที่ 2: แสดงผล ---
+        
+        // 2.1 แสดง Top Rated List (แทนที่ Avg Score ก้อนใหญ่เดิม หรือเพิ่มเข้าไป)
+        // ผมจะขอเปลี่ยน Layout ของ HTML ส่วนซ้าย (avgRatingScore) ให้เป็นลิสต์จัดอันดับแทนนะครับ
+        const leftPanel = document.querySelector('#reportPage .bg-teal-50');
+        if(leftPanel) {
+            // สร้าง HTML ตารางอันดับ
+            let rankingHtml = `<h4 class="font-bold text-teal-800 mb-3 text-left w-full"><i class="fa-solid fa-ranking-star mr-2"></i>คะแนนรายอุปกรณ์</h4>
+                               <div class="w-full space-y-2 max-h-[300px] overflow-y-auto pr-1">`;
             
-            // รีเซ็ตดาวใหญ่เป็นสีเทา
-            document.getElementById('avgRatingStars').innerHTML = '<i class="fa-regular fa-star text-gray-300"></i>'.repeat(5);
+            if(sortedItems.length === 0) {
+                rankingHtml += `<p class="text-sm text-gray-500 text-center mt-10">ยังไม่มีข้อมูล</p>`;
+            } else {
+                sortedItems.forEach(item => {
+                    const img = item.image || 'https://placehold.co/50?text=Item';
+                    // สร้างดาว
+                    let stars = '';
+                    for(let i=1; i<=5; i++) {
+                        stars += i <= Math.round(item.avg) ? '<i class="fa-solid fa-star text-yellow-400 text-[10px]"></i>' : '<i class="fa-regular fa-star text-gray-300 text-[10px]"></i>';
+                    }
+
+                    rankingHtml += `
+                    <div class="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-teal-100">
+                        <img src="${img}" class="w-8 h-8 rounded object-cover bg-gray-50">
+                        <div class="flex-1 min-w-0 text-left">
+                            <p class="text-xs font-bold text-gray-700 truncate">${item.name}</p>
+                            <div class="flex items-center gap-1">${stars} <span class="text-[10px] text-gray-400">(${item.count})</span></div>
+                        </div>
+                        <div class="text-sm font-bold text-teal-600 bg-teal-50 px-1.5 rounded">${item.avg}</div>
+                    </div>`;
+                });
+            }
+            rankingHtml += `</div>`;
+            
+            // เปลี่ยนเนื้อหา panel ซ้าย
+            leftPanel.innerHTML = rankingHtml;
+            leftPanel.classList.remove('items-center', 'justify-center', 'text-center'); // ลบ class จัดกลางเดิม
+            leftPanel.classList.add('items-start'); 
+        }
+
+        // 2.2 แสดงรายการ Comment ล่าสุด (ส่วนขวา) - คงเดิมไว้ แต่ปรับปรุงการแสดงผลนิดหน่อย
+        if (feedbacks.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 py-10 flex flex-col items-center"><i class="fa-regular fa-comment-dots text-4xl mb-2"></i><p>ยังไม่มีการรีวิว</p></div>`;
             return;
         }
 
-        const sumRating = feedbacks.reduce((sum, f) => sum + (Number(f.rating) || 0), 0);
-        const avg = (sumRating / totalReviews).toFixed(1);
-
-        document.getElementById('avgRatingScore').textContent = avg;
-        document.getElementById('totalReviewCount').textContent = totalReviews;
-
-        // วาดดาวเฉลี่ย (ดาวใหญ่)
-        let starsHtml = '';
-        for (let i = 1; i <= 5; i++) {
-            if (i <= Math.round(avg)) starsHtml += '<i class="fa-solid fa-star"></i>';
-            else starsHtml += '<i class="fa-regular fa-star text-gray-300"></i>';
-        }
-        document.getElementById('avgRatingStars').innerHTML = starsHtml;
-
-        // 2. วาดรายการรีวิว (List)
         container.innerHTML = feedbacks.map(f => {
-            const date = new Date(f.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
-            
-            // สร้างดาวรายคน (ดาวเล็ก)
+            const date = new Date(f.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
             let userStars = '';
             for(let i=1; i<=5; i++) {
                 userStars += i <= f.rating ? '<i class="fa-solid fa-star text-yellow-400 text-xs"></i>' : '<i class="fa-regular fa-star text-gray-300 text-xs"></i>';
             }
-
-            const commentHtml = f.comment ? `<p class="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded-lg border border-gray-100 italic">"${f.comment}"</p>` : '';
+            const commentHtml = f.comment ? `<p class="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded-lg border border-gray-100 italic">"${f.comment}"</p>` : '';
 
             return `
-                <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-3 hover:border-teal-100 transition-colors">
-                    <div class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold shrink-0 text-sm">
+                <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-3 hover:border-teal-200 transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 text-xs">
                         ${f.user_name ? f.user_name.charAt(0).toUpperCase() : '?'}
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-start">
                             <div>
-                                <p class="text-xs text-gray-500 font-bold truncate">${f.user_name || 'Guest'}</p>
-                                <p class="text-xs text-teal-600 font-medium bg-teal-50 px-1.5 py-0.5 rounded inline-block mt-0.5 truncate max-w-[150px]">
-                                    <i class="fa-solid fa-box text-[10px]"></i> ${f.item_name || 'อุปกรณ์'}
+                                <p class="text-xs text-gray-500 font-bold">${f.user_name || 'Guest'}</p>
+                                <p class="text-xs text-teal-600 font-medium bg-teal-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
+                                    ${f.item_name || 'อุปกรณ์'}
                                 </p>
                             </div>
-                            <div class="text-right flex-shrink-0">
-                                <div class="flex gap-0.5 justify-end">${userStars}</div>
-                                <span class="text-[10px] text-gray-300 block mt-0.5">${date}</span>
+                            <div class="text-right">
+                                <div class="flex gap-0.5">${userStars}</div>
+                                <span class="text-[10px] text-gray-300">${date}</span>
                             </div>
                         </div>
                         ${commentHtml}
