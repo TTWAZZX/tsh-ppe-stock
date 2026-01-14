@@ -671,25 +671,29 @@
         </div>
 
             <div id="pendingPage" class="page hidden admin-page">
-                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-                    <div class="p-6 border-b border-gray-200">
-                        <h3 class="text-xl font-semibold text-gray-800">รายการรออนุมัติ</h3>
+                <div class="max-w-7xl mx-auto space-y-6"> <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-xl font-semibold text-gray-800">
+                                <i class="fa-solid fa-clock text-yellow-500 mr-2"></i>รายการรออนุมัติ
+                            </h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm pending-card-table">
+                                <thead class="bg-gray-50 text-left">
+                                    <tr>
+                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">เลขที่ใบเบิก</th>
+                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้เบิก</th>
+                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">แผนก</th>
+                                        <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider text-center">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pendingTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                            <div id="pendingEmptyState" class="hidden"></div>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm pending-card-table">
-                            <thead class="bg-gray-50 text-left">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">เลขที่ใบเบิก</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้เบิก</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">แผนก</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider text-center">การดำเนินการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pendingTableBody" class="bg-white divide-y divide-gray-200"></tbody>
-                        </table>
-                        <div id="pendingEmptyState" class="hidden"></div>
-                    </div>
+
                 </div>
             </div>
 
@@ -803,56 +807,99 @@
             </div>
 
             <div id="receivePage" class="page hidden admin-page">
-                <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border p-6 sm:p-8">
-                    <h3 class="text-xl font-semibold mb-6 text-gray-800">รับของเข้าสต็อก</h3>
-                    <form id="receiveForm" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์</label>
-                                <input type="hidden" id="receiveItemId" required>
-                                
-                                <div id="receiveItemDisplay" onclick="openReceiveCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
-                                    <div class="flex items-center gap-3">
-                                        <div id="receiveItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
-                                            <i class="fa-solid fa-box-open text-xl"></i>
+                <div class="max-w-4xl mx-auto"> <div class="bg-white rounded-xl shadow-sm border p-6 sm:p-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-truck-ramp-box text-teal-600"></i>
+                                รับของเข้าสต็อก
+                            </h3>
+                            </div>
+
+                        <form id="receiveForm" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">อุปกรณ์ <span class="text-red-500">*</span></label>
+                                    <input type="hidden" id="receiveItemId" required>
+                                    
+                                    <div id="receiveItemDisplay" onclick="openReceiveCatalog()" class="cursor-pointer flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white hover:border-teal-500 hover:shadow-sm transition-all group">
+                                        <div class="flex items-center gap-3">
+                                            <div id="receiveItemImgPlaceholder" class="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border border-gray-200">
+                                                <i class="fa-solid fa-box-open text-xl"></i>
+                                            </div>
+                                            <img id="receiveItemImg" src="" class="w-12 h-12 rounded-md object-contain hidden border border-gray-200 bg-white">
+                                            
+                                            <div class="overflow-hidden">
+                                                <p id="receiveItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
+                                                <p id="receiveItemCode" class="text-xs text-gray-400 hidden"></p>
+                                            </div>
                                         </div>
-                                        <img id="receiveItemImg" src="" class="w-12 h-12 rounded-md object-contain hidden border border-gray-200 bg-white">
-                                        <div class="overflow-hidden">
-                                            <p id="receiveItemName" class="text-gray-500 group-hover:text-teal-600 font-medium truncate">คลิกเพื่อเลือกอุปกรณ์...</p>
-                                            <p id="receiveItemCode" class="text-xs text-gray-400 hidden"></p>
-                                        </div>
+                                        <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
                                     </div>
-                                    <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-teal-500 transition-colors"></i>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">จำนวนที่รับ <span class="text-red-500">*</span></label>
+                                    <div class="relative">
+                                        <input type="number" id="receiveQuantity" required min="1" placeholder="0" class="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold text-lg text-gray-800">
+                                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">หน่วย</span>
+                                    </div>
                                 </div>
                             </div>
+
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">จำนวน</label>
-                                <input type="number" id="receiveQuantity" required min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทการรับ</label>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="receiveTypeOption" value="purchase" class="peer sr-only" checked onchange="document.getElementById('receiveType').value='purchase'">
+                                        <div class="peer-checked:bg-teal-50 peer-checked:border-teal-500 peer-checked:text-teal-700 border border-gray-200 rounded-lg p-3 text-center transition-all hover:bg-gray-50">
+                                            <i class="fa-solid fa-cart-shopping mb-1 block text-lg"></i>
+                                            <span class="text-xs font-medium">ซื้อใหม่</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="receiveTypeOption" value="return" class="peer sr-only" onchange="document.getElementById('receiveType').value='return'">
+                                        <div class="peer-checked:bg-blue-50 peer-checked:border-blue-500 peer-checked:text-blue-700 border border-gray-200 rounded-lg p-3 text-center transition-all hover:bg-gray-50">
+                                            <i class="fa-solid fa-rotate-left mb-1 block text-lg"></i>
+                                            <span class="text-xs font-medium">รับคืน</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="receiveTypeOption" value="adjustment" class="peer sr-only" onchange="document.getElementById('receiveType').value='adjustment'">
+                                        <div class="peer-checked:bg-orange-50 peer-checked:border-orange-500 peer-checked:text-orange-700 border border-gray-200 rounded-lg p-3 text-center transition-all hover:bg-gray-50">
+                                            <i class="fa-solid fa-sliders mb-1 block text-lg"></i>
+                                            <span class="text-xs font-medium">ปรับยอด</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <select id="receiveType" class="hidden"><option value="purchase">purchase</option><option value="return">return</option><option value="adjustment">adjustment</option></select>
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทการรับ</label>
-                            <select id="receiveType" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                <option value="purchase">ซื้อใหม่</option>
-                                <option value="return">คืนจากภายนอก</option>
-                                <option value="adjustment">ปรับปรุงสต็อก</option>
-                            </select>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ผู้รับ</label>
-                                <input type="text" id="receiveUser" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ผู้รับของ <span class="text-red-500">*</span></label>
+                                    <div class="relative">
+                                        <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input type="text" id="receiveUser" required placeholder="ชื่อผู้ดำเนินการ" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">แผนก <span class="text-red-500">*</span></label>
+                                    <div class="relative">
+                                        <i class="fa-solid fa-building absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input type="text" id="receiveDepartment" required placeholder="ระบุแผนก" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">แผนก</label>
-                                <input type="text" id="receiveDepartment" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+
+                            <div class="flex gap-3 pt-6 border-t border-gray-100">
+                                <button type="button" onclick="resetReceiveForm()" class="flex-1 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                                    ล้างค่า
+                                </button>
+                                <button type="submit" class="flex-[2] py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all shadow-md active:scale-95 font-bold flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-save"></i> บันทึกรับเข้า
+                                </button>
                             </div>
-                        </div>
-                        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                            <button type="button" onclick="resetReceiveForm()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">ล้างฟอร์ม</button>
-                            <button type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">บันทึกการรับ</button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -4012,6 +4059,11 @@
                 userId: currentUserId,
                 items: cart
             });
+
+            // ⭐⭐⭐ เพิ่มท่อนนี้เข้าไปครับ (แก้ปัญหาไม่พบใบเบิก) ⭐⭐⭐
+            // ยัดข้อมูลใหม่ลงไปในตัวแปร local ทันที เพื่อให้ showVoucherSlip มองเห็น
+            currentData.issueVouchers.unshift(newVoucher); 
+            // ⭐⭐⭐ จบส่วนที่เพิ่ม ⭐⭐⭐
 
             // 5. 🔔 สร้าง Flex Message
             const userFlex = createIssueFlex(
