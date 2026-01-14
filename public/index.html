@@ -282,38 +282,40 @@
             </div>
 
             <div id="stockPage" class="page hidden">
-                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-                    <div class="p-6 border-b border-gray-200">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <h3 class="text-xl font-semibold text-gray-800">รายการอุปกรณ์ PPE</h3>
-                            <div class="flex w-full sm:w-auto space-x-2">
-                                <div class="relative flex-1">
-                                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" id="stockSearch" placeholder="ค้นหาอุปกรณ์..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                </div>
-                                <select id="categoryFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                <div class="max-w-7xl mx-auto space-y-6">
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">
+                                <i class="fa-solid fa-boxes-stacked text-teal-600 mr-2"></i>คลังอุปกรณ์ (Stock)
+                            </h3>
+                            <p class="text-sm text-gray-500 mt-1">จัดการและตรวจสอบจำนวนอุปกรณ์ทั้งหมดในระบบ</p>
+                        </div>
+                        
+                        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                            <div class="relative flex-1 md:w-64">
+                                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="stockSearch" placeholder="ค้นหาชื่อ หรือรหัส..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                            </div>
+                            <div class="relative md:w-48">
+                                <select id="categoryFilter" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none cursor-pointer text-gray-700">
                                     <option value="">ทุกหมวดหมู่</option>
                                 </select>
+                                <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
                         </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50 text-left">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th> <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ชื่ออุปกรณ์</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">หมวดหมู่</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">คงเหลือ</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">กำลังถูกยืม</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="stockTableBody" class="bg-white divide-y divide-gray-200">
-                                </tbody>
-                        </table>
-                        <div id="stockEmptyState" class="hidden"></div>
+
+                    <div id="stockGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
+                        </div>
+                    
+                    <div id="stockEmptyState" class="hidden flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-xl border-2 border-dashed border-gray-200">
+                        <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa-solid fa-box-open text-3xl text-gray-300"></i>
+                        </div>
+                        <p>ไม่พบอุปกรณ์ที่ค้นหา</p>
                     </div>
+
                 </div>
             </div>
 
@@ -519,55 +521,49 @@
             </div>
         </div>
             
-            <div id="allHistoryPage" class="page hidden">
-                <div class="bg-white rounded-xl shadow-sm border">
-                    <div class="p-6">
-                        <h3 class="text-xl font-semibold text-gray-800">ประวัติทั้งหมด</h3>
-                        <div class="mt-4 border-b border-gray-200">
-                            <nav class="flex -mb-px space-x-6" aria-label="Tabs">
-                                <button onclick="showHistoryTab('issue')" class="history-tab whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm border-teal-500 text-teal-600">
-                                    <i class="fas fa-file-invoice mr-2"></i>ประวัติใบเบิก
-                                </button>
-                                <button onclick="showHistoryTab('loan')" class="history-tab whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 border-transparent">
-                                    <i class="fas fa-history mr-2"></i>ประวัติการยืม-คืน
-                                </button>
-                            </nav>
-                        </div>
+        <div id="allHistoryPage" class="page hidden">
+            <div class="max-w-5xl mx-auto space-y-6">
+                
+                <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">
+                            <i class="fa-solid fa-clock-rotate-left text-teal-600 mr-2"></i>ประวัติการใช้งาน
+                        </h3>
+                        <p class="text-sm text-gray-500 mt-1">ตรวจสอบรายการเบิกและยืม-คืนย้อนหลัง</p>
                     </div>
                     
-                    <div id="issueHistoryTab" class="history-tab-content overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50 text-left">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">เลขที่ใบเบิก</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้เบิก</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="historyTableBody" class="bg-white divide-y divide-gray-200"></tbody>
-                        </table>
-                        <div id="issueHistoryEmptyState" class="hidden"></div>
+                    <div class="w-full md:w-72 relative">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="historySearch" placeholder="ค้นหาชื่อ, เลขที่, หรืออุปกรณ์..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="border-b border-gray-200 bg-gray-50/50 px-2">
+                        <nav class="flex -mb-px space-x-4" aria-label="Tabs">
+                            <button onclick="showHistoryTab('issue')" class="history-tab flex-1 md:flex-none text-center py-4 px-4 border-b-2 font-semibold text-sm transition-colors border-teal-500 text-teal-600">
+                                <i class="fas fa-file-invoice mr-2"></i>ประวัติการเบิก
+                            </button>
+                            <button onclick="showHistoryTab('loan')" class="history-tab flex-1 md:flex-none text-center py-4 px-4 border-b-2 font-semibold text-sm transition-colors text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300">
+                                <i class="fas fa-hand-holding-hand mr-2"></i>ประวัติยืม-คืน
+                            </button>
+                        </nav>
                     </div>
 
-                    <div id="loanHistoryTab" class="history-tab-content hidden overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50 text-left">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">อุปกรณ์</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">ผู้ยืม</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่ยืม</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">วันที่คืน</th>
-                                    <th class="px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="loanHistoryTableBody" class="bg-white divide-y divide-gray-200"></tbody>
-                        </table>
-                        <div id="loanHistoryEmptyState" class="hidden"></div>
+                    <div class="p-4 bg-gray-50 min-h-[400px]">
+                        
+                        <div id="issueHistoryTab" class="history-tab-content space-y-3">
+                            </div>
+                        <div id="issueHistoryEmptyState" class="hidden py-12 text-center text-gray-400"></div>
+
+                        <div id="loanHistoryTab" class="history-tab-content hidden space-y-3">
+                            </div>
+                        <div id="loanHistoryEmptyState" class="hidden py-12 text-center text-gray-400"></div>
+
                     </div>
                 </div>
             </div>
+        </div>
 
             <div id="pendingPage" class="page hidden admin-page">
                 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -950,7 +946,16 @@
 
     // ✅ แก้ไข initializeApp (เวอร์ชันถูกต้อง)
     async function initializeApp(isFirstLoad = false) {
-        if (isFirstLoad) showDashboardSkeleton();
+        // 👇👇 เพิ่มส่วนนี้: เช็คก่อนเลยว่าเข้ามาเพื่อยืนยันรับของไหม
+        const params = new URLSearchParams(window.location.search);
+        const isConfirmMode = params.get('mode') === 'confirmReceive';
+
+        if (isConfirmMode) {
+            showLoading(); // 🔒 ล็อคหน้าจอทันที (แสดง Loading Overlay)
+        } else if (isFirstLoad) {
+            showDashboardSkeleton(); // ถ้าเข้าปกติ ค่อยโชว์ Skeleton
+        }
+        // 👆👆 จบส่วนที่เพิ่ม
         
         try {
             // 1. Initialize LIFF
@@ -1310,6 +1315,13 @@
         const debouncedFilterStock = debounce(filterStock, 300);
         document.getElementById('stockSearch').addEventListener('input', debouncedFilterStock);
         document.getElementById('categoryFilter').addEventListener('change', filterStock);
+        // ใน setupEventListeners()
+        document.getElementById('historySearch').addEventListener('input', (e) => {
+            // โหลดข้อมูลใหม่ตามคำค้นหา
+            const query = e.target.value;
+            updateHistoryTable(query);
+            updateLoanHistoryTable(query);
+        });
     }
 
     // ===========================================
@@ -1611,67 +1623,98 @@
     // ===========================================
     // Table Rendering & Filtering
     // ===========================================
+    // ฟังก์ชันวาดหน้าสต็อกแบบ Catalog Card + Touch Feedback
     function filterStock() {
-        const tbody = document.getElementById('stockTableBody');
+        const container = document.getElementById('stockGrid');
         const emptyState = document.getElementById('stockEmptyState');
         const search = document.getElementById('stockSearch').value.toLowerCase();
         const category = document.getElementById('categoryFilter').value;
 
+        if (!container) return;
+
         let filteredItems = currentData.ppeItems;
+        
+        // กรองข้อมูล
         if (search) filteredItems = filteredItems.filter(item => 
             (item.name && item.name.toLowerCase().includes(search)) || 
             (item.code && item.code.toLowerCase().includes(search))
         );
         if (category) filteredItems = filteredItems.filter(item => item.category === category);
         
+        // จัดการ Empty State
         if (filteredItems.length === 0) {
-            tbody.innerHTML = '';
-            emptyState.innerHTML = createEmptyState('ไม่พบอุปกรณ์ที่ตรงกับเงื่อนไข', 'fa-solid fa-box-open');
-            emptyState.classList.remove('hidden');
+            container.innerHTML = '';
+            if(emptyState) emptyState.classList.remove('hidden');
             return;
         }
-        emptyState.classList.add('hidden');
+        if(emptyState) emptyState.classList.add('hidden');
 
-        tbody.innerHTML = filteredItems.map(item => {
-            let statusText, statusColor;
-            // ... (Logic ตรวจสอบสถานะ ของหมด/ใกล้หมด เหมือนเดิม ไม่ต้องแก้) ...
-            if (Number(item.stock) === 0) {
-                statusText = 'ของหมด';
-                statusColor = 'bg-red-100 text-red-800';
-            } else if (Number(item.stock) <= Number(item.reorderPoint)) {
-                statusText = 'ใกล้หมด';
-                statusColor = 'bg-orange-100 text-orange-800';
+        // สร้างการ์ด
+        container.innerHTML = filteredItems.map(item => {
+            // Logic สถานะ
+            let statusBadge = '';
+            let statusClass = '';
+            const stock = Number(item.stock);
+            const reorder = Number(item.reorderPoint);
+
+            if (stock === 0) {
+                statusBadge = 'ของหมด';
+                statusClass = 'bg-red-100 text-red-700 border-red-200';
+            } else if (stock <= reorder) {
+                statusBadge = 'ใกล้หมด';
+                statusClass = 'bg-orange-100 text-orange-700 border-orange-200';
             } else {
-                statusText = 'ปกติ';
-                statusColor = 'bg-emerald-100 text-emerald-800';
+                statusBadge = 'ปกติ';
+                statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
             }
 
-            // 🟢 แก้ไขส่วนแสดงรูปภาพใหม่ ให้มีปุ่มแว่นขยาย
-            const imgDisplay = item.image_url 
-                ? `<div class="relative group h-12 w-12">
-                    <img src="${item.image_url}" class="h-full w-full object-cover rounded-lg border border-gray-200 bg-white">
-                    <div class="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center rounded-lg cursor-pointer transition-all" onclick="openImagePreview('${item.image_url}', event)">
-                        <i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i>
-                    </div>
-                </div>`
-                : `<div class="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
-                    <i class="fa-solid fa-image"></i>
-                </div>`;
+            const imgUrl = item.image_url || 'https://placehold.co/400x300?text=No+Image';
+            const editButton = isAdmin ? `
+                <button onclick="editItem(${item.id}); event.stopPropagation();" class="absolute top-2 right-2 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm text-gray-500 hover:text-teal-600 hover:bg-teal-50 transition-all z-10 w-9 h-9 flex items-center justify-center">
+                    <i class="fas fa-edit"></i>
+                </button>` : '';
 
+            // 👇👇 เพิ่ม active:scale-95 duration-200 cursor-pointer ตรงนี้ครับ
             return `
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${imgDisplay}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">${item.code}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-800">${item.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.category}</td>
-                    <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${item.stock} <span class="text-gray-500 font-normal">${item.unit}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-500">${item.onLoanQuantity || 0}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span>
-                    </td>
-                </tr>`;
+            <div class="group bg-white rounded-2xl border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_16px_rgba(0,0,0,0.08)] transition-all duration-200 active:scale-95 cursor-pointer overflow-hidden relative flex flex-col h-full hover:-translate-y-1">
+                ${editButton}
+                
+                <div class="relative h-48 w-full bg-gray-100 overflow-hidden border-b border-gray-100" onclick="openImagePreview('${imgUrl}', event)">
+                    <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/400x300?text=No+Image'">
+                    <div class="absolute bottom-3 left-3">
+                        <span class="text-[10px] font-mono font-bold bg-white/90 backdrop-blur px-2 py-1 rounded-md border border-gray-200 text-gray-600 shadow-sm">
+                            ${item.code}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase bg-gray-50 px-1.5 py-0.5 rounded">${item.category}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusClass}">
+                                ${statusBadge}
+                            </span>
+                        </div>
+                        <h3 class="font-bold text-gray-800 text-lg leading-snug mb-1 line-clamp-2" title="${item.name}">${item.name}</h3>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase font-semibold mb-0.5">คงเหลือ</p>
+                            <p class="text-xl font-bold ${stock === 0 ? 'text-red-500' : 'text-gray-800'}">
+                                ${stock} <span class="text-xs font-normal text-gray-500">${item.unit}</span>
+                            </p>
+                        </div>
+                        <div class="text-right border-l border-gray-100 pl-4">
+                            <p class="text-[10px] text-gray-400 uppercase font-semibold mb-0.5">กำลังถูกยืม</p>
+                            <p class="text-xl font-bold text-blue-600">
+                                ${item.onLoanQuantity || 0}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
     }
 
@@ -1687,31 +1730,79 @@
             default: return { text: 'ไม่ทราบสถานะ', color: 'bg-gray-100 text-gray-800' };
         }
     }
-    function updateHistoryTable() {
-        const tbody = document.getElementById('historyTableBody');
+    // ฟังก์ชันวาดประวัติการเบิก + Touch Feedback
+    function updateHistoryTable(filter = '') {
+        const container = document.getElementById('issueHistoryTab');
         const emptyState = document.getElementById('issueHistoryEmptyState');
-        const sortedVouchers = [...currentData.issueVouchers].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        if (!container) return;
+
+        const sortedVouchers = [...currentData.issueVouchers]
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .filter(v => {
+                const searchStr = `${v.id} ${v.user} ${v.department || ''}`.toLowerCase();
+                return searchStr.includes(filter.toLowerCase());
+            });
+
         if (sortedVouchers.length === 0) {
-            tbody.innerHTML = '';
-            emptyState.innerHTML = createEmptyState('ไม่มีประวัติใบเบิก', 'fa-solid fa-file-invoice');
-            emptyState.classList.remove('hidden');
+            container.innerHTML = '';
+            if(emptyState) {
+                emptyState.innerHTML = createEmptyState('ไม่พบประวัติการเบิก', 'fa-solid fa-file-invoice');
+                emptyState.classList.remove('hidden');
+            }
             return;
         }
-        emptyState.classList.add('hidden');
-        tbody.innerHTML = sortedVouchers.map(v => {
+
+        if(emptyState) emptyState.classList.add('hidden');
+        
+        container.innerHTML = sortedVouchers.map(v => {
             const status = getStatusInfo(v.status);
+            const dateStr = new Date(v.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute:'2-digit' });
+            
+            let itemCount = 0;
+            try {
+                const items = Array.isArray(v.itemsJson) ? v.itemsJson : JSON.parse(v.itemsJson || '[]');
+                itemCount = items.length;
+            } catch(e) { itemCount = 0; }
+
+            // 👇👇 เพิ่ม active:scale-95 duration-200 cursor-pointer ตรงนี้ครับ
             return `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">#${v.id}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-500">${new Date(v.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-700">${v.user}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${status.color}">${status.text}</span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                        <button onclick="showVoucherDetails(${v.id})" class="text-teal-600 hover:text-teal-800 font-medium">ดูรายละเอียด</button>
-                    </td>
-                </tr>`;
+            <div onclick="showVoucherDetails(${v.id})" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                
+                <div class="flex items-center gap-4 min-w-[180px]">
+                    <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-gray-800 text-lg">#${v.id}</div>
+                        <div class="text-xs text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${dateStr}</div>
+                    </div>
+                </div>
+
+                <div class="flex-1">
+                    <div class="flex flex-col md:flex-row md:items-center gap-1 md:gap-6">
+                        <div class="text-sm text-gray-700 font-medium">
+                            <i class="fa-solid fa-user text-gray-400 mr-2 w-4"></i>${v.user}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <i class="fa-solid fa-building text-gray-400 mr-2 w-4"></i>${v.department || '-'}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <i class="fa-solid fa-box-open text-gray-400 mr-2 w-4"></i>${itemCount} รายการ
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between w-full md:w-auto gap-4 mt-2 md:mt-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100">
+                    <span class="px-3 py-1 text-xs font-bold rounded-full ${status.color}">
+                        ${status.text}
+                    </span>
+                    <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+
+            </div>`;
         }).join('');
     }
     
@@ -1826,7 +1917,7 @@
         .join('');
     }
 
-    // ฟังก์ชันวาดรายการยืมแบบใหม่ (Card Style)
+    // ฟังก์ชันวาดรายการยืมแบบ Card + Touch Feedback
     function updateOnLoanTable() {
         const container = document.getElementById('onLoanListContainer');
         const emptyState = document.getElementById('onLoanEmptyState');
@@ -1834,14 +1925,13 @@
         
         if (!container) return;
 
-        // 👇👇 แก้ตรงนี้: เพิ่ม class 'pb-24' (Padding Bottom)
-        container.className = "p-4 overflow-y-auto max-h-[600px] bg-gray-50/30 space-y-3 pb-24";
+        // เพิ่ม Padding กันเมนูบัง
+        container.className = "p-4 overflow-y-auto max-h-[600px] bg-gray-50/30 space-y-3 pb-24"; 
 
         const onLoanItems = currentData.loanTransactions
             .filter(l => l.status === 'on_loan')
-            .sort((a, b) => new Date(a.borrowDate) - new Date(b.borrowDate)); // เรียงตามวันที่ยืม (เก่าสุดขึ้นก่อน)
+            .sort((a, b) => new Date(a.borrowDate) - new Date(b.borrowDate));
 
-        // อัปเดตตัวเลข Badge
         if(badge) badge.textContent = `${onLoanItems.length} รายการ`;
 
         if (onLoanItems.length === 0) {
@@ -1857,30 +1947,22 @@
         if(emptyState) emptyState.classList.add('hidden');
         container.classList.remove('hidden');
 
-        // สร้างการ์ดรายการ
         container.innerHTML = onLoanItems.map(loan => {
             const item = currentData.ppeItems.find(p => p.id == loan.itemId);
-            
-            const today = new Date(); 
-            today.setHours(0, 0, 0, 0);
-            const dueDate = new Date(loan.dueDate);
-            dueDate.setHours(0,0,0,0);
-            
-            // Logic เช็ควันเกินกำหนด
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(loan.dueDate); dueDate.setHours(0,0,0,0);
             const isOverdue = dueDate < today;
             const daysOverdue = isOverdue ? Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24)) : 0;
 
-            // สไตล์การ์ดตามสถานะ
             const cardBorder = isOverdue ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200 hover:border-teal-300';
-            const bgClass = isOverdue ? 'bg-white' : 'bg-white';
             
-            // รูปภาพ
             const imgHtml = (item && item.image_url) 
                 ? `<img src="${item.image_url}" class="w-16 h-16 rounded-lg object-cover border border-gray-100">`
                 : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-2xl"><i class="fa-solid fa-box"></i></div>`;
 
+            // 👇👇 เพิ่ม active:scale-95 duration-200 cursor-pointer ตรงนี้ครับ
             return `
-            <div class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border ${cardBorder} ${bgClass} shadow-sm transition-all hover:shadow-md">
+            <div class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border ${cardBorder} bg-white shadow-sm transition-all duration-200 hover:shadow-md active:scale-95 cursor-pointer">
                 
                 <div class="flex-shrink-0">
                     ${imgHtml}
@@ -1919,8 +2001,8 @@
                 </div>
 
                 <div class="w-full sm:w-auto mt-3 sm:mt-0 flex justify-end">
-                    <button onclick="handleReturnItem(${loan.loanId})" 
-                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white">
+                    <button onclick="handleReturnItem(${loan.loanId}); event.stopPropagation();" 
+                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white active:scale-90">
                         <i class="fa-solid fa-arrow-rotate-left"></i>
                         รับคืน
                     </button>
@@ -1929,30 +2011,74 @@
         }).join('');
     }
 
-    function updateLoanHistoryTable() {
-        const tbody = document.getElementById('loanHistoryTableBody');
+    // ฟังก์ชันวาดประวัติยืม-คืน + Touch Feedback
+    function updateLoanHistoryTable(filter = '') {
+        const container = document.getElementById('loanHistoryTab');
         const emptyState = document.getElementById('loanHistoryEmptyState');
-        const sortedLoans = [...currentData.loanTransactions].sort((a, b) => new Date(b.borrowDate) - new Date(a.borrowDate));
+        
+        if (!container) return;
+
+        const sortedLoans = [...currentData.loanTransactions]
+            .sort((a, b) => new Date(b.borrowDate) - new Date(a.borrowDate))
+            .filter(l => {
+                const item = currentData.ppeItems.find(p => p.id == l.itemId);
+                const itemName = item ? item.name : '';
+                const searchStr = `${l.borrowerName} ${itemName} ${l.department || ''}`.toLowerCase();
+                return searchStr.includes(filter.toLowerCase());
+            });
+
         if (sortedLoans.length === 0) {
-            tbody.innerHTML = '';
-            emptyState.innerHTML = createEmptyState('ไม่มีประวัติการยืม-คืน', 'fa-solid fa-history');
-            emptyState.classList.remove('hidden');
+            container.innerHTML = '';
+            if(emptyState) {
+                emptyState.innerHTML = createEmptyState('ไม่พบประวัติการยืม-คืน', 'fa-solid fa-history');
+                emptyState.classList.remove('hidden');
+            }
             return;
         }
-        emptyState.classList.add('hidden');
-        tbody.innerHTML = sortedLoans.map(loan => {
+
+        if(emptyState) emptyState.classList.add('hidden');
+        
+        container.innerHTML = sortedLoans.map(loan => {
             const item = currentData.ppeItems.find(p => p.id == loan.itemId);
             const status = getStatusInfo(loan.status);
+            const borrowDate = new Date(loan.borrowDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+            const returnDate = loan.returnDate ? new Date(loan.returnDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '-';
+            
+            const imgUrl = item?.image_url || null;
+            const imgHtml = imgUrl 
+                ? `<img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-gray-200">`
+                : `<div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"><i class="fa-solid fa-tools"></i></div>`;
+
+            // 👇👇 เพิ่ม active:scale-95 duration-200 cursor-pointer ตรงนี้ครับ
             return `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item ? item.name : 'N/A'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${loan.borrowerName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(loan.borrowDate).toLocaleDateString('th-TH')}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${loan.returnDate ? new Date(loan.returnDate).toLocaleDateString('th-TH') : '-'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${status.color}">${status.text}</span>
-                    </td>
-                </tr>`;
+            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                    
+                    <div class="flex-shrink-0">
+                        ${imgHtml}
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-gray-800 text-sm truncate">${item ? item.name : 'Unknown Item'}</h4>
+                        <div class="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                            <span><i class="fa-solid fa-user mr-1"></i>${loan.borrowerName}</span>
+                            <span class="text-gray-300">|</span>
+                            <span>${loan.department || '-'}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-1 text-right mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                        <div class="text-xs text-gray-500">
+                            <div class="flex items-center gap-1"><span class="w-8 text-left text-gray-400">ยืม:</span> ${borrowDate}</div>
+                            <div class="flex items-center gap-1"><span class="w-8 text-left text-gray-400">คืน:</span> ${returnDate}</div>
+                        </div>
+                        <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full ${status.color}">
+                            ${status.text}
+                        </span>
+                    </div>
+
+                </div>
+            </div>`;
         }).join('');
     }
 
@@ -2923,16 +3049,23 @@
 
             const profile = await liff.getProfile();
 
+            // 👇👇 ปลดล็อคหน้าจอ เพื่อให้ Popup แสดงขึ้นมาได้
+            hideLoading(); 
+            // 👆👆
+
+            // เรียก Modal ยืนยัน
             const ok = await showConfirmationModal(
                 'ยืนยันรับของ',
                 `ยืนยันว่าคุณได้รับอุปกรณ์จากใบเบิก #${voucherId} แล้วใช่หรือไม่`
             );
 
             if (!ok) {
+                // ถ้ากดยกเลิก ก็ให้จบแค่นี้ (Loading หายไปแล้วจากคำสั่งข้างบน)
+                isConfirmingReceive = false; // อย่าลืม reset flag
                 return;
             }
 
-            showLoading(); // 🔒 แสดง overlay
+            showLoading(); // 🔒 ล็อคอีกครั้งตอนกำลังยิง API
 
             const res = await callServerFunction('confirmReceive', {
                 voucherId,
@@ -2953,7 +3086,7 @@
                 })
             });
 
-            alert('✅ ยืนยันรับของเรียบร้อยแล้ว');
+            showToast('ยืนยันรับของเรียบร้อยแล้ว', 'success');
 
             sessionStorage.removeItem('confirm_mode');
             sessionStorage.removeItem('confirm_voucher_id');
@@ -2964,7 +3097,7 @@
 
         } catch (err) {
             console.error('❌ confirmReceive error:', err);
-            alert('เกิดข้อผิดพลาดของระบบ');
+            showToast('เกิดข้อผิดพลาดของระบบ', 'error');
         } finally {
             hideLoading();          // ⭐ สำคัญมาก
             isConfirmingReceive = false;
@@ -3235,7 +3368,7 @@
             });
 
             if (cart.length === 0) {
-                alert('กรุณาเลือกอุปกรณ์');
+                showToast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'error');
                 return;
             }
 
@@ -3253,12 +3386,12 @@
 
             // 3. Validation
             if (!empId || !dept) {
-                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                showToast('กรุณากรอกรหัสพนักงานและแผนก', 'error');
                 return;
             }
 
             if (nameMode === 'custom' && !userName) {
-                alert('กรุณากรอกชื่อผู้เบิก');
+                showToast('กรุณากรอกชื่อผู้เบิก', 'error');
                 return;
             }
 
@@ -3320,7 +3453,7 @@
             }
 
             if (typeof hideLoading === 'function') hideLoading();
-            alert('บันทึกใบเบิกเรียบร้อยแล้ว!');
+            showToast('บันทึกใบเบิกเรียบร้อยแล้ว', 'success');
 
             // 8. reset ฟอร์ม
             document.getElementById('issueForm').reset();
@@ -3338,7 +3471,7 @@
         } catch (error) {
             if (typeof hideLoading === 'function') hideLoading();
             console.error("Save Error:", error);
-            alert("บันทึกไม่สำเร็จ: " + error.message);
+            showToast("บันทึกไม่สำเร็จ: " + error.message, 'error');
         }
     }
 
@@ -3354,7 +3487,10 @@
         const notes = document.getElementById('loanNotes').value;
         const itemName = document.getElementById('loanItemName').innerText;
 
-        if (!itemId || !userName || !dueDate) { alert('กรุณากรอกข้อมูลให้ครบ'); return; }
+        if (!itemId || !userName || !dueDate) { 
+            showToast('กรุณากรอกข้อมูลให้ครบถ้วน (อุปกรณ์, ผู้ยืม, กำหนดคืน)', 'error');
+            return; 
+        }
 
         const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
 
@@ -3386,7 +3522,7 @@
                 fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, messages: [loanFlex] }) }).catch(console.error);
             }
 
-            alert('บันทึกการยืมสำเร็จ');
+            showToast('บันทึกการยืมสำเร็จ', 'success');
             document.getElementById('loanForm').reset();
             
             // Reset UI
@@ -3402,7 +3538,7 @@
 
         } catch (error) {
             if(typeof hideLoading === 'function') hideLoading();
-            alert('เกิดข้อผิดพลาด: ' + error.message);
+            showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
         }
     }
 
