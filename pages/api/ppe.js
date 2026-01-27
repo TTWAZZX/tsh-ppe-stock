@@ -101,7 +101,14 @@ export default async function handler(req, res) {
       case 'saveFeedback':
         result = await saveFeedback(payload);
         break;
-      // ⭐⭐⭐ จบส่วนที่เพิ่ม ⭐⭐⭐
+      
+      case 'saveMatrixRule':
+        result = await saveMatrixRule(payload);
+        break;
+
+      case 'deleteMatrixRule':
+        result = await deleteMatrixRule(payload);
+        break;
 
       default:
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
@@ -179,7 +186,8 @@ async function getInitialData() {
     loanTransactionsRes,
     categoriesRes,
     departmentsRes,
-    feedbackRes // ⭐ 1. เพิ่มตัวแปรรับผลลัพธ์
+    feedbackRes,
+    matrixRes // ⭐ 1. เพิ่มตัวรับ
   ] = await Promise.all([
     supabase.from('ppe_items').select('*'),
     supabase.from('issue_vouchers').select('*'),
@@ -187,7 +195,8 @@ async function getInitialData() {
     supabase.from('loan_transactions').select('*'),
     supabase.from('categories').select('*'),
     supabase.from('departments').select('*').order('name'),
-    supabase.from('feedback').select('*').order('created_at', { ascending: false }) // ⭐ 2. เพิ่มคำสั่งดึง Feedback ล่าสุดมา
+    supabase.from('feedback').select('*').order('created_at', { ascending: false }),
+    supabase.from('ppe_matrix').select('*') // ⭐ 2. ดึงตาราง Matrix
   ]);
 
   const ppeItems = ppeItemsRes.data || [];
@@ -195,7 +204,8 @@ async function getInitialData() {
   const receiveTransactions = receiveTransactionsRes.data || [];
   const loanTransactions = loanTransactionsRes.data || [];
   const categories = categoriesRes.data || [];
-  const feedback = feedbackRes.data || []; // ⭐ 3. ดึง data ออกมา
+  const feedback = feedbackRes.data || [];
+  const ppeMatrix = matrixRes.data || []; // ⭐ 3. ดึง data
 
   const totalStockValue = calculateTotalStockValue(ppeItems);
   const topIssuedItems = getTopIssuedItems(issueVouchers, ppeItems, 5);
@@ -215,7 +225,8 @@ async function getInitialData() {
     loanTransactions,
     categories,
     departments: departmentsRes.data || [],
-    feedbackData: feedback, // ⭐ 4. ส่งกลับไปหน้าบ้าน (ตั้งชื่อว่า feedbackData)
+    feedbackData: feedback, 
+    ppeMatrix, // ⭐⭐⭐ 4. ย้ายมาไว้ตรงนี้ (ระดับเดียวกับ ppeItems) ⭐⭐⭐
     dashboardMetrics: {
       totalStockValue,
       topIssuedItems,
@@ -784,4 +795,33 @@ async function deletePpeItem(payload) {
   }
 
   return { status: "success", message: "Deleted successfully" };
+}
+
+// ⭐⭐⭐ ฟังก์ชันจัดการ PPE Matrix ⭐⭐⭐
+async function saveMatrixRule(payload) {
+  const { id, itemId, jobFunction, lifespan, remark } = payload;
+  
+  if (id) {
+    // Update
+    const { data, error } = await supabase
+      .from('ppe_matrix')
+      .update({ item_id: itemId, job_function: jobFunction, lifespan, remark })
+      .eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  } else {
+    // Insert
+    const { data, error } = await supabase
+      .from('ppe_matrix')
+      .insert({ item_id: itemId, job_function: jobFunction, lifespan, remark })
+      .select().single();
+    if (error) throw error;
+    return data;
+  }
+}
+
+async function deleteMatrixRule(payload) {
+  const { error } = await supabase.from('ppe_matrix').delete().eq('id', payload.id);
+  if (error) throw error;
+  return { status: 'success' };
 }
