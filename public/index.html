@@ -4105,54 +4105,83 @@
         });
     }
 
-    function handleBorrowSubmit(e) {
-        e.preventDefault();
-        
+    // ฟังก์ชันบันทึกการยืม (Loan) - แก้ไข ID ให้ถูกต้องแล้ว
+    async function handleBorrowSubmit(e) {
+        if(e) e.preventDefault();
+
         const itemId = document.getElementById('loanItemId').value;
         
-        if (!itemId) {
-            return showToast('กรุณาเลือกอุปกรณ์ที่ต้องการยืม', 'error');
+        // ⭐ แก้ไขตรงนี้: เปลี่ยนจาก borrowerName เป็น loanUser
+        const userNameInput = document.getElementById('loanUser');
+        const userName = userNameInput ? userNameInput.value : '';
+        
+        const empId = document.getElementById('loanEmployeeId').value;
+
+        // บันทึกรหัสลงเครื่อง
+        if(empId) localStorage.setItem('last_employee_id', empId);
+
+        const dept = document.getElementById('loanDepartment').value;
+        const dueDate = document.getElementById('loanDueDate').value;
+        const notes = document.getElementById('loanNotes').value;
+        const itemName = document.getElementById('loanItemName').innerText;
+
+        if (!itemId || !userName || !dueDate) { 
+            showToast('กรุณากรอกข้อมูลให้ครบถ้วน (อุปกรณ์, ผู้ยืม, กำหนดคืน)', 'error');
+            return; 
         }
 
-        const borrowData = {
-            itemId: Number(itemId),
-            borrowerName: document.getElementById('borrowerName').value,
-            dueDate: document.getElementById('loanDueDate').value,
-            notes: document.getElementById('loanNotes').value,
-        };
+        const currentUserId = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.userId : '';
 
-        callServerFunction('borrowItem', borrowData)
-            .then(() => {
-                showToast('บันทึกการยืมสำเร็จ');
-                
-                // Reset Form
-                document.getElementById('loanForm').reset();
-                document.getElementById('loanItemId').value = ''; 
-                
-                // Reset UI การ์ดเลือกของกลับเป็นค่าเริ่มต้น
-                const nameEl = document.getElementById('loanItemName');
-                if(nameEl) {
-                    nameEl.textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
-                    nameEl.classList.add('text-gray-500');
-                    nameEl.classList.remove('text-gray-800', 'font-bold');
-                }
-                const codeEl = document.getElementById('loanItemCode');
-                if(codeEl) codeEl.classList.add('hidden');
-                
-                const img = document.getElementById('loanItemImg');
-                if(img) img.classList.add('hidden');
-                
-                const placeholder = document.getElementById('loanItemImgPlaceholder');
-                if(placeholder) placeholder.classList.remove('hidden');
+        if(typeof showLoading === 'function') showLoading();
 
-                // --- ส่วนที่แก้ไข: โหลดข้อมูลใหม่แล้วเด้งกลับ Dashboard ---
-                showLoading();
-                callServerFunction('getInitialData').then(data => {
-                    onDataLoaded(data);
-                    showPage('dashboard');
-                });
-                 // -----------------------------------------------------
+        try {
+            await callServerFunction('borrowItem', {
+                itemId: Number(itemId), 
+                borrowerName: userName, // ส่งค่า userName ที่แก้แล้ว
+                employeeId: empId, 
+                department: dept, 
+                userId: currentUserId, 
+                dueDate: dueDate, 
+                notes: notes
             });
+            
+            if(typeof hideLoading === 'function') hideLoading();
+
+            // --- 🔔 สร้าง Flex Message ---
+            const itemObj = { 
+                name: itemName, 
+                image_url: document.getElementById('loanItemImg').src 
+            }; 
+            const loanFlex = createLoanFlex(itemObj, userName, dept, dueDate);
+
+            // ✅ แจ้งเตือนผู้ยืม
+            if (currentUserId) {
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, messages: [loanFlex] }) }).catch(console.error);
+            }
+
+            // ✅ แจ้งเตือนแอดมิน
+            if (typeof ADMIN_USER_ID !== 'undefined' && ADMIN_USER_ID) {
+                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, messages: [loanFlex] }) }).catch(console.error);
+            }
+
+            showToast('บันทึกการยืมสำเร็จ', 'success');
+            document.getElementById('loanForm').reset();
+            
+            // Reset UI
+            document.getElementById('loanItemName').textContent = 'คลิกเพื่อเลือกอุปกรณ์...';
+            document.getElementById('loanItemImg').classList.add('hidden');
+            document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+            document.getElementById('loanItemId').value = '';
+
+            if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
+            const updatedData = await callServerFunction('getInitialData');
+            onDataLoaded(updatedData);
+            showPage('dashboard');
+
+        } catch (error) {
+            if(typeof hideLoading === 'function') hideLoading();
+            showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+        }
     }
 
     function handleSaveCategory(e) {
@@ -4237,40 +4266,38 @@
     // USER DASHBOARD LOGIC (ส่วนที่เพิ่มใหม่)
     // ===========================================
 
-    // ฟังก์ชัน Auto-fill ทั้งชื่อจาก LINE และรหัสพนักงานที่จำไว้
+    // แก้ไขฟังก์ชัน autoFillUserIdentity
     function autoFillUserIdentity() {
-        // 1. เติมชื่อจาก LINE Profile
-        if (typeof liffProfile !== 'undefined' && liffProfile) {
+        if(liffProfile) {
             // หน้าเบิก
-            const issueUserField = document.getElementById('issueUser');
-            if(issueUserField) { 
-                 const mode = document.querySelector('input[name="issueUserMode"]:checked')?.value;
-                 if(mode !== 'custom') {
-                    issueUserField.value = liffProfile.displayName;
-                    issueUserField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
-                 }
+            const u = document.getElementById('issueUser'); 
+            if(u) { 
+                const mode = document.querySelector('input[name="issueUserMode"]:checked')?.value;
+                if(mode !== 'custom') {
+                    u.value = liffProfile.displayName; 
+                    u.readOnly = true; 
+                    u.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed'); 
+                }
             }
-            
-            // หน้าผู้ยืม
-            const loanUserField = document.getElementById('loanUser');
-            if(loanUserField) {
-                 const mode = document.querySelector('input[name="loanUserMode"]:checked')?.value;
-                 if(mode !== 'custom') {
-                    loanUserField.value = liffProfile.displayName;
-                    loanUserField.readOnly = true;
-                    loanUserField.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
-                 }
+
+            // หน้าผู้ยืม (แก้ ID ตรงนี้จาก borrowerName เป็น loanUser)
+            const b = document.getElementById('loanUser'); 
+            if(b) { 
+                const mode = document.querySelector('input[name="loanUserMode"]:checked')?.value;
+                if(mode !== 'custom') {
+                    b.value = liffProfile.displayName; 
+                    b.readOnly = true; 
+                    b.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed'); 
+                }
             }
         }
 
-        // 2. เติมรหัสพนักงานจากความจำเครื่อง (Local Storage)
+        // เติมรหัสพนักงาน
         const savedEmpId = localStorage.getItem('last_employee_id');
         if(savedEmpId) {
-            // เติมหน้าเบิก
             const empField1 = document.getElementById('employeeId');
             if(empField1) empField1.value = savedEmpId;
             
-            // เติมหน้ายืม
             const empField2 = document.getElementById('loanEmployeeId');
             if(empField2) empField2.value = savedEmpId;
         }
