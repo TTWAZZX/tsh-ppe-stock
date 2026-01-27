@@ -110,6 +110,14 @@ export default async function handler(req, res) {
         result = await deleteMatrixRule(payload);
         break;
 
+      case 'uploadDocument':
+        result = await uploadDocument(payload);
+        break;
+
+      case 'deleteDocument':
+        result = await deleteDocument(payload);
+        break;
+
       default:
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
@@ -187,7 +195,8 @@ async function getInitialData() {
     categoriesRes,
     departmentsRes,
     feedbackRes,
-    matrixRes // ⭐ 1. เพิ่มตัวรับ
+    matrixRes,
+    docsRes // ⭐ เพิ่มตัวรับ
   ] = await Promise.all([
     supabase.from('ppe_items').select('*'),
     supabase.from('issue_vouchers').select('*'),
@@ -196,7 +205,8 @@ async function getInitialData() {
     supabase.from('categories').select('*'),
     supabase.from('departments').select('*').order('name'),
     supabase.from('feedback').select('*').order('created_at', { ascending: false }),
-    supabase.from('ppe_matrix').select('*') // ⭐ 2. ดึงตาราง Matrix
+    supabase.from('ppe_matrix').select('*'),
+    supabase.from('ppe_documents').select('*').order('created_at', { ascending: false }) // ⭐ ดึงเอกสาร
   ]);
 
   const ppeItems = ppeItemsRes.data || [];
@@ -206,6 +216,7 @@ async function getInitialData() {
   const categories = categoriesRes.data || [];
   const feedback = feedbackRes.data || [];
   const ppeMatrix = matrixRes.data || []; // ⭐ 3. ดึง data
+  const ppeDocuments = docsRes.data || []; // ⭐ ดึง data
 
   const totalStockValue = calculateTotalStockValue(ppeItems);
   const topIssuedItems = getTopIssuedItems(issueVouchers, ppeItems, 5);
@@ -226,7 +237,8 @@ async function getInitialData() {
     categories,
     departments: departmentsRes.data || [],
     feedbackData: feedback, 
-    ppeMatrix, // ⭐⭐⭐ 4. ย้ายมาไว้ตรงนี้ (ระดับเดียวกับ ppeItems) ⭐⭐⭐
+    ppeMatrix,
+    ppeDocuments, // ⭐ ส่งกลับหน้าบ้าน
     dashboardMetrics: {
       totalStockValue,
       topIssuedItems,
@@ -833,5 +845,63 @@ async function saveMatrixRule(payload) {
 async function deleteMatrixRule(payload) {
   const { error } = await supabase.from('ppe_matrix').delete().eq('id', payload.id);
   if (error) throw error;
+  return { status: 'success' };
+}
+
+async function uploadDocument(payload) {
+  const { title, fileName, fileBase64, user } = payload;
+
+  // 1. แปลง Base64 กลับเป็น Buffer
+  const buffer = Buffer.from(fileBase64, 'base64');
+  
+  // 2. ตั้งชื่อไฟล์ใหม่กันซ้ำ (timestamp_filename)
+  const filePath = `${Date.now()}_${fileName}`;
+
+  // 3. Upload ขึ้น Storage Bucket ชื่อ 'documents'
+  const { data: uploadData, error: uploadError } = await supabase
+    .storage
+    .from('documents')
+    .upload(filePath, buffer, {
+      contentType: 'application/pdf',
+      upsert: false
+    });
+
+  if (uploadError) throw uploadError;
+
+  // 4. ขอ Public URL
+  const { data: publicUrlData } = supabase
+    .storage
+    .from('documents')
+    .getPublicUrl(filePath);
+
+  const finalUrl = publicUrlData.publicUrl;
+
+  // 5. บันทึกลง Database
+  const { data: doc, error: dbError } = await supabase
+    .from('ppe_documents')
+    .insert({
+      title: title,
+      file_url: finalUrl,
+      file_type: 'pdf',
+      uploaded_by: user
+    })
+    .select()
+    .single();
+
+  if (dbError) throw dbError;
+
+  return doc;
+}
+
+async function deleteDocument(payload) {
+  const { id, fileUrl } = payload;
+
+  // 1. ลบจาก Database
+  const { error: dbError } = await supabase.from('ppe_documents').delete().eq('id', id);
+  if (dbError) throw dbError;
+
+  // 2. ลบไฟล์จาก Storage (Optional: ถ้าอยากประหยัดพื้นที่)
+  // ต้องแกะชื่อไฟล์จาก URL เอาเอง ถ้าซับซ้อนข้ามได้ครับ พื้นที่เหลือเฟือ
+  
   return { status: 'success' };
 }

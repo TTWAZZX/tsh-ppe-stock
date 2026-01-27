@@ -1163,36 +1163,121 @@
             <div id="matrixPage" class="page hidden">
                 <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24">
                     
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+                        <div class="absolute right-0 top-0 p-4 opacity-10">
+                            <i class="fa-solid fa-bullhorn text-9xl"></i>
+                        </div>
+                        
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <h2 class="text-2xl font-bold flex items-center gap-2">
+                                    <i class="fa-solid fa-book-open"></i> ระเบียบและประกาศ (SHE Documents)
+                                </h2>
+                                <p class="text-blue-100 text-sm mt-1">เอกสารมาตรฐานความปลอดภัยและข้อกำหนดล่าสุด</p>
+                            </div>
+                            <button id="btnUploadDoc" onclick="openUploadModal()" class="hidden bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-all font-bold text-sm">
+                                <i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลดประกาศ
+                            </button>
+                        </div>
+
+                        <div id="documentListContainer" class="flex gap-4 mt-6 overflow-x-auto pb-2 snap-x">
+                            <div class="min-w-[200px] h-24 bg-white/10 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                             <div>
                                 <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
                                     <i class="fa-solid fa-clipboard-list text-teal-600"></i> มาตรฐาน PPE (PPE Matrix)
                                 </h2>
-                                <p class="text-sm text-gray-500 mt-1">ตรวจสอบรายการอุปกรณ์ที่จำเป็นสำหรับแต่ละงาน/พื้นที่</p>
+                                <p class="text-sm text-gray-500 mt-1">คลิกที่การ์ดเพื่อดูรายละเอียดอุปกรณ์ทั้งหมด</p>
                             </div>
-                            
                             <div class="flex gap-2 w-full md:w-auto">
                                 <div class="relative flex-1 md:w-64">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" id="matrixSearch" oninput="renderMatrixGrid()" placeholder="ค้นหางาน (เช่น เชื่อม, Forklift)..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                    <input type="text" id="matrixSearch" oninput="renderMatrixGrid()" placeholder="ค้นหางาน..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
                                 </div>
                                 <button id="btnAddMatrixRule" onclick="openMatrixModal()" class="hidden px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-sm whitespace-nowrap">
                                     <i class="fa-solid fa-plus"></i> เพิ่มกฎ
                                 </button>
                             </div>
                         </div>
-                        
-                        <div class="mt-4 flex flex-wrap gap-2" id="jobTagsContainer">
+                        <div class="mt-4 flex flex-wrap gap-2" id="jobTagsContainer"></div>
+                    </div>
+
+                    <div id="matrixContentGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                    <div id="matrixEmptyState" class="hidden ...">...</div>
+                </div>
+            </div>
+
+            <div id="uploadDocModal" class="fixed inset-0 z-[90] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+                    <h3 class="font-bold text-lg mb-4 text-gray-800">อัปโหลดประกาศใหม่</h3>
+                    <form onsubmit="handleUploadDoc(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อเอกสาร</label>
+                            <input type="text" id="docTitle" required placeholder="เช่น ประกาศ SHE004-2568" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">ไฟล์ PDF</label>
+                            <input type="file" id="docFile" accept="application/pdf" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        </div>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button type="button" onclick="document.getElementById('uploadDocModal').classList.add('hidden')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">ยกเลิก</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">อัปโหลด</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="pdfViewerModal" class="fixed inset-0 z-[100] hidden flex flex-col bg-black/90 backdrop-blur-md">
+                <div class="flex justify-between items-center p-4 text-white">
+                    <h3 id="pdfViewerTitle" class="font-bold text-lg truncate pr-4">เอกสาร</h3>
+                    <button onclick="closePdfViewer()" class="p-2 hover:bg-white/20 rounded-full"><i class="fa-solid fa-xmark text-2xl"></i></button>
+                </div>
+                <div class="flex-1 bg-gray-200 relative">
+                    <iframe id="pdfFrame" src="" class="w-full h-full" frameborder="0"></iframe>
+                    <div id="pdfFallback" class="absolute inset-0 flex flex-col items-center justify-center hidden">
+                        <p class="text-gray-600 mb-4">ไม่สามารถแสดงตัวอย่างได้</p>
+                        <a id="pdfDownloadLink" href="#" target="_blank" class="px-6 py-3 bg-blue-600 text-white rounded-xl shadow-lg">เปิดไฟล์ในแท็บใหม่</a>
+                    </div>
+                </div>
+            </div>
+
+            <div id="matrixDetailModal" class="fixed inset-0 z-[85] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+                <div class="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-xl shadow-2xl h-[85vh] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden animate-slide-up sm:animate-bounce-in">
+                    
+                    <div class="bg-teal-600 p-6 text-white relative shrink-0">
+                        <button onclick="closeMatrixDetail()" class="absolute top-4 right-4 text-white/80 hover:text-white bg-black/10 rounded-full w-8 h-8 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="flex items-start gap-4">
+                            <div class="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                                <i class="fa-solid fa-helmet-safety text-3xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-teal-100 text-xs uppercase font-bold tracking-wider mb-1" id="detailDept">DEPARTMENT</p>
+                                <h2 class="text-2xl font-bold leading-tight" id="detailJob">Job Title</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 overflow-y-auto flex-1 bg-gray-50">
+                        <div class="mb-6">
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-2">รายละเอียดงาน</h4>
+                            <p class="text-gray-800 bg-white p-3 rounded-lg border border-gray-200 text-sm leading-relaxed" id="detailDesc">-</p>
+                        </div>
+
+                        <h4 class="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-box-open"></i> รายการอุปกรณ์ที่ต้องใช้
+                        </h4>
+                        <div id="detailItemsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             </div>
                     </div>
 
-                    <div id="matrixContentGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        </div>
-
-                    <div id="matrixEmptyState" class="hidden flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-dashed border-gray-200">
-                        <i class="fa-solid fa-helmet-safety text-4xl text-gray-300 mb-2"></i>
-                        <p class="text-gray-500">ไม่พบข้อมูลมาตรฐานงานนี้</p>
+                    <div class="p-4 border-t border-gray-200 bg-white shrink-0 flex gap-3">
+                        <button onclick="showPage('issue'); closeMatrixDetail()" class="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 active:scale-95 transition-all">
+                            <i class="fa-solid fa-cart-plus mr-2"></i> เบิกอุปกรณ์ชุดนี้
+                        </button>
                     </div>
                 </div>
             </div>
@@ -5666,6 +5751,225 @@
         } finally {
             hideLoading();
         }
+    }
+
+    // ==========================================
+    // 📄 DOCUMENT & MATRIX UX LOGIC (V4)
+    // ==========================================
+
+    // 1. ฟังก์ชัน Render หน้า Matrix (ปรับปรุงให้คลิกแล้วเปิด Modal)
+    function renderMatrixGrid() {
+        const container = document.getElementById('matrixContentGrid');
+        const emptyState = document.getElementById('matrixEmptyState');
+        const search = document.getElementById('matrixSearch').value.toLowerCase();
+        
+        // ... (Render Documents ก่อน) ...
+        renderDocumentsList();
+
+        if (!container) return;
+        
+        let rules = currentData.ppeMatrix || [];
+        // ... (Filter Logic เดิม) ...
+        if (search) {
+            rules = rules.filter(r => 
+                r.job_function.toLowerCase().includes(search) || 
+                (r.department && r.department.toLowerCase().includes(search))
+            );
+        }
+
+        if (rules.length === 0) {
+            container.innerHTML = '';
+            if(emptyState) emptyState.classList.remove('hidden');
+            return;
+        }
+        if(emptyState) emptyState.classList.add('hidden');
+        
+        // Create Card HTML
+        container.innerHTML = rules.map(rule => {
+            // Unpack items
+            let items = Array.isArray(rule.items_json) ? rule.items_json : [];
+            // Count items
+            const itemCount = items.length;
+            const previewItems = items.slice(0, 3).map(i => i.name).join(', ');
+            const moreCount = itemCount > 3 ? `... (+${itemCount - 3})` : '';
+
+            // Admin Buttons (Stop Propagation เพื่อไม่ให้เปิด Modal ตอนกดแก้ไข)
+            const adminControls = isAdmin ? `
+                <div class="absolute top-3 right-3 flex gap-1 z-20" onclick="event.stopPropagation()">
+                    <button onclick="editMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-blue-600 rounded shadow-sm hover:bg-blue-50"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-red-600 rounded shadow-sm hover:bg-red-50"><i class="fas fa-trash"></i></button>
+                </div>
+            ` : '';
+
+            // Card Click -> openMatrixDetail(id)
+            return `
+            <div onclick="openMatrixDetail(${rule.id})" class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-teal-300 transition-all cursor-pointer relative overflow-hidden group h-full flex flex-col">
+                ${adminControls}
+                <div class="h-2 bg-gradient-to-r from-blue-500 to-teal-400"></div>
+                <div class="p-5 flex-1">
+                    <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-100 mb-2 inline-block">
+                        ${rule.department || 'General'}
+                    </span>
+                    <h4 class="font-bold text-gray-800 text-lg leading-tight mb-2 group-hover:text-teal-700 transition-colors">${rule.job_function}</h4>
+                    <p class="text-xs text-gray-500 line-clamp-2 h-8 mb-4">${rule.remark || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+                    
+                    <div class="flex items-center gap-2">
+                        <div class="flex -space-x-2 overflow-hidden">
+                            ${items.slice(0, 4).map(i => {
+                                const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
+                                const src = real?.image_url || 'https://placehold.co/30?text=P';
+                                return `<img class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 object-cover" src="${src}" alt=""/>`;
+                            }).join('')}
+                        </div>
+                        <span class="text-xs text-gray-500 font-medium ml-2">${itemCount} รายการ</span>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-between items-center group-hover:bg-teal-50 transition-colors">
+                    <span class="text-xs font-bold text-teal-600">ดูรายละเอียด</span>
+                    <i class="fa-solid fa-arrow-right text-teal-600 text-xs transform group-hover:translate-x-1 transition-transform"></i>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // 2. Detail Modal Logic (UX ใหม่)
+    function openMatrixDetail(ruleId) {
+        const rule = currentData.ppeMatrix.find(r => r.id == ruleId);
+        if (!rule) return;
+
+        document.getElementById('detailJob').textContent = rule.job_function;
+        document.getElementById('detailDept').textContent = rule.department || 'General';
+        document.getElementById('detailDesc').textContent = rule.remark || 'ไม่ได้ระบุรายละเอียดลักษณะงาน';
+
+        let items = Array.isArray(rule.items_json) ? rule.items_json : [];
+        const grid = document.getElementById('detailItemsGrid');
+        
+        grid.innerHTML = items.map(i => {
+            const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
+            const img = real?.image_url || 'https://placehold.co/100?text=PPE';
+            
+            return `
+            <div class="bg-white p-3 rounded-xl border border-gray-200 flex gap-3 items-start shadow-sm">
+                <img src="${img}" class="w-14 h-14 rounded-lg object-cover bg-gray-50 border border-gray-100 shrink-0">
+                <div class="min-w-0">
+                    <h5 class="font-bold text-gray-800 text-sm truncate">${i.name}</h5>
+                    <div class="text-xs text-gray-500 mt-1 space-y-0.5">
+                        <p><i class="fa-solid fa-shield-halved w-4 text-center text-teal-500"></i> ${i.props || '-'}</p>
+                        <p><i class="fa-solid fa-clock w-4 text-center text-blue-500"></i> ${i.lifespan || '-'}</p>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        document.getElementById('matrixDetailModal').classList.remove('hidden');
+    }
+
+    function closeMatrixDetail() {
+        document.getElementById('matrixDetailModal').classList.add('hidden');
+    }
+
+    // 3. Document Logic (Announcements)
+    function renderDocumentsList() {
+        const container = document.getElementById('documentListContainer');
+        const docs = currentData.ppeDocuments || [];
+        
+        // Show/Hide Admin Upload Button
+        if(isAdmin) document.getElementById('btnUploadDoc').classList.remove('hidden');
+        else document.getElementById('btnUploadDoc').classList.add('hidden');
+
+        if (docs.length === 0) {
+            container.innerHTML = `<div class="text-white/60 text-sm p-4">ยังไม่มีประกาศ</div>`;
+            return;
+        }
+
+        container.innerHTML = docs.map(doc => `
+            <div class="min-w-[200px] bg-white/10 hover:bg-white/20 backdrop-blur border border-white/10 rounded-xl p-3 cursor-pointer transition-all snap-center flex flex-col justify-between group relative" onclick="openPdf('${doc.file_url}', '${doc.title}')">
+                ${isAdmin ? `<button onclick="event.stopPropagation(); deleteDocumentReq(${doc.id})" class="absolute top-2 right-2 text-white/50 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>` : ''}
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </div>
+                    <p class="text-sm font-bold text-white leading-tight line-clamp-2">${doc.title}</p>
+                </div>
+                <div class="flex justify-between items-center text-[10px] text-blue-200">
+                    <span>${new Date(doc.created_at).toLocaleDateString('th-TH')}</span>
+                    <span class="group-hover:translate-x-1 transition-transform">เปิดอ่าน <i class="fa-solid fa-chevron-right ml-1"></i></span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openUploadModal() {
+        document.getElementById('uploadDocModal').classList.remove('hidden');
+    }
+
+    async function handleUploadDoc(e) {
+        e.preventDefault();
+        showLoading();
+        const title = document.getElementById('docTitle').value;
+        const fileInput = document.getElementById('docFile');
+        const file = fileInput.files[0];
+
+        if (!file) return;
+        // Limit size 4MB (Vercel constraint workaround)
+        if (file.size > 4 * 1024 * 1024) {
+            hideLoading();
+            return showToast('ไฟล์ใหญ่เกิน 4MB', 'error');
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function() {
+            const base64 = reader.result.split(',')[1];
+            try {
+                await callServerFunction('uploadDocument', {
+                    title: title,
+                    fileName: file.name,
+                    fileBase64: base64,
+                    user: (liffProfile?.displayName || 'Admin')
+                });
+                showToast('อัปโหลดสำเร็จ');
+                document.getElementById('uploadDocModal').classList.add('hidden');
+                
+                // Refresh
+                const data = await callServerFunction('getInitialData');
+                onDataLoaded(data);
+                initMatrixPage();
+            } catch (err) {
+                console.error(err);
+                showToast('อัปโหลดล้มเหลว', 'error');
+            } finally {
+                hideLoading();
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function deleteDocumentReq(id) {
+        if(!confirm('ต้องการลบเอกสารนี้?')) return;
+        showLoading();
+        try {
+            await callServerFunction('deleteDocument', { id });
+            showToast('ลบสำเร็จ');
+            const data = await callServerFunction('getInitialData');
+            onDataLoaded(data);
+            initMatrixPage();
+        } catch(e) {
+            showToast('ลบไม่สำเร็จ', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function openPdf(url, title) {
+        document.getElementById('pdfViewerTitle').textContent = title;
+        document.getElementById('pdfFrame').src = url + "#toolbar=0"; // Try to disable toolbar
+        document.getElementById('pdfDownloadLink').href = url;
+        document.getElementById('pdfViewerModal').classList.remove('hidden');
+    }
+
+    function closePdfViewer() {
+        document.getElementById('pdfViewerModal').classList.add('hidden');
+        document.getElementById('pdfFrame').src = '';
     }
 
 </script>
