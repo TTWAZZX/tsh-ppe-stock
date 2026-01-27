@@ -1198,53 +1198,58 @@
             </div>
 
             <div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h3 class="font-bold text-gray-800"><i class="fa-solid fa-shield-halved text-teal-600 mr-2"></i>กำหนดมาตรฐานอุปกรณ์</h3>
-                        <button onclick="document.getElementById('matrixRuleModal').classList.add('hidden')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white">
+                        <h3 class="font-bold text-lg"><i class="fa-solid fa-shield-halved mr-2"></i>กำหนดมาตรฐาน PPE</h3>
+                        <button onclick="document.getElementById('matrixRuleModal').classList.add('hidden')" class="text-white/80 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
                     </div>
                     
-                    <form id="matrixRuleForm" class="p-5 space-y-4 overflow-y-auto" onsubmit="saveMatrixRule(event)">
+                    <form id="matrixRuleForm" class="p-5 space-y-5 overflow-y-auto bg-gray-50" onsubmit="saveMatrixRule(event)">
                         <input type="hidden" id="matrixId">
                         
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 mb-1">ลักษณะงาน / พื้นที่ <span class="text-red-500">*</span></label>
-                            <input type="text" id="matrixJob" required placeholder="เช่น งานเชื่อม, ขับ Forklift, PD" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500" list="jobSuggestions">
-                            <datalist id="jobSuggestions"></datalist>
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">1. ส่วนงาน / พื้นที่ / อันตราย <span class="text-red-500">*</span></label>
+                                    <input type="text" id="matrixJob" required placeholder="เช่น งานเชื่อม, สารเคมี, ที่สูง" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 bg-gray-50 focus:bg-white transition-colors" list="jobSuggestions">
+                                    <datalist id="jobSuggestions"></datalist>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">2. แผนกที่เกี่ยวข้อง</label>
+                                    <input type="text" id="matrixDept" placeholder="เช่น PD, MTN, IE" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 bg-gray-50 focus:bg-white transition-colors">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">4. ลักษณะงานที่ทำ (Job Description)</label>
+                                <textarea id="matrixJobDesc" rows="2" placeholder="อธิบายลักษณะงานพอสังเขป..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 text-sm bg-gray-50 focus:bg-white"></textarea>
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 mb-1">แผนกที่เกี่ยวข้อง</label>
-                            <input type="text" id="matrixDept" placeholder="เช่น PD, MTN, IE, หรือ All" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
-                        </div>
-
-                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                            <label class="block text-xs font-bold text-gray-700 mb-2">อุปกรณ์ที่ต้องใช้ (เลือกได้หลายรายการ) <span class="text-red-500">*</span></label>
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                            <label class="block text-sm font-bold text-teal-700 mb-3 border-b pb-2">
+                                <i class="fa-solid fa-kit-medical mr-2"></i>3. อุปกรณ์ที่ต้องใช้ (PPE Items)
+                            </label>
                             
-                            <div class="flex gap-2 mb-2">
-                                <input type="text" id="matrixItemInput" placeholder="พิมพ์ชื่อ หรือเลือกจากรายการ..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" list="stockItemsList">
-                                <datalist id="stockItemsList"></datalist> <button type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 text-sm font-bold">
-                                    <i class="fa-solid fa-plus"></i> เพิ่ม
+                            <div class="flex gap-2 mb-4">
+                                <div class="relative flex-1">
+                                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" id="matrixItemInput" placeholder="ค้นหา หรือพิมพ์ชื่ออุปกรณ์..." class="w-full pl-9 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500" list="stockItemsList">
+                                    <datalist id="stockItemsList"></datalist>
+                                </div>
+                                <button type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm active:scale-95 transition-all">
+                                    <i class="fa-solid fa-plus mr-1"></i> เพิ่ม
                                 </button>
                             </div>
 
-                            <div id="selectedMatrixItemsContainer" class="space-y-2 max-h-32 overflow-y-auto">
-                                </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">คุณสมบัติ (Spec)</label>
-                                <input type="text" id="matrixProps" placeholder="เช่น กันความร้อน, 27dBA" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">อายุการใช้งาน</label>
-                                <input type="text" id="matrixLifespan" placeholder="เช่น 1 เดือน" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 text-sm">
+                            <div id="selectedMatrixItemsContainer" class="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                                <div class="text-center text-gray-400 py-4 text-xs bg-gray-50 rounded-lg border border-dashed">ยังไม่มีอุปกรณ์</div>
                             </div>
                         </div>
 
-                        <div class="pt-2">
-                            <button type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-md transition-transform active:scale-95">บันทึกข้อมูล</button>
+                        <div class="pt-2 sticky bottom-0 bg-gray-50 pb-2">
+                            <button type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg shadow-teal-200 transition-all active:scale-95 text-lg">
+                                <i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -5341,16 +5346,16 @@
     }
 
     // ==========================================
-    // 🛡️ PPE MATRIX SYSTEM LOGIC (UPDATED V2 FIXED)
+    // 🛡️ PPE MATRIX SYSTEM LOGIC (V3: Advanced Item Details)
     // ==========================================
 
-    let tempMatrixItems = []; // ตัวแปรเก็บรายการอุปกรณ์ชั่วคราวใน Modal
+    let tempMatrixItems = []; // เก็บ Array ของอุปกรณ์พร้อมรายละเอียด
 
     function initMatrixPage() {
-        renderJobTags();     // <--- ฟังก์ชันนี้ต้องมี
+        renderJobTags();
         renderMatrixGrid();
         
-        // Populate Datalist สำหรับช่องเลือกของ (ดึงจาก Stock)
+        // Prepare Datalist
         const datalist = document.getElementById('stockItemsList');
         if (datalist) {
             datalist.innerHTML = '';
@@ -5359,7 +5364,7 @@
             });
         }
 
-        // Toggle ปุ่ม Admin
+        // Admin Button
         if (isAdmin) {
             document.getElementById('btnAddMatrixRule').classList.remove('hidden');
         } else {
@@ -5367,37 +5372,7 @@
         }
     }
 
-    // ⭐ ฟังก์ชันที่หายไป (เพิ่มกลับมาแล้ว) ⭐
-    function renderJobTags() {
-        const container = document.getElementById('jobTagsContainer');
-        const datalist = document.getElementById('jobSuggestions');
-        if (!container) return;
-
-        // ดึงรายชื่อ Job ทั้งหมดจาก Matrix มาทำเป็นปุ่ม Filter
-        const jobs = [...new Set((currentData.ppeMatrix || []).map(m => m.job_function))].sort();
-        
-        container.innerHTML = `<button onclick="filterMatrix('')" class="px-3 py-1 rounded-full text-xs font-medium bg-teal-600 text-white shadow-sm transition-transform active:scale-95">ทั้งหมด</button>`;
-        
-        if (datalist) datalist.innerHTML = ''; 
-
-        jobs.forEach(job => {
-            // สร้างปุ่ม Tag
-            container.innerHTML += `
-                <button onclick="filterMatrix('${job}')" class="px-3 py-1 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors shadow-sm">
-                    ${job}
-                </button>`;
-            
-            // สร้าง Datalist สำหรับ Admin กรอกง่ายๆ
-            if (datalist) datalist.innerHTML += `<option value="${job}">`;
-        });
-    }
-
-    function filterMatrix(jobName) {
-        document.getElementById('matrixSearch').value = jobName;
-        renderMatrixGrid();
-    }
-
-    // ฟังก์ชันวาดการ์ด Matrix (ปรับให้โชว์หลาย Item + แผนก + Spec)
+    // --- 1. Render Grid (หน้าแสดงผล) ---
     function renderMatrixGrid() {
         const container = document.getElementById('matrixContentGrid');
         const emptyState = document.getElementById('matrixEmptyState');
@@ -5407,11 +5382,12 @@
         
         let rules = currentData.ppeMatrix || [];
 
-        // Filter
+        // Filter Logic
         if (search) {
             rules = rules.filter(r => 
                 r.job_function.toLowerCase().includes(search) || 
-                (r.department && r.department.toLowerCase().includes(search))
+                (r.department && r.department.toLowerCase().includes(search)) ||
+                (r.items_json && Array.isArray(r.items_json) && r.items_json.some(i => i.name.toLowerCase().includes(search)))
             );
         }
 
@@ -5424,122 +5400,136 @@
         if(emptyState) emptyState.classList.add('hidden');
         
         container.innerHTML = rules.map(rule => {
-            // Unpack items_json (รองรับ Legacy data ที่เป็น item_id เดียว)
-            let items = rule.items_json;
-            if (!items && rule.item_id) {
-                // Legacy support
+            // Safe unpack items
+            let items = Array.isArray(rule.items_json) ? rule.items_json : [];
+            // Fallback for old data
+            if (items.length === 0 && rule.item_id) {
                 const oldItem = currentData.ppeItems.find(i => i.id == rule.item_id);
-                items = oldItem ? [{ name: oldItem.name, id: oldItem.id }] : [];
+                if(oldItem) items.push({ name: oldItem.name, id: oldItem.id, props: rule.properties, lifespan: rule.lifespan });
             }
-            if (!Array.isArray(items)) items = [];
 
-            // สร้าง HTML รายการอุปกรณ์ในการ์ด
-            const itemsHtml = items.map(i => {
+            // Render Items List (Mini Table)
+            const itemsListHtml = items.map(i => {
+                // หารูป
                 const realItem = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
-                const img = realItem?.image_url || 'https://placehold.co/50?text=PPE';
+                const img = realItem?.image_url || 'https://placehold.co/40?text=PPE';
+                const spec = i.props ? `<span class="text-[10px] text-gray-500 block">Spec: ${i.props}</span>` : '';
+                const life = i.lifespan ? `<span class="text-[10px] text-blue-500 block">อายุ: ${i.lifespan}</span>` : '';
+
                 return `
-                    <div class="flex items-center gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                        <img src="${img}" class="w-8 h-8 rounded object-cover bg-white">
-                        <span class="text-xs text-gray-700 font-medium truncate">${i.name}</span>
+                    <div class="flex gap-2 items-start p-2 bg-gray-50 rounded border border-gray-100 mb-1">
+                        <img src="${img}" class="w-8 h-8 rounded bg-white object-cover border">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-gray-800 truncate">${i.name}</p>
+                            ${spec}
+                            ${life}
+                        </div>
                     </div>
                 `;
             }).join('');
 
             const adminControls = isAdmin ? `
-                <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-lg p-1 shadow-sm border border-gray-100">
+                <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-lg p-1 shadow-sm border border-gray-100 z-10">
                     <button onclick="editMatrixRule(${rule.id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fas fa-edit"></i></button>
                     <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 text-red-600 hover:bg-red-50 rounded"><i class="fas fa-trash"></i></button>
                 </div>
             ` : '';
 
+            const jobDescHtml = rule.remark ? `<p class="text-xs text-gray-500 mt-2 line-clamp-2"><i class="fa-solid fa-info-circle mr-1"></i>${rule.remark}</p>` : '';
+
             return `
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col h-full">
-                <div class="h-1.5 bg-teal-500 w-full"></div>
+                <div class="h-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 w-full"></div>
                 <div class="p-4 flex-1 flex flex-col">
                     <div class="mb-3">
                         <div class="flex justify-between items-start">
-                             <h4 class="font-bold text-gray-800 text-lg leading-tight mb-1">${rule.job_function}</h4>
+                             <h4 class="font-bold text-gray-800 text-base leading-tight mb-1 pr-14">${rule.job_function}</h4>
                              ${adminControls}
                         </div>
-                        <p class="text-xs text-gray-500 bg-gray-100 inline-block px-2 py-0.5 rounded-md">
-                            <i class="fa-solid fa-building-user mr-1"></i> ${rule.department || 'ไม่ระบุ'}
-                        </p>
+                        <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-100">
+                            ${rule.department || 'ไม่ระบุแผนก'}
+                        </span>
+                        ${jobDescHtml}
                     </div>
                     
-                    <div class="space-y-1 mb-3 flex-1">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">อุปกรณ์ที่ต้องใช้</p>
-                        ${itemsHtml || '<p class="text-xs text-gray-400">- ไม่ระบุ -</p>'}
+                    <div class="border-t border-gray-100 pt-2 flex-1">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">อุปกรณ์ที่ต้องใช้</p>
+                        <div class="space-y-1">
+                            ${itemsListHtml || '<p class="text-xs text-gray-400">- ไม่ระบุ -</p>'}
+                        </div>
                     </div>
 
-                    ${rule.properties ? `
-                    <div class="mb-3 p-2 bg-yellow-50 rounded border border-yellow-100 text-xs text-yellow-800">
-                        <i class="fa-solid fa-circle-info mr-1"></i> Spec: ${rule.properties}
-                    </div>` : ''}
-
-                    <div class="pt-3 border-t border-gray-100 flex justify-between items-center text-xs">
-                        <span class="text-gray-500">อายุ: <b>${rule.lifespan || '-'}</b></span>
-                        <button onclick="showPage('issue');" class="text-teal-600 font-bold hover:underline">เบิกเลย <i class="fa-solid fa-arrow-right"></i></button>
+                    <div class="mt-3 pt-2">
+                        <button onclick="showPage('issue');" class="w-full py-1.5 text-xs font-bold text-teal-600 border border-teal-200 rounded hover:bg-teal-50 transition-colors">
+                            เบิกอุปกรณ์ชุดนี้ <i class="fa-solid fa-arrow-right ml-1"></i>
+                        </button>
                     </div>
                 </div>
             </div>`;
         }).join('');
     }
 
-    // --- Modal & Form Logic (จัดการเพิ่มหลาย Item) ---
+    // --- 2. Modal & Form Logic (Core Update) ---
 
     function openMatrixModal(ruleId = null) {
         const modal = document.getElementById('matrixRuleModal');
         const form = document.getElementById('matrixRuleForm');
         
-        // Reset
         form.reset();
-        tempMatrixItems = []; // Clear temp list
-        renderTempMatrixItems();
+        tempMatrixItems = []; // Reset Array
 
         if (ruleId) {
-            // Edit Mode
+            // Load Existing Data
             const rule = currentData.ppeMatrix.find(r => r.id == ruleId);
             document.getElementById('matrixId').value = rule.id;
             document.getElementById('matrixJob').value = rule.job_function;
             document.getElementById('matrixDept').value = rule.department || '';
-            document.getElementById('matrixProps').value = rule.properties || '';
-            document.getElementById('matrixLifespan').value = rule.lifespan || '';
+            document.getElementById('matrixJobDesc').value = rule.remark || ''; // ใช้ remark เก็บ Description
 
-            // Load Items
-            if (rule.items_json) {
-                tempMatrixItems = rule.items_json;
+            // Load Items to Temp Array
+            if (Array.isArray(rule.items_json)) {
+                // Clone array to avoid reference issues
+                tempMatrixItems = JSON.parse(JSON.stringify(rule.items_json));
             } else if (rule.item_id) {
-                // Legacy: load single item
+                // Migration for legacy
                 const oldItem = currentData.ppeItems.find(i => i.id == rule.item_id);
-                if (oldItem) tempMatrixItems.push({ id: oldItem.id, name: oldItem.name });
+                if (oldItem) tempMatrixItems.push({ 
+                    id: oldItem.id, 
+                    name: oldItem.name, 
+                    props: rule.properties || '', 
+                    lifespan: rule.lifespan || '' 
+                });
             }
-            renderTempMatrixItems();
         } else {
             document.getElementById('matrixId').value = '';
         }
 
+        renderTempMatrixItems(); // วาดรายการของใน Modal
         modal.classList.remove('hidden');
     }
 
+    // ➕ ฟังก์ชันเพิ่มของลงในรายการ (กดปุ่มเพิ่ม)
     function addMatrixItem() {
         const input = document.getElementById('matrixItemInput');
         const name = input.value.trim();
         if (!name) return;
 
-        // เช็คว่าชื่อตรงกับ Stock ไหม เพื่อเก็บ ID
+        // เช็คว่าชื่อตรงกับ Stock ไหม
         const stockItem = currentData.ppeItems.find(i => i.name === name);
+        
+        // สร้าง Object Item ใหม่ (มีช่องว่างสำหรับ Spec/Lifespan)
         const newItem = {
-            id: stockItem ? stockItem.id : null, // ถ้าไม่มีใน Stock ให้ id=null (Manual text)
-            name: name
+            id: stockItem ? stockItem.id : null,
+            name: name,
+            props: '',    // รอ User กรอกเพิ่ม
+            lifespan: ''  // รอ User กรอกเพิ่ม
         };
 
-        // ป้องกันซ้ำ
-        if (!tempMatrixItems.some(i => i.name === name)) {
-            tempMatrixItems.push(newItem);
-            renderTempMatrixItems();
-        }
+        // เพิ่มลง Array (อนุญาตให้ซ้ำชื่อได้ เผื่อคนละ Spec)
+        tempMatrixItems.push(newItem);
         
-        input.value = ''; // Clear input
+        renderTempMatrixItems();
+        input.value = ''; // เคลียร์ช่อง
         input.focus();
     }
 
@@ -5548,18 +5538,55 @@
         renderTempMatrixItems();
     }
 
-    function renderTempMatrixItems() {
-        const container = document.getElementById('selectedMatrixItemsContainer');
-        container.innerHTML = tempMatrixItems.map((item, index) => `
-            <div class="flex justify-between items-center bg-white p-2 rounded border border-gray-200 shadow-sm text-sm">
-                <span class="truncate"><i class="fa-solid fa-box mr-2 text-teal-500"></i>${item.name}</span>
-                <button type="button" onclick="removeMatrixItem(${index})" class="text-red-500 hover:text-red-700 ml-2">
-                    <i class="fa-solid fa-times"></i>
-                </button>
-            </div>
-        `).join('');
+    // 🔄 ฟังก์ชันอัปเดตข้อมูลใน Array เมื่อ User พิมพ์ในช่อง Spec/Lifespan
+    function updateItemDetail(index, field, value) {
+        tempMatrixItems[index][field] = value;
     }
 
+    // 🎨 วาดรายการใน Modal (พร้อมช่องกรอก Spec/Lifespan)
+    function renderTempMatrixItems() {
+        const container = document.getElementById('selectedMatrixItemsContainer');
+        
+        if (tempMatrixItems.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 py-6 text-sm bg-gray-50 rounded-lg border-2 border-dashed">ยังไม่ได้เลือกอุปกรณ์</div>`;
+            return;
+        }
+
+        container.innerHTML = tempMatrixItems.map((item, index) => {
+            return `
+            <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm relative group transition-all hover:border-teal-300">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="font-bold text-gray-800 text-sm flex items-center">
+                        <i class="fa-solid fa-box-open text-teal-500 mr-2"></i> ${item.name}
+                    </span>
+                    <button type="button" onclick="removeMatrixItem(${index})" class="text-gray-300 hover:text-red-500 transition-colors">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-gray-500 block mb-0.5">คุณสมบัติ (Spec)</label>
+                        <input type="text" 
+                               value="${item.props || ''}" 
+                               onchange="updateItemDetail(${index}, 'props', this.value)"
+                               placeholder="เช่น กันความร้อน" 
+                               class="w-full text-xs px-2 py-1.5 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-teal-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 block mb-0.5">อายุการใช้งาน</label>
+                        <input type="text" 
+                               value="${item.lifespan || ''}" 
+                               onchange="updateItemDetail(${index}, 'lifespan', this.value)"
+                               placeholder="เช่น 1 เดือน" 
+                               class="w-full text-xs px-2 py-1.5 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-teal-500 outline-none">
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // 💾 บันทึกข้อมูลลง DB
     async function saveMatrixRule(e) {
         e.preventDefault();
         
@@ -5573,9 +5600,11 @@
             id: document.getElementById('matrixId').value || null,
             jobFunction: document.getElementById('matrixJob').value,
             department: document.getElementById('matrixDept').value,
-            properties: document.getElementById('matrixProps').value,
-            lifespan: document.getElementById('matrixLifespan').value,
-            itemsJson: tempMatrixItems // ส่งไปเป็น Array
+            remark: document.getElementById('matrixJobDesc').value, // ใช้ field remark
+            itemsJson: tempMatrixItems, // ส่ง Array ที่มี props/lifespan ติดไปด้วย
+            // Field เก่าปล่อยว่างหรือใส่ dummy ไว้
+            properties: '', 
+            lifespan: ''
         };
 
         try {
@@ -5596,22 +5625,42 @@
         }
     }
     
-    function editMatrixRule(id) {
-        openMatrixModal(id);
+    // --- Helper Functions ---
+    function renderJobTags() {
+        const container = document.getElementById('jobTagsContainer');
+        const datalist = document.getElementById('jobSuggestions');
+        if (!container) return;
+
+        const jobs = [...new Set((currentData.ppeMatrix || []).map(m => m.job_function))].sort();
+        
+        container.innerHTML = `<button onclick="filterMatrix('')" class="px-3 py-1 rounded-full text-xs font-medium bg-teal-600 text-white shadow-sm transition-transform active:scale-95">ทั้งหมด</button>`;
+        
+        if (datalist) datalist.innerHTML = ''; 
+
+        jobs.forEach(job => {
+            container.innerHTML += `
+                <button onclick="filterMatrix('${job}')" class="px-3 py-1 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors shadow-sm">
+                    ${job}
+                </button>`;
+            if (datalist) datalist.innerHTML += `<option value="${job}">`;
+        });
     }
 
+    function filterMatrix(jobName) {
+        document.getElementById('matrixSearch').value = jobName;
+        renderMatrixGrid();
+    }
+
+    function editMatrixRule(id) { openMatrixModal(id); }
+    // (deleteMatrixRule ใช้ตัวเดิมได้)
     async function deleteMatrixRule(id) {
         if(!confirm('ต้องการลบกฎนี้ใช่หรือไม่?')) return;
-        
         showLoading();
         try {
             await callServerFunction('deleteMatrixRule', { id });
             showToast('ลบเรียบร้อย');
-            
-            // Update Local Data (Optional optimization instead of full reload)
             currentData.ppeMatrix = currentData.ppeMatrix.filter(m => m.id != id);
             initMatrixPage();
-
         } catch (err) {
             showToast('ลบไม่สำเร็จ', 'error');
         } finally {
