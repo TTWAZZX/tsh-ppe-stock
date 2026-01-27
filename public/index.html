@@ -5341,13 +5341,13 @@
     }
 
     // ==========================================
-    // 🛡️ PPE MATRIX SYSTEM LOGIC (UPDATED V2)
+    // 🛡️ PPE MATRIX SYSTEM LOGIC (UPDATED V2 FIXED)
     // ==========================================
 
     let tempMatrixItems = []; // ตัวแปรเก็บรายการอุปกรณ์ชั่วคราวใน Modal
 
     function initMatrixPage() {
-        renderJobTags();
+        renderJobTags();     // <--- ฟังก์ชันนี้ต้องมี
         renderMatrixGrid();
         
         // Populate Datalist สำหรับช่องเลือกของ (ดึงจาก Stock)
@@ -5367,6 +5367,36 @@
         }
     }
 
+    // ⭐ ฟังก์ชันที่หายไป (เพิ่มกลับมาแล้ว) ⭐
+    function renderJobTags() {
+        const container = document.getElementById('jobTagsContainer');
+        const datalist = document.getElementById('jobSuggestions');
+        if (!container) return;
+
+        // ดึงรายชื่อ Job ทั้งหมดจาก Matrix มาทำเป็นปุ่ม Filter
+        const jobs = [...new Set((currentData.ppeMatrix || []).map(m => m.job_function))].sort();
+        
+        container.innerHTML = `<button onclick="filterMatrix('')" class="px-3 py-1 rounded-full text-xs font-medium bg-teal-600 text-white shadow-sm transition-transform active:scale-95">ทั้งหมด</button>`;
+        
+        if (datalist) datalist.innerHTML = ''; 
+
+        jobs.forEach(job => {
+            // สร้างปุ่ม Tag
+            container.innerHTML += `
+                <button onclick="filterMatrix('${job}')" class="px-3 py-1 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors shadow-sm">
+                    ${job}
+                </button>`;
+            
+            // สร้าง Datalist สำหรับ Admin กรอกง่ายๆ
+            if (datalist) datalist.innerHTML += `<option value="${job}">`;
+        });
+    }
+
+    function filterMatrix(jobName) {
+        document.getElementById('matrixSearch').value = jobName;
+        renderMatrixGrid();
+    }
+
     // ฟังก์ชันวาดการ์ด Matrix (ปรับให้โชว์หลาย Item + แผนก + Spec)
     function renderMatrixGrid() {
         const container = document.getElementById('matrixContentGrid');
@@ -5381,7 +5411,7 @@
         if (search) {
             rules = rules.filter(r => 
                 r.job_function.toLowerCase().includes(search) || 
-                (r.items_json && r.items_json.some(i => i.name.toLowerCase().includes(search)))
+                (r.department && r.department.toLowerCase().includes(search))
             );
         }
 
@@ -5405,7 +5435,6 @@
 
             // สร้าง HTML รายการอุปกรณ์ในการ์ด
             const itemsHtml = items.map(i => {
-                // พยายามหารูปจาก Stock จริง ถ้ามี ID
                 const realItem = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
                 const img = realItem?.image_url || 'https://placehold.co/50?text=PPE';
                 return `
@@ -5456,7 +5485,7 @@
         }).join('');
     }
 
-    // --- Modal & Form Logic ---
+    // --- Modal & Form Logic (จัดการเพิ่มหลาย Item) ---
 
     function openMatrixModal(ruleId = null) {
         const modal = document.getElementById('matrixRuleModal');
