@@ -797,15 +797,25 @@ async function deletePpeItem(payload) {
   return { status: "success", message: "Deleted successfully" };
 }
 
-// ⭐⭐⭐ ฟังก์ชันจัดการ PPE Matrix ⭐⭐⭐
+// ⭐⭐⭐ แก้ไขฟังก์ชันนี้ใน api/ppe.js ⭐⭐⭐
 async function saveMatrixRule(payload) {
-  const { id, itemId, jobFunction, lifespan, remark } = payload;
+  // รับค่า payload แบบใหม่ (มี itemsJson, properties, department)
+  const { id, jobFunction, itemsJson, lifespan, remark, properties, department } = payload;
   
+  const dbPayload = {
+    job_function: jobFunction,
+    items_json: itemsJson, // เก็บเป็น JSON Array
+    lifespan,
+    remark,
+    properties,   // ฟิลด์ใหม่
+    department    // ฟิลด์ใหม่
+  };
+
   if (id) {
     // Update
     const { data, error } = await supabase
       .from('ppe_matrix')
-      .update({ item_id: itemId, job_function: jobFunction, lifespan, remark })
+      .update(dbPayload)
       .eq('id', id).select().single();
     if (error) throw error;
     return data;
@@ -813,7 +823,7 @@ async function saveMatrixRule(payload) {
     // Insert
     const { data, error } = await supabase
       .from('ppe_matrix')
-      .insert({ item_id: itemId, job_function: jobFunction, lifespan, remark })
+      .insert(dbPayload)
       .select().single();
     if (error) throw error;
     return data;
