@@ -1174,127 +1174,184 @@
                     </div>
             </div>
 
-            <div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 transition-opacity">
-                <div class="bg-white w-full h-[90vh] sm:h-auto sm:max-h-[90vh] sm:max-w-lg rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up sm:animate-none">
+            <div id="matrixPage" class="page hidden">
+                <div class="max-w-7xl mx-auto space-y-6 p-4 lg:p-8 pb-24">
                     
-                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white shrink-0">
-                        <h3 class="font-bold text-lg"><i class="fa-solid fa-shield-halved mr-2"></i>กำหนดมาตรฐาน</h3>
-                        <button onclick="document.getElementById('matrixRuleModal').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors">
-                            <i class="fa-solid fa-times text-lg"></i>
-                        </button>
-                    </div>
-                    
-                    <form id="matrixRuleForm" class="p-5 space-y-5 overflow-y-auto flex-1 bg-gray-50 pb-safe" onsubmit="saveMatrixRule(event)">
-                        <input type="hidden" id="matrixId">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+                        <div class="absolute right-0 top-0 p-4 opacity-10">
+                            <i class="fa-solid fa-bullhorn text-9xl"></i>
+                        </div>
                         
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
+                        <div class="relative z-10 flex justify-between items-start">
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">1. ชื่องาน / พื้นที่ <span class="text-red-500">*</span></label>
-                                <input type="text" id="matrixJob" required placeholder="เช่น งานเชื่อม, ขับ Forklift" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
-                                <datalist id="jobSuggestions"></datalist>
+                                <h2 class="text-2xl font-bold flex items-center gap-2">
+                                    <i class="fa-solid fa-book-open"></i> ระเบียบและประกาศ (SHE Documents)
+                                </h2>
+                                <p class="text-blue-100 text-sm mt-1">เอกสารมาตรฐานความปลอดภัยและข้อกำหนดล่าสุด</p>
                             </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 mb-1">2. แผนก</label>
-                                    <input type="text" id="matrixDept" placeholder="เช่น PD, MTN" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 mb-1">รายละเอียด</label>
-                                    <input type="text" id="matrixJobDesc" placeholder="คำอธิบายสั้นๆ" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-1">
-                            <label class="block text-sm font-bold text-teal-700 mb-3 flex justify-between items-center">
-                                <span><i class="fa-solid fa-kit-medical mr-2"></i>3. เลือกอุปกรณ์</span>
-                                <span class="text-[10px] text-gray-400 font-normal">กดเพิ่มเพื่อเลือก</span>
-                            </label>
-                            
-                            <div class="flex gap-2 mb-3">
-                                <input type="text" id="matrixItemInput" placeholder="พิมพ์ชื่ออุปกรณ์..." class="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm" list="stockItemsList">
-                                <datalist id="stockItemsList"></datalist>
-                                <button type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-4 rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm">
-                                    <i class="fa-solid fa-plus"></i>
-                                </button>
-                            </div>
-
-                            <div id="selectedMatrixItemsContainer" class="space-y-2.5 overflow-y-auto pr-1 min-h-[100px]">
-                                <div class="text-center text-gray-400 py-8 text-xs bg-gray-50 rounded-lg border-2 border-dashed">รายการอุปกรณ์จะปรากฏที่นี่</div>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 sticky bottom-0 z-10 pb-safe bg-gray-50">
-                            <button type="submit" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg shadow-teal-200 active:scale-95 text-base">
-                                <i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล
+                            <button id="btnUploadDoc" onclick="openUploadModal()" class="hidden bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-all font-bold text-sm">
+                                <i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลดประกาศ
                             </button>
                         </div>
-                    </form>
-                </div>
-            </div>
 
-            <div id="pdfViewerModal" class="fixed inset-0 z-[100] hidden flex flex-col bg-black/95 backdrop-blur-md">
-                <div class="flex justify-between items-center p-4 text-white shrink-0">
-                    <h3 id="pdfViewerTitle" class="font-bold text-lg truncate pr-4 max-w-[70%]">เอกสาร</h3>
-                    <button onclick="closePdfViewer()" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
-                        <i class="fa-solid fa-xmark text-xl"></i>
-                    </button>
-                </div>
-                
-                <div class="flex-1 bg-gray-900 relative w-full h-full">
-                    <iframe id="pdfFrame" src="" class="w-full h-full border-0 hidden sm:block"></iframe>
-                    
-                    <div id="pdfMobileView" class="w-full h-full flex flex-col items-center justify-center p-6 text-center sm:hidden">
-                        <i class="fa-solid fa-file-pdf text-6xl text-gray-500 mb-4"></i>
-                        <p class="text-gray-400 mb-6 text-sm">แตะปุ่มด้านล่างเพื่อเปิดไฟล์ PDF</p>
-                        <a id="pdfDownloadLink" href="#" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-bold shadow-xl flex items-center gap-2 transition-transform active:scale-95 text-lg w-full justify-center max-w-xs">
-                            <i class="fa-solid fa-external-link-alt"></i> เปิดไฟล์เอกสาร
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <div id="matrixDetailModal" class="fixed inset-0 z-[85] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
-                <div class="absolute inset-0" onclick="closeMatrixDetail()"></div>
-
-                <div class="bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden relative animate-slide-up sm:animate-bounce-in">
-                    
-                    <div class="w-full flex justify-center pt-3 pb-1 sm:hidden bg-teal-600" onclick="closeMatrixDetail()">
-                        <div class="w-12 h-1.5 bg-white/30 rounded-full"></div>
-                    </div>
-
-                    <div class="bg-teal-600 p-6 text-white shrink-0">
-                        <div class="flex items-start gap-4">
-                            <div class="bg-white/20 p-3.5 rounded-2xl backdrop-blur-sm shadow-inner">
-                                <i class="fa-solid fa-helmet-safety text-3xl"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-teal-100 text-[10px] uppercase font-bold tracking-wider mb-1" id="detailDept">DEPARTMENT</p>
-                                <h2 class="text-xl sm:text-2xl font-bold leading-tight break-words" id="detailJob">Job Title</h2>
-                            </div>
-                            <button onclick="closeMatrixDetail()" class="hidden sm:flex text-white/70 hover:text-white"><i class="fa-solid fa-xmark text-2xl"></i></button>
+                        <div id="documentListContainer" class="flex gap-4 mt-6 overflow-x-auto pb-2 snap-x">
+                            <div class="min-w-[200px] h-24 bg-white/10 rounded-lg animate-pulse"></div>
                         </div>
                     </div>
 
-                    <div class="p-5 overflow-y-auto flex-1 bg-gray-50 pb-safe no-scrollbar">
-                        <div class="mb-5 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                            <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">รายละเอียด</h4>
-                            <p class="text-gray-700 text-sm leading-relaxed" id="detailDesc">-</p>
-                        </div>
-
-                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2 ml-1">
-                            <i class="fa-solid fa-box-open text-teal-600"></i> อุปกรณ์ที่ต้องใช้
-                        </h4>
-                        <div id="detailItemsGrid" class="grid grid-cols-1 gap-3">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-clipboard-list text-teal-600"></i> มาตรฐาน PPE (PPE Matrix)
+                                </h2>
+                                <p class="text-sm text-gray-500 mt-1">คลิกที่การ์ดเพื่อดูรายละเอียดอุปกรณ์ทั้งหมด</p>
                             </div>
+                            
+                            <div class="flex gap-2 w-full md:w-auto">
+                                <div class="relative flex-1 md:w-64">
+                                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" id="matrixSearch" oninput="renderMatrixGrid()" placeholder="ค้นหางาน..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                </div>
+                                <button id="btnAddMatrixRule" onclick="openMatrixModal()" class="hidden px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-sm whitespace-nowrap">
+                                    <i class="fa-solid fa-plus"></i> เพิ่มกฎ
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex flex-wrap gap-2" id="jobTagsContainer"></div>
                     </div>
 
-                    <div class="p-4 border-t border-gray-200 bg-white shrink-0 pb-safe">
-                        <button onclick="showPage('issue'); closeMatrixDetail()" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 active:scale-95 transition-all text-base flex items-center justify-center gap-2">
-                            <span>เบิกอุปกรณ์ชุดนี้</span> <i class="fa-solid fa-arrow-right"></i>
-                        </button>
+                    <div id="matrixContentGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                    
+                    <div id="matrixEmptyState" class="hidden flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-dashed border-gray-200">
+                        <i class="fa-solid fa-helmet-safety text-4xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-500">ไม่พบข้อมูลมาตรฐานงานนี้</p>
                     </div>
-                </div>
+
+                    <div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 transition-opacity">
+                        <div class="bg-white w-full h-[90vh] sm:h-auto sm:max-h-[90vh] sm:max-w-lg rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up sm:animate-none">
+                            
+                            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white shrink-0">
+                                <h3 class="font-bold text-lg"><i class="fa-solid fa-shield-halved mr-2"></i>กำหนดมาตรฐาน</h3>
+                                <button onclick="document.getElementById('matrixRuleModal').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors">
+                                    <i class="fa-solid fa-times text-lg"></i>
+                                </button>
+                            </div>
+                            
+                            <form id="matrixRuleForm" class="p-5 space-y-5 overflow-y-auto flex-1 bg-gray-50 pb-safe" onsubmit="saveMatrixRule(event)">
+                                <input type="hidden" id="matrixId">
+                                
+                                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 mb-1">1. ชื่องาน / พื้นที่ <span class="text-red-500">*</span></label>
+                                        <input type="text" id="matrixJob" required placeholder="เช่น งานเชื่อม, ขับ Forklift" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
+                                        <datalist id="jobSuggestions"></datalist>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 mb-1">2. แผนก</label>
+                                            <input type="text" id="matrixDept" placeholder="เช่น PD, MTN" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 mb-1">รายละเอียด</label>
+                                            <input type="text" id="matrixJobDesc" placeholder="คำอธิบายสั้นๆ" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-1">
+                                    <label class="block text-sm font-bold text-teal-700 mb-3 flex justify-between items-center">
+                                        <span><i class="fa-solid fa-kit-medical mr-2"></i>3. เลือกอุปกรณ์</span>
+                                        <span class="text-[10px] text-gray-400 font-normal">กดเพิ่มเพื่อเลือก</span>
+                                    </label>
+                                    
+                                    <div class="flex gap-2 mb-3">
+                                        <input type="text" id="matrixItemInput" placeholder="พิมพ์ชื่ออุปกรณ์..." class="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm" list="stockItemsList">
+                                        <datalist id="stockItemsList"></datalist>
+                                        <button type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-4 rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </button>
+                                    </div>
+
+                                    <div id="selectedMatrixItemsContainer" class="space-y-2.5 overflow-y-auto pr-1 min-h-[100px]">
+                                        <div class="text-center text-gray-400 py-8 text-xs bg-gray-50 rounded-lg border-2 border-dashed">รายการอุปกรณ์จะปรากฏที่นี่</div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 sticky bottom-0 z-10 pb-safe bg-gray-50">
+                                    <button type="submit" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg shadow-teal-200 active:scale-95 text-base">
+                                        <i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="pdfViewerModal" class="fixed inset-0 z-[100] hidden flex flex-col bg-black/95 backdrop-blur-md">
+                        <div class="flex justify-between items-center p-4 text-white shrink-0">
+                            <h3 id="pdfViewerTitle" class="font-bold text-lg truncate pr-4 max-w-[70%]">เอกสาร</h3>
+                            <button onclick="closePdfViewer()" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="flex-1 bg-gray-900 relative w-full h-full">
+                            <iframe id="pdfFrame" src="" class="w-full h-full border-0 hidden sm:block"></iframe>
+                            
+                            <div id="pdfMobileView" class="w-full h-full flex flex-col items-center justify-center p-6 text-center sm:hidden">
+                                <i class="fa-solid fa-file-pdf text-6xl text-gray-500 mb-4"></i>
+                                <p class="text-gray-400 mb-6 text-sm">แตะปุ่มด้านล่างเพื่อเปิดไฟล์ PDF</p>
+                                <a id="pdfDownloadLink" href="#" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-bold shadow-xl flex items-center gap-2 transition-transform active:scale-95 text-lg w-full justify-center max-w-xs">
+                                    <i class="fa-solid fa-external-link-alt"></i> เปิดไฟล์เอกสาร
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="matrixDetailModal" class="fixed inset-0 z-[85] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
+                        <div class="absolute inset-0" onclick="closeMatrixDetail()"></div>
+
+                        <div class="bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden relative animate-slide-up sm:animate-bounce-in">
+                            
+                            <div class="w-full flex justify-center pt-3 pb-1 sm:hidden bg-teal-600" onclick="closeMatrixDetail()">
+                                <div class="w-12 h-1.5 bg-white/30 rounded-full"></div>
+                            </div>
+
+                            <div class="bg-teal-600 p-6 text-white shrink-0">
+                                <div class="flex items-start gap-4">
+                                    <div class="bg-white/20 p-3.5 rounded-2xl backdrop-blur-sm shadow-inner">
+                                        <i class="fa-solid fa-helmet-safety text-3xl"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-teal-100 text-[10px] uppercase font-bold tracking-wider mb-1" id="detailDept">DEPARTMENT</p>
+                                        <h2 class="text-xl sm:text-2xl font-bold leading-tight break-words" id="detailJob">Job Title</h2>
+                                    </div>
+                                    <button onclick="closeMatrixDetail()" class="hidden sm:flex text-white/70 hover:text-white"><i class="fa-solid fa-xmark text-2xl"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="p-5 overflow-y-auto flex-1 bg-gray-50 pb-safe no-scrollbar">
+                                <div class="mb-5 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">รายละเอียด</h4>
+                                    <p class="text-gray-700 text-sm leading-relaxed" id="detailDesc">-</p>
+                                </div>
+
+                                <h4 class="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2 ml-1">
+                                    <i class="fa-solid fa-box-open text-teal-600"></i> อุปกรณ์ที่ต้องใช้
+                                </h4>
+                                <div id="detailItemsGrid" class="grid grid-cols-1 gap-3">
+                                    </div>
+                            </div>
+
+                            <div class="p-4 border-t border-gray-200 bg-white shrink-0 pb-safe">
+                                <button onclick="showPage('issue'); closeMatrixDetail()" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 active:scale-95 transition-all text-base flex items-center justify-center gap-2">
+                                    <span>เบิกอุปกรณ์ชุดนี้</span> <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div> 
             </div>
 
             <div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -5473,11 +5530,19 @@
     }
 
     // --- 1. Render Grid (หน้าแสดงผล) ---
+    // แก้ไขฟังก์ชันนี้ใน <script> ครับ
     function renderMatrixGrid() {
         const container = document.getElementById('matrixContentGrid');
         const emptyState = document.getElementById('matrixEmptyState');
-        const search = document.getElementById('matrixSearch').value.toLowerCase();
         
+        // ⭐⭐⭐ จุดที่แก้: ใส่การเช็คว่ามี input ไหม ก่อนดึงค่า value ⭐⭐⭐
+        const searchInput = document.getElementById('matrixSearch');
+        const search = searchInput ? searchInput.value.toLowerCase() : ''; 
+        // -----------------------------------------------------------
+
+        // เรนเดอร์เอกสารก่อน (ถ้ามีฟังก์ชันนี้)
+        if(typeof renderDocumentsList === 'function') renderDocumentsList();
+
         if (!container) return;
         
         let rules = currentData.ppeMatrix || [];
@@ -5499,71 +5564,52 @@
 
         if(emptyState) emptyState.classList.add('hidden');
         
+        // Create Card HTML
         container.innerHTML = rules.map(rule => {
-            // Safe unpack items
-            let items = Array.isArray(rule.items_json) ? rule.items_json : [];
-            // Fallback for old data
-            if (items.length === 0 && rule.item_id) {
-                const oldItem = currentData.ppeItems.find(i => i.id == rule.item_id);
-                if(oldItem) items.push({ name: oldItem.name, id: oldItem.id, props: rule.properties, lifespan: rule.lifespan });
+            // Unpack items (Safe mode)
+            let items = [];
+            if (Array.isArray(rule.items_json)) {
+                items = rule.items_json;
+            } else if (rule.item_id) {
+                 // Fallback for old data
+                 const oldItem = currentData.ppeItems.find(i => i.id == rule.item_id);
+                 if(oldItem) items.push({ name: oldItem.name, id: oldItem.id, props: rule.properties, lifespan: rule.lifespan });
             }
 
-            // Render Items List (Mini Table)
-            const itemsListHtml = items.map(i => {
-                // หารูป
-                const realItem = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
-                const img = realItem?.image_url || 'https://placehold.co/40?text=PPE';
-                const spec = i.props ? `<span class="text-[10px] text-gray-500 block">Spec: ${i.props}</span>` : '';
-                const life = i.lifespan ? `<span class="text-[10px] text-blue-500 block">อายุ: ${i.lifespan}</span>` : '';
-
-                return `
-                    <div class="flex gap-2 items-start p-2 bg-gray-50 rounded border border-gray-100 mb-1">
-                        <img src="${img}" class="w-8 h-8 rounded bg-white object-cover border">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs font-bold text-gray-800 truncate">${i.name}</p>
-                            ${spec}
-                            ${life}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            const itemCount = items.length;
 
             const adminControls = isAdmin ? `
-                <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-lg p-1 shadow-sm border border-gray-100 z-10">
-                    <button onclick="editMatrixRule(${rule.id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fas fa-edit"></i></button>
-                    <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 text-red-600 hover:bg-red-50 rounded"><i class="fas fa-trash"></i></button>
+                <div class="absolute top-3 right-3 flex gap-1 z-20" onclick="event.stopPropagation()">
+                    <button onclick="editMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-blue-600 rounded shadow-sm hover:bg-blue-50"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-red-600 rounded shadow-sm hover:bg-red-50"><i class="fas fa-trash"></i></button>
                 </div>
             ` : '';
 
-            const jobDescHtml = rule.remark ? `<p class="text-xs text-gray-500 mt-2 line-clamp-2"><i class="fa-solid fa-info-circle mr-1"></i>${rule.remark}</p>` : '';
-
             return `
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col h-full">
-                <div class="h-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 w-full"></div>
-                <div class="p-4 flex-1 flex flex-col">
-                    <div class="mb-3">
-                        <div class="flex justify-between items-start">
-                             <h4 class="font-bold text-gray-800 text-base leading-tight mb-1 pr-14">${rule.job_function}</h4>
-                             ${adminControls}
-                        </div>
-                        <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-100">
-                            ${rule.department || 'ไม่ระบุแผนก'}
-                        </span>
-                        ${jobDescHtml}
-                    </div>
+            <div onclick="openMatrixDetail(${rule.id})" class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-teal-300 transition-all cursor-pointer relative overflow-hidden group h-full flex flex-col">
+                ${adminControls}
+                <div class="h-2 bg-gradient-to-r from-blue-500 to-teal-400"></div>
+                <div class="p-5 flex-1">
+                    <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-100 mb-2 inline-block">
+                        ${rule.department || 'General'}
+                    </span>
+                    <h4 class="font-bold text-gray-800 text-lg leading-tight mb-2 group-hover:text-teal-700 transition-colors">${rule.job_function}</h4>
+                    <p class="text-xs text-gray-500 line-clamp-2 h-8 mb-4">${rule.remark || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
                     
-                    <div class="border-t border-gray-100 pt-2 flex-1">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">อุปกรณ์ที่ต้องใช้</p>
-                        <div class="space-y-1">
-                            ${itemsListHtml || '<p class="text-xs text-gray-400">- ไม่ระบุ -</p>'}
+                    <div class="flex items-center gap-2">
+                        <div class="flex -space-x-2 overflow-hidden">
+                            ${items.slice(0, 4).map(i => {
+                                const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
+                                const src = real?.image_url || 'https://placehold.co/30?text=P';
+                                return `<img class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 object-cover" src="${src}" alt=""/>`;
+                            }).join('')}
                         </div>
+                        <span class="text-xs text-gray-500 font-medium ml-2">${itemCount} รายการ</span>
                     </div>
-
-                    <div class="mt-3 pt-2">
-                        <button onclick="showPage('issue');" class="w-full py-1.5 text-xs font-bold text-teal-600 border border-teal-200 rounded hover:bg-teal-50 transition-colors">
-                            เบิกอุปกรณ์ชุดนี้ <i class="fa-solid fa-arrow-right ml-1"></i>
-                        </button>
-                    </div>
+                </div>
+                <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-between items-center group-hover:bg-teal-50 transition-colors">
+                    <span class="text-xs font-bold text-teal-600">ดูรายละเอียด</span>
+                    <i class="fa-solid fa-arrow-right text-teal-600 text-xs transform group-hover:translate-x-1 transition-transform"></i>
                 </div>
             </div>`;
         }).join('');
