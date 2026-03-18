@@ -48,6 +48,10 @@
         .animate-pulse {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+        /* Hide scrollbar for chip bars */
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -1258,7 +1262,12 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="mt-4 flex flex-wrap gap-2" id="jobTagsContainer"></div>
+                        <!-- Job filter chip bar — horizontal scroll, no wrap -->
+                        <div class="mt-4 relative">
+                            <div id="jobTagsContainer" class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide snap-x"></div>
+                            <!-- fade hint ขวา -->
+                            <div class="pointer-events-none absolute right-0 top-0 bottom-1 w-10 bg-gradient-to-l from-white to-transparent rounded-r-lg"></div>
+                        </div>
                     </div>
 
                     <div id="matrixContentGrid" class="space-y-6"></div>
@@ -5882,22 +5891,28 @@
         if (!container) return;
 
         const jobs = [...new Set((currentData.ppeMatrix || []).map(m => m.job_function))].sort();
-        
-        container.innerHTML = `<button onclick="filterMatrix('')" class="px-3 py-1 rounded-full text-xs font-medium bg-teal-600 text-white shadow-sm transition-transform active:scale-95">ทั้งหมด</button>`;
-        
-        if (datalist) datalist.innerHTML = ''; 
+        const currentSearch = (document.getElementById('matrixSearch')?.value || '').trim();
+
+        const baseChip = 'flex-shrink-0 snap-start px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 cursor-pointer border';
+        const activeChip  = `${baseChip} bg-teal-600 text-white border-teal-600 shadow-sm`;
+        const inactiveChip = `${baseChip} bg-white text-gray-600 border-gray-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300`;
+
+        const allActive = currentSearch === '' ? activeChip : inactiveChip;
+        container.innerHTML = `<button onclick="filterMatrix('')" class="${allActive}">ทั้งหมด</button>`;
+
+        if (datalist) datalist.innerHTML = '';
 
         jobs.forEach(job => {
-            container.innerHTML += `
-                <button onclick="filterMatrix('${job}')" class="px-3 py-1 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors shadow-sm">
-                    ${job}
-                </button>`;
+            const esc = job.replace(/'/g, "\\'");
+            const isActive = currentSearch === job;
+            container.innerHTML += `<button onclick="filterMatrix('${esc}')" class="${isActive ? activeChip : inactiveChip}">${job}</button>`;
             if (datalist) datalist.innerHTML += `<option value="${job}">`;
         });
     }
 
     function filterMatrix(jobName) {
         document.getElementById('matrixSearch').value = jobName;
+        renderJobTags(); // re-render เพื่อ highlight chip ที่เลือก
         renderMatrixGrid();
     }
 
