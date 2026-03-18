@@ -2,6 +2,7 @@
 // API เวอร์ชัน Supabase ที่เลียนแบบ Code.gs และรับ text/plain แบบเดิมจาก index.html
 
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
@@ -12,6 +13,16 @@ const supabase = createClient(
 // ตั้งค่า admin จาก env (แทน ScriptProperties)
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_BASE64 = process.env.ADMIN_PASSWORD_BASE64 || null;
+// SESSION_SECRET ต้องตั้งค่าใน Vercel Environment Variables ด้วย (สุ่ม string ยาวๆ)
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
+
+// Actions ที่ต้องเป็น Admin เท่านั้น
+const ADMIN_ONLY_ACTIONS = new Set([
+  'saveCategory', 'deleteCategory', 'savePpeItem', 'deletePpeItem',
+  'approveVoucher', 'approvePartialVoucher', 'rejectVoucher',
+  'addReceiveTransaction', 'saveMatrixRule', 'deleteMatrixRule',
+  'uploadDocument', 'deleteDocument',
+]);
 
 // ปิด bodyParser เดิมของ Next.js เพื่อให้เราอ่าน text/plain เอง
 export const config = {
@@ -37,6 +48,13 @@ export default async function handler(req, res) {
   try {
     const rawBody = await getRawBody(req);
     const { action, payload } = JSON.parse(rawBody || '{}');
+
+    // ตรวจสอบ admin token สำหรับ actions ที่ต้องการสิทธิ์ admin
+    if (ADMIN_ONLY_ACTIONS.has(action)) {
+      if (!verifyAdminToken(payload?.adminToken)) {
+        return res.status(403).json({ status: 'error', message: 'Unauthorized' });
+      }
+    }
 
     let result;
 
@@ -126,7 +144,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ status: 'success', data: result, version: '1.4-feedback-added' });
   } catch (err) {
     console.error('API Error:', err);
-    return res.status(500).json({ status: 'error', message: err.message });
+    // ส่งเฉพาะ error message ที่เป็น Thai (business logic) กลับไป frontend
+    // ป้องกัน Supabase internals / schema info หลุดออกไป
+    const isSafeMessage = !/supabase|postgres|connection|ECONN|ETIMED|permission denied|relation|column|syntax/i.test(err.message);
+    const clientMessage = isSafeMessage ? err.message : 'เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่อีกครั้ง';
+    return res.status(500).json({ status: 'error', message: clientMessage });
   }
 }
 
@@ -322,9 +344,6 @@ async function savePpeItem(itemData) {
 
 // ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
 async function addNewVoucher(voucherData) {
-  // Debug Log
-  console.log("🔥 [addNewVoucher] Payload:", JSON.stringify(voucherData));
-
   const nextId = await getNextId('issue_vouchers', 'id');
   const { data, error } = await supabase
     .from('issue_vouchers')
@@ -467,12 +486,7 @@ async function addReceiveTransactionAndUpdateStock(tx) {
 
 // ในไฟล์ ppe.js ค้นหาฟังก์ชัน borrowItem แล้วแก้เป็นแบบนี้
 async function borrowItem(borrowData) {
-  // Debug Log
-  console.log("🔥 [borrowItem] Payload:", JSON.stringify(borrowData));
-
-  // เช็คชื่อคอลัมน์ ID ใน DB ดีๆ ว่าเป็น loanId หรือ loan_id (ส่วนใหญ่ Supabase จะใช้ id หรือ loan_id)
-  // แต่ถ้าคุณตั้งไว้เป็น loanId แล้วก็ใช้ตามเดิมได้ครับ
-  const nextId = await getNextId('loan_transactions', 'loanId'); 
+  const nextId = await getNextId('loan_transactions', 'loanId');
   const updatedItem = await updateLoanableStock(borrowData.itemId, 'borrow');
 
   const { data, error } = await supabase
@@ -529,13 +543,46 @@ async function returnItem(loanId) {
   return { returnedLoanId: loanId, updatedItem };
 }
 
+// สร้าง HMAC session token อายุ 24 ชั่วโมง
+function generateAdminToken(username) {
+  const expiry = Date.now() + 24 * 60 * 60 * 1000;
+  const tokenPayload = `${username}:${expiry}`;
+  const secret = SESSION_SECRET || 'no-secret-set';
+  if (!SESSION_SECRET) console.warn('⚠️ SESSION_SECRET ไม่ได้ตั้งค่า กรุณาเพิ่มใน Vercel Environment Variables');
+  const signature = crypto.createHmac('sha256', secret).update(tokenPayload).digest('hex');
+  return `${tokenPayload}:${signature}`;
+}
+
+// ตรวจสอบ HMAC token
+function verifyAdminToken(token) {
+  if (!token || typeof token !== 'string') return false;
+  const lastColon = token.lastIndexOf(':');
+  const secondLastColon = token.lastIndexOf(':', lastColon - 1);
+  if (lastColon === -1 || secondLastColon === -1 || lastColon === secondLastColon) return false;
+  const username = token.substring(0, secondLastColon);
+  const expiry = token.substring(secondLastColon + 1, lastColon);
+  const signature = token.substring(lastColon + 1);
+  if (Date.now() > Number(expiry)) return false;
+  const tokenPayload = `${username}:${expiry}`;
+  const secret = SESSION_SECRET || 'no-secret-set';
+  const expectedSig = crypto.createHmac('sha256', secret).update(tokenPayload).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
 async function checkAdminCredentials(username, password) {
   if (!ADMIN_PASSWORD_BASE64) {
     console.warn('Admin credentials are not set in environment variables.');
     return false;
   }
   const providedBase64 = Buffer.from(password, 'utf8').toString('base64');
-  return username === ADMIN_USERNAME && providedBase64 === ADMIN_PASSWORD_BASE64;
+  if (username === ADMIN_USERNAME && providedBase64 === ADMIN_PASSWORD_BASE64) {
+    return generateAdminToken(username);
+  }
+  return false;
 }
 
 // ------------------------- helpers -------------------------
@@ -570,6 +617,10 @@ async function updateStockLevels(items, operation = 'decrease') {
     const qty = Number(item.quantity || 0);
     const newStock = operation === 'decrease' ? currentStock - qty : currentStock + qty;
 
+    if (newStock < 0) {
+      throw new Error(`สต็อก "${target.name}" ไม่เพียงพอ (คงเหลือ: ${currentStock}, ต้องการ: ${qty})`);
+    }
+
     const { error: upErr } = await supabase
       .from('ppe_items')
       .update({ stock: newStock })
@@ -600,7 +651,7 @@ async function updateLoanableStock(itemId, direction) {
     onLoan += 1;
   } else {
     stock += 1;
-    onLoan -= 1;
+    onLoan = Math.max(0, onLoan - 1);
   }
 
   const { error: upErr } = await supabase
@@ -743,6 +794,10 @@ async function confirmReceive(payload) {
   if (findErr) throw findErr;
   if (!voucher) throw new Error('ไม่พบใบเบิก');
 
+  if (!['approved', 'partially_approved'].includes(voucher.status)) {
+    throw new Error('ใบเบิกนี้ยังไม่ได้รับการอนุมัติ');
+  }
+
   if (voucher.status_received === 'received') {
     return { status: 'already_received' };
   }
@@ -851,11 +906,25 @@ async function deleteMatrixRule(payload) {
 async function uploadDocument(payload) {
   const { title, fileName, fileBase64, user } = payload;
 
+  if (!title || !fileName || !fileBase64) throw new Error('ข้อมูลไม่ครบ กรุณาระบุชื่อและไฟล์');
+
   // 1. แปลง Base64 กลับเป็น Buffer
   const buffer = Buffer.from(fileBase64, 'base64');
-  
+
+  // ตรวจสอบขนาดไฟล์ (สูงสุด 10 MB)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  if (buffer.length > MAX_FILE_SIZE) throw new Error('ไฟล์ขนาดใหญ่เกินไป (สูงสุด 10 MB)');
+
+  // ตรวจสอบว่าเป็น PDF จริง (magic bytes: %PDF)
+  if (buffer.length < 4 || buffer.subarray(0, 4).toString('ascii') !== '%PDF') {
+    throw new Error('รองรับเฉพาะไฟล์ PDF เท่านั้น');
+  }
+
+  // Sanitize ชื่อไฟล์ ป้องกัน path traversal
+  const safeFileName = fileName.replace(/[^a-zA-Z0-9ก-๙._-]/g, '_');
+
   // 2. ตั้งชื่อไฟล์ใหม่กันซ้ำ (timestamp_filename)
-  const filePath = `${Date.now()}_${fileName}`;
+  const filePath = `${Date.now()}_${safeFileName}`;
 
   // 3. Upload ขึ้น Storage Bucket ชื่อ 'documents'
   const { data: uploadData, error: uploadError } = await supabase
@@ -900,8 +969,19 @@ async function deleteDocument(payload) {
   const { error: dbError } = await supabase.from('ppe_documents').delete().eq('id', id);
   if (dbError) throw dbError;
 
-  // 2. ลบไฟล์จาก Storage (Optional: ถ้าอยากประหยัดพื้นที่)
-  // ต้องแกะชื่อไฟล์จาก URL เอาเอง ถ้าซับซ้อนข้ามได้ครับ พื้นที่เหลือเฟือ
-  
+  // 2. ลบไฟล์จาก Storage เพื่อไม่ให้เปลืองพื้นที่
+  if (fileUrl) {
+    try {
+      const urlParts = fileUrl.split('/');
+      const storageFileName = urlParts[urlParts.length - 1];
+      if (storageFileName) {
+        await supabase.storage.from('documents').remove([storageFileName]);
+      }
+    } catch (storageErr) {
+      // ไม่ throw เพื่อไม่ให้ blocking — DB ลบแล้ว storage ไม่ blocking
+      console.error('Storage delete error (non-critical):', storageErr);
+    }
+  }
+
   return { status: 'success' };
 }

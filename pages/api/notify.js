@@ -8,8 +8,13 @@ export default async function handler(req, res) {
     const { message } = req.body;
 
     // 2. ตรวจสอบว่ามีข้อความส่งมาไหม
-    if (!message) {
+    if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Missing message' });
+    }
+
+    // จำกัดความยาว message (LINE Notify สูงสุด 1000 ตัวอักษร)
+    if (message.length > 1000) {
+        return res.status(400).json({ error: 'Message too long (max 1000 characters)' });
     }
 
     // 3. ดึง Token จาก Environment Variable

@@ -1795,7 +1795,20 @@
     }
 
     async function callServerFunction(action, payload = null) {
+        // ป้องกัน double submit — ถ้ามี API call ค้างอยู่ ให้ block
+        if (_apiCallInProgress) {
+            showToast('กรุณารอการดำเนินการก่อนหน้าให้เสร็จก่อน', 'error');
+            return;
+        }
+        _apiCallInProgress = true;
         showLoading();
+
+        // ส่ง admin token ไปกับทุก request เมื่อ login เป็น admin
+        const bodyPayload = payload ? { ...payload } : {};
+        if (isAdmin && adminSessionToken) {
+            bodyPayload.adminToken = adminSessionToken;
+        }
+
         try {
             const response = await fetch(WEB_APP_URL, {
                 method: 'POST',
@@ -1803,7 +1816,7 @@
                 headers: {
                     'Content-Type': 'text/plain;charset=utf-8',
                 },
-                body: JSON.stringify({ action: action, payload: payload })
+                body: JSON.stringify({ action: action, payload: bodyPayload })
             });
 
             if (!response.ok) {
@@ -1815,15 +1828,16 @@
             if (result.status === 'error') {
                 throw new Error(result.message);
             }
-            
+
             return result.data;
 
         } catch (error) {
             console.error(`API call failed for action "${action}":`, error);
-            onFailure(error); // Call onFailure directly
-            throw error; // Re-throw to stop promise chain if needed
+            onFailure(error);
+            throw error;
         } finally {
             hideLoading();
+            _apiCallInProgress = false;
         }
     }
 
@@ -1831,6 +1845,8 @@
     // State & Initialization
     // ===========================================
     let isAdmin = false;
+    let adminSessionToken = null;   // HMAC token จาก server หลัง login สำเร็จ
+    let _apiCallInProgress = false; // ป้องกัน double submit
     let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], dashboardMetrics: {} };
     let categoryChartInstance = null;
     let topIssuedItemsChartInstance = null;
@@ -1848,9 +1864,11 @@
 
     // ✅ แก้ไข initializeApp (เวอร์ชันถูกต้อง)
     async function initializeApp(isFirstLoad = false) {
-        if (localStorage.getItem('ppe_admin_session') === 'true') {
+        const storedSession = localStorage.getItem('ppe_admin_session');
+        const storedToken = localStorage.getItem('ppe_admin_token');
+        if (storedSession === 'true' && storedToken) {
             isAdmin = true;
-            console.log("Auto-logged in as Admin");
+            adminSessionToken = storedToken;
         }
         // 👇👇 เพิ่มส่วนนี้: เช็คก่อนเลยว่าเข้ามาเพื่อยืนยันรับของไหม
         const params = new URLSearchParams(window.location.search);
@@ -1869,7 +1887,6 @@
             
             if (liff.isLoggedIn()) {
                 liffProfile = await liff.getProfile();
-                console.log("Logged in as:", liffProfile.displayName);
 
                 // ⭐⭐⭐ จุดสำคัญที่สุด ⭐⭐⭐
                 // ตรวจว่ามาจากปุ่ม "ยืนยันรับของ" หรือไม่
@@ -1922,13 +1939,18 @@
     
     // ค้นหา function onDataLoaded(data) { ... } แล้วเปลี่ยนไส้ในเป็นแบบนี้ครับ
     function onDataLoaded(data) {
-        console.log("Data loaded:", data); // ดูข้อมูลใน Console (กด F12) เพื่อเช็คความชัวร์
         currentData = data;
 
         // ป้องกัน Error กรณี Backend ลืมส่งค่าบางอย่างมา
         if (!currentData.dashboardMetrics) currentData.dashboardMetrics = {};
         if (!currentData.ppeItems) currentData.ppeItems = [];
         if (!currentData.issueVouchers) currentData.issueVouchers = [];
+        if (!currentData.loanTransactions) currentData.loanTransactions = [];
+        if (!currentData.receiveTransactions) currentData.receiveTransactions = [];
+        if (!currentData.categories) currentData.categories = [];
+        if (!currentData.feedbackData) currentData.feedbackData = [];
+        if (!currentData.ppeMatrix) currentData.ppeMatrix = [];
+        if (!currentData.ppeDocuments) currentData.ppeDocuments = [];
 
         window.departments = data.departments || [];
 
@@ -2316,45 +2338,39 @@
         e.preventDefault();
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
-        const remember = document.getElementById('rememberMe').checked; // ⭐ 1. รับค่า Checkbox
-        
-        showLoading();
+        const remember = document.getElementById('rememberMe').checked;
+
         callServerFunction('checkAdminCredentials', { username, password })
-            .then(isValid => {
-                hideLoading();
-                if (isValid) {
+            .then(token => {
+                if (token) {
                     isAdmin = true;
+                    adminSessionToken = token;
                     hideLoginModal();
-                    
-                    // ⭐⭐⭐ 2. เพิ่มส่วนนี้: ถ้าติ๊กถูก ให้บันทึกการจำค่า ⭐⭐⭐
+
                     if (remember) {
                         localStorage.setItem('ppe_admin_session', 'true');
-                        // บันทึกชื่อไว้โชว์สวยๆ (ถ้าต้องการ)
-                        localStorage.setItem('ppe_admin_name', username); 
+                        localStorage.setItem('ppe_admin_token', token);
+                        localStorage.setItem('ppe_admin_name', username);
                     }
-                    // ⭐⭐⭐ จบส่วนที่เพิ่ม ⭐⭐⭐
 
-                    updateUI(); 
+                    updateUI();
                     showPage('dashboard');
                     showToast('เข้าสู่ระบบ Admin สำเร็จ');
                 } else {
                     showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
                 }
             })
-            .catch(err => {
-                hideLoading();
+            .catch(() => {
                 showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
             });
     }
 
     function logout() {
         isAdmin = false;
-        
-        // ⭐⭐⭐ เพิ่มบรรทัดนี้: ล้างค่าจำฉัน ⭐⭐⭐
+        adminSessionToken = null;
         localStorage.removeItem('ppe_admin_session');
         localStorage.removeItem('ppe_admin_name');
-        // ⭐⭐⭐ ------------------------- ⭐⭐⭐
-
+        localStorage.removeItem('ppe_admin_token');
         updateUI();
         showPage('dashboard');
         showToast('ออกจากระบบแล้ว');
@@ -4179,8 +4195,6 @@
     let isConfirmingReceive = false;
 
     async function handleLiffConfirmReceive() {
-        console.log('🔥 handleLiffConfirmReceive CALLED');
-        
         // 1. อ่านค่าจาก URL และเก็บลง Session (กรณีเปิดลิงก์ครั้งแรก)
         const params = new URLSearchParams(window.location.search);
         const modeFromUrl = params.get('mode');
@@ -4806,7 +4820,6 @@
                 body: JSON.stringify({ message: safeMessage })
             });
 
-            console.log('ส่งไลน์เรียบร้อย');
         } catch (error) {
             console.error('ส่งไลน์ไม่ผ่าน:', error);
         }

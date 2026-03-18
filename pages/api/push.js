@@ -90,6 +90,11 @@ function createReceivedFlex({ voucher, items }) {
 // ==================
 // API Handler
 // ==================
+// ตรวจสอบ LINE userId format (ต้องขึ้นต้นด้วย U และยาว 33 ตัวอักษร)
+function isValidLineUserId(id) {
+  return typeof id === 'string' && /^U[0-9a-f]{32}$/.test(id);
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -102,6 +107,16 @@ export default async function handler(req, res) {
     type,
     voucherId
   } = req.body;
+
+  // ตรวจสอบ userId format
+  if (userId && !isValidLineUserId(userId)) {
+    return res.status(400).json({ error: 'Invalid userId format' });
+  }
+
+  // จำกัดความยาว message
+  if (message && message.length > 1000) {
+    return res.status(400).json({ error: 'Message too long (max 1000 characters)' });
+  }
 
   const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!CHANNEL_ACCESS_TOKEN) {
