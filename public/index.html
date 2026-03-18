@@ -1910,6 +1910,7 @@
 
         } catch (err) {
             console.error('LIFF/App Error:', err);
+            hideLoading();
             setupUserInterface();
         }
     }
@@ -4279,6 +4280,10 @@
         if (modeFromUrl === 'confirmReceive' && voucherIdFromUrl) {
             sessionStorage.setItem('confirm_mode', modeFromUrl);
             sessionStorage.setItem('confirm_voucher_id', voucherIdFromUrl);
+        } else if (!modeFromUrl) {
+            // ถ้า URL ไม่มี mode param เลย ล้าง stale sessionStorage ทิ้ง
+            sessionStorage.removeItem('confirm_mode');
+            sessionStorage.removeItem('confirm_voucher_id');
         }
 
         // 2. อ่านค่าจาก Session เพื่อใช้งาน
@@ -4299,10 +4304,12 @@
             // 3. ถามยืนยัน "ได้รับของแล้วใช่ไหม?"
             const confirm = await showConfirmationModal('ยืนยันรับของ', 'ยืนยันว่าคุณได้รับอุปกรณ์แล้วใช่หรือไม่?');
             
-            if (!confirm) { 
-                // ถ้ากด "ยกเลิก" -> จบการทำงาน (ไม่บังคับทำอะไรต่อ)
-                isConfirmingReceive = false; 
-                return; 
+            if (!confirm) {
+                // ถ้ากด "ยกเลิก" -> ล้าง session แล้วจบ
+                sessionStorage.removeItem('confirm_mode');
+                sessionStorage.removeItem('confirm_voucher_id');
+                isConfirmingReceive = false;
+                return;
             }
 
             // 4. เริ่มกระบวนการรับของ
