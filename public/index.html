@@ -228,12 +228,7 @@
 </head>
 <body class="antialiased">
 
-<div id="loadingOverlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] hidden">
-    <div class="text-center">
-        <i class="fas fa-spinner fa-spin text-4xl text-teal-600"></i>
-        <p class="mt-3 text-lg text-gray-700">กำลังโหลดข้อมูล...</p>
-    </div>
-</div>
+<!-- loadingOverlay is defined further below (single instance) -->
 
 <div id="toastContainer" class="fixed top-5 right-5 z-[90] space-y-3"></div>
 
@@ -810,10 +805,9 @@
                             <table class="w-full text-sm pending-card-table">
                                 <thead class="bg-gray-50 text-left">
                                     <tr>
-                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">เลขที่ใบเบิก</th>
-                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">วันที่</th>
-                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">ผู้เบิก</th>
-                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">แผนก</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">เลขที่ / วันที่</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">ผู้เบิก / แผนก</th>
+                                        <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">รายการ</th>
                                         <th class="px-6 py-4 font-semibold text-gray-600 uppercase tracking-wider text-center whitespace-nowrap">การดำเนินการ</th>
                                     </tr>
                                 </thead>
@@ -1231,64 +1225,7 @@
                         <p class="text-gray-500">ไม่พบข้อมูลมาตรฐานงานนี้</p>
                     </div>
 
-                    <div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 transition-opacity">
-                        <div class="bg-white w-full h-[90vh] sm:h-auto sm:max-h-[90vh] sm:max-w-lg rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up sm:animate-none">
-                            
-                            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white shrink-0">
-                                <h3 class="font-bold text-lg"><i class="fa-solid fa-shield-halved mr-2"></i>กำหนดมาตรฐาน</h3>
-                                <button onclick="document.getElementById('matrixRuleModal').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors">
-                                    <i class="fa-solid fa-times text-lg"></i>
-                                </button>
-                            </div>
-                            
-                            <form id="matrixRuleForm" class="p-5 space-y-5 overflow-y-auto flex-1 bg-gray-50 pb-safe" onsubmit="saveMatrixRule(event)">
-                                <input type="hidden" id="matrixId">
-                                
-                                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">1. ชื่องาน / พื้นที่ <span class="text-red-500">*</span></label>
-                                        <input type="text" id="matrixJob" required placeholder="เช่น งานเชื่อม, ขับ Forklift" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
-                                        <datalist id="jobSuggestions"></datalist>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-xs font-bold text-gray-700 mb-1">2. แผนก</label>
-                                            <input type="text" id="matrixDept" placeholder="เช่น PD, MTN" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-bold text-gray-700 mb-1">รายละเอียด</label>
-                                            <input type="text" id="matrixJobDesc" placeholder="คำอธิบายสั้นๆ" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-1">
-                                    <label class="block text-sm font-bold text-teal-700 mb-3 flex justify-between items-center">
-                                        <span><i class="fa-solid fa-kit-medical mr-2"></i>3. เลือกอุปกรณ์</span>
-                                        <span class="text-[10px] text-gray-400 font-normal">กดเพิ่มเพื่อเลือก</span>
-                                    </label>
-                                    
-                                    <div class="flex gap-2 mb-3">
-                                        <input type="text" id="matrixItemInput" placeholder="พิมพ์ชื่ออุปกรณ์..." class="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm" list="stockItemsList">
-                                        <datalist id="stockItemsList"></datalist>
-                                        <button type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-4 rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm">
-                                            <i class="fa-solid fa-plus"></i>
-                                        </button>
-                                    </div>
-
-                                    <div id="selectedMatrixItemsContainer" class="space-y-2.5 overflow-y-auto pr-1 min-h-[100px]">
-                                        <div class="text-center text-gray-400 py-8 text-xs bg-gray-50 rounded-lg border-2 border-dashed">รายการอุปกรณ์จะปรากฏที่นี่</div>
-                                    </div>
-                                </div>
-
-                                <div class="pt-2 sticky bottom-0 z-10 pb-safe bg-gray-50">
-                                    <button type="submit" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg shadow-teal-200 active:scale-95 text-base">
-                                        <i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <!-- matrixRuleModal is defined at the global level below to avoid duplicate IDs -->
 
                     <div id="pdfViewerModal" class="fixed inset-0 z-[100] hidden flex flex-col bg-black/95 backdrop-blur-md">
                         <div class="flex justify-between items-center p-4 text-white shrink-0">
@@ -1605,10 +1542,7 @@
     </div>
 </div>
 
-<div id="imagePreviewModal" class="fixed inset-0 bg-black/90 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="closeImagePreview()">
-    <button class="absolute top-6 right-6 text-white text-5xl hover:text-gray-300 transition-colors">&times;</button>
-    <img id="previewImage" src="" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-pulse">
-</div>
+<!-- imagePreviewModal (duplicate removed — correct version is defined below) -->
 
 <div id="timelineDetailModal" class="fixed inset-0 bg-gray-900/60 hidden items-center justify-center z-[60] backdrop-blur-sm px-4">
     <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-bounce-in">
@@ -1802,6 +1736,30 @@
                 <span>กรุณารีวิวให้ครบทุกชิ้น</span>
             </button>
         </div>
+    </div>
+</div>
+
+<!-- Upload Document Modal -->
+<div id="uploadDocModal" class="fixed inset-0 z-[90] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white">
+            <h3 class="font-bold text-lg"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>อัปโหลดเอกสาร</h3>
+            <button onclick="document.getElementById('uploadDocModal').classList.add('hidden')" class="text-white/80 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+        </div>
+        <form id="uploadDocForm" class="p-5 space-y-4" onsubmit="handleUploadDoc(event)">
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">ชื่อเอกสาร / ประกาศ <span class="text-red-500">*</span></label>
+                <input type="text" id="docTitle" required placeholder="เช่น ประกาศความปลอดภัยประจำเดือน มี.ค." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">ไฟล์ PDF <span class="text-red-500">*</span></label>
+                <input type="file" id="docFile" accept=".pdf" required class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
+                <p class="text-[10px] text-gray-400 mt-1">รองรับเฉพาะไฟล์ PDF ขนาดไม่เกิน 4 MB</p>
+            </div>
+            <button type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg transition-all active:scale-95">
+                <i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลด
+            </button>
+        </form>
     </div>
 </div>
 
@@ -2057,8 +2015,8 @@
 
             // 2. จัดการ Sidebar & Header
             if(sidebar) {
-                sidebar.classList.remove('hidden'); 
-                sidebar.classList.add('hidden', 'lg:flex'); 
+                sidebar.classList.remove('hidden');
+                sidebar.classList.add('lg:flex');
             }
             if(header) header.classList.remove('hidden'); 
 
@@ -2465,17 +2423,17 @@
     }
 
     function updateAdminUI() {
-        const adminElements = ['adminMenu', 'adminMenuMobile'];
+        const adminElements = ['adminMenu'];
         const loginElements = ['loginSection', 'loginSectionMobile'];
         const logoutElements = ['logoutSection', 'logoutSectionMobile'];
         if (isAdmin) {
-            adminElements.forEach(id => document.getElementById(id).classList.remove('hidden'));
-            loginElements.forEach(id => document.getElementById(id).classList.add('hidden'));
-            logoutElements.forEach(id => document.getElementById(id).classList.remove('hidden'));
+            adminElements.forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('hidden'); });
+            loginElements.forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
+            logoutElements.forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('hidden'); });
         } else {
-            adminElements.forEach(id => document.getElementById(id).classList.add('hidden'));
-            loginElements.forEach(id => document.getElementById(id).classList.remove('hidden'));
-            logoutElements.forEach(id => document.getElementById(id).classList.add('hidden'));
+            adminElements.forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
+            loginElements.forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('hidden'); });
+            logoutElements.forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
         }
     }
     function showLoginModal() { document.getElementById('loginModal').classList.remove('hidden'); }
@@ -2611,7 +2569,9 @@
         }).join('');
     }
     function updateCategoryChart() {
-        const ctx = document.getElementById('categoryChart').getContext('2d');
+        const chartEl = document.getElementById('categoryChart');
+        if (!chartEl) return;
+        const ctx = chartEl.getContext('2d');
         const categories = {};
         currentData.ppeItems.forEach(item => {
             if (item.category) {
@@ -3705,7 +3665,7 @@
     function autoFillUserIdentity() {
         if(liffProfile) {
             const u = document.getElementById('issueUser'); if(u) { u.value = liffProfile.displayName; u.readOnly = true; u.classList.add('bg-gray-100'); }
-            const b = document.getElementById('borrowerName'); if(b) { b.value = liffProfile.displayName; b.readOnly = true; b.classList.add('bg-gray-100'); }
+            const b = document.getElementById('loanUser'); if(b) { b.value = liffProfile.displayName; b.readOnly = true; b.classList.add('bg-gray-100'); }
         }
     }
 
@@ -5648,9 +5608,15 @@
     let tempMatrixItems = []; // เก็บ Array ของอุปกรณ์พร้อมรายละเอียด
 
     function initMatrixPage() {
+        // Reset dept filter dropdown so it repopulates with fresh data on each visit
+        const deptFilterEl = document.getElementById('matrixDeptFilter');
+        if (deptFilterEl) {
+            deptFilterEl.innerHTML = '<option value="">ทุกแผนก</option>';
+        }
+
         renderJobTags();
         renderMatrixGrid();
-        
+
         // Prepare Datalist
         const datalist = document.getElementById('stockItemsList');
         if (datalist) {
@@ -5666,92 +5632,6 @@
         } else {
             document.getElementById('btnAddMatrixRule').classList.add('hidden');
         }
-    }
-
-    // --- 1. Render Grid (หน้าแสดงผล) ---
-    // แก้ไขฟังก์ชันนี้ใน <script> ครับ
-    function renderMatrixGrid() {
-        const container = document.getElementById('matrixContentGrid');
-        const emptyState = document.getElementById('matrixEmptyState');
-        
-        // ⭐⭐⭐ จุดที่แก้: ใส่การเช็คว่ามี input ไหม ก่อนดึงค่า value ⭐⭐⭐
-        const searchInput = document.getElementById('matrixSearch');
-        const search = searchInput ? searchInput.value.toLowerCase() : ''; 
-        // -----------------------------------------------------------
-
-        // เรนเดอร์เอกสารก่อน (ถ้ามีฟังก์ชันนี้)
-        if(typeof renderDocumentsList === 'function') renderDocumentsList();
-
-        if (!container) return;
-        
-        let rules = currentData.ppeMatrix || [];
-
-        // Filter Logic
-        if (search) {
-            rules = rules.filter(r => 
-                r.job_function.toLowerCase().includes(search) || 
-                (r.department && r.department.toLowerCase().includes(search)) ||
-                (r.items_json && Array.isArray(r.items_json) && r.items_json.some(i => i.name.toLowerCase().includes(search)))
-            );
-        }
-
-        if (rules.length === 0) {
-            container.innerHTML = '';
-            if(emptyState) emptyState.classList.remove('hidden');
-            return;
-        }
-
-        if(emptyState) emptyState.classList.add('hidden');
-        
-        // Create Card HTML
-        container.innerHTML = rules.map(rule => {
-            // Unpack items (Safe mode)
-            let items = [];
-            if (Array.isArray(rule.items_json)) {
-                items = rule.items_json;
-            } else if (rule.item_id) {
-                 // Fallback for old data
-                 const oldItem = currentData.ppeItems.find(i => i.id == rule.item_id);
-                 if(oldItem) items.push({ name: oldItem.name, id: oldItem.id, props: rule.properties, lifespan: rule.lifespan });
-            }
-
-            const itemCount = items.length;
-
-            const adminControls = isAdmin ? `
-                <div class="absolute top-3 right-3 flex gap-1 z-20" onclick="event.stopPropagation()">
-                    <button onclick="editMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-blue-600 rounded shadow-sm hover:bg-blue-50"><i class="fas fa-edit"></i></button>
-                    <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-red-600 rounded shadow-sm hover:bg-red-50"><i class="fas fa-trash"></i></button>
-                </div>
-            ` : '';
-
-            return `
-            <div onclick="openMatrixDetail(${rule.id})" class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-teal-300 transition-all cursor-pointer relative overflow-hidden group h-full flex flex-col">
-                ${adminControls}
-                <div class="h-2 bg-gradient-to-r from-blue-500 to-teal-400"></div>
-                <div class="p-5 flex-1">
-                    <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-100 mb-2 inline-block">
-                        ${rule.department || 'General'}
-                    </span>
-                    <h4 class="font-bold text-gray-800 text-lg leading-tight mb-2 group-hover:text-teal-700 transition-colors">${rule.job_function}</h4>
-                    <p class="text-xs text-gray-500 line-clamp-2 h-8 mb-4">${rule.remark || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
-                    
-                    <div class="flex items-center gap-2">
-                        <div class="flex -space-x-2 overflow-hidden">
-                            ${items.slice(0, 4).map(i => {
-                                const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
-                                const src = real?.image_url || 'https://placehold.co/30?text=P';
-                                return `<img class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 object-cover" src="${src}" alt=""/>`;
-                            }).join('')}
-                        </div>
-                        <span class="text-xs text-gray-500 font-medium ml-2">${itemCount} รายการ</span>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-between items-center group-hover:bg-teal-50 transition-colors">
-                    <span class="text-xs font-bold text-teal-600">ดูรายละเอียด</span>
-                    <i class="fa-solid fa-arrow-right text-teal-600 text-xs transform group-hover:translate-x-1 transition-transform"></i>
-                </div>
-            </div>`;
-        }).join('');
     }
 
     // --- 2. Modal & Form Logic (Core Update) ---
@@ -6264,13 +6144,6 @@
         } finally {
             hideLoading();
         }
-    }
-
-    function openPdf(url, title) {
-        document.getElementById('pdfViewerTitle').textContent = title;
-        document.getElementById('pdfFrame').src = url + "#toolbar=0"; // Try to disable toolbar
-        document.getElementById('pdfDownloadLink').href = url;
-        document.getElementById('pdfViewerModal').classList.remove('hidden');
     }
 
     function closePdfViewer() {
