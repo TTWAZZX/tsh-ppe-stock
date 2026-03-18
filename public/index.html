@@ -1882,6 +1882,7 @@
     let isAdmin = false;
     let adminSessionToken = null;   // HMAC token จาก server หลัง login สำเร็จ
     let _apiCallInProgress = false; // ป้องกัน double submit
+    let _activePage = 'dashboard';  // จำหน้าปัจจุบัน
     let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], dashboardMetrics: {} };
     let categoryChartInstance = null;
     let topIssuedItemsChartInstance = null;
@@ -2124,7 +2125,8 @@
     }
 
     // แทนที่ฟังก์ชัน showPage เดิม
-    function showPage(pageName) { 
+    function showPage(pageName) {
+        _activePage = pageName;
         document.querySelectorAll('.page-container > .page').forEach(page => {
             if (page.id !== `${pageName}Page`) page.classList.add('hidden');
         });
@@ -4239,7 +4241,7 @@
 
             showToast('อนุมัติสำเร็จ');
             hideApprovalModal();
-            initializeApp();
+            await refreshData('pending');
         }
     }
 
@@ -4268,7 +4270,7 @@
 
             showToast('ปฏิเสธคำขอแล้ว');
             hideApprovalModal();
-            initializeApp();
+            await refreshData('pending');
         }
     }
 
@@ -4300,7 +4302,7 @@
 
         showToast('อนุมัติบางส่วนสำเร็จ');
         hideApprovalModal();
-        initializeApp();
+        await refreshData('pending');
     }
 
     let isConfirmingReceive = false;
@@ -4408,10 +4410,10 @@
             price: Number(document.getElementById('itemPrice').value || 0),
             imageUrl: document.getElementById('itemImage').value
         };
-        callServerFunction('savePpeItem', itemData).then(result => {
+        callServerFunction('savePpeItem', itemData).then(async result => {
             showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
             resetManageForm();
-            initializeApp();
+            await refreshData('manage');
         });
     }
 
@@ -4488,10 +4490,10 @@
             user: document.getElementById('receiveUser').value,
             department: document.getElementById('receiveDepartment').value,
         };
-        callServerFunction('addReceiveTransaction', transactionData).then(() => {
+        callServerFunction('addReceiveTransaction', transactionData).then(async () => {
             showToast('รับของเข้าสต็อกสำเร็จ');
             resetReceiveForm();
-            initializeApp();
+            await refreshData('receive');
         });
     }
 
@@ -4580,10 +4582,10 @@
         callServerFunction('saveCategory', {
             id: document.getElementById('editCategoryId').value || null,
             name: document.getElementById('categoryNameInput').value,
-        }).then(() => {
+        }).then(async () => {
             showToast('บันทึกหมวดหมู่สำเร็จ');
             resetCategoryForm();
-            initializeApp();
+            await refreshData('manage');
         });
     }
 
@@ -4591,9 +4593,9 @@
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
         const confirmed = await showConfirmationModal('ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่นี้?');
         if (confirmed) {
-            callServerFunction('deleteCategory', { categoryId }).then(() => {
+            callServerFunction('deleteCategory', { categoryId }).then(async () => {
                 showToast('ลบหมวดหมู่สำเร็จ');
-                initializeApp();
+                await refreshData('manage');
             });
         }
     }
@@ -4623,7 +4625,7 @@
                 }
 
                 showToast('รับคืนอุปกรณ์สำเร็จ');
-                initializeApp();
+                await refreshData('loan');
             });
         }
     }
@@ -5011,16 +5013,29 @@
     }
 
     // 🔄 ฟังก์ชันโหลดข้อมูลใหม่ (Refresh)
-    async function refreshDashboardData(btn) {
-        if(btn) btn.classList.add('fa-spin'); // หมุนไอคอน
+    // refreshData — light weight sync (ไม่ re-init LIFF, ไม่กลับหน้าแรก)
+    async function refreshData(targetPage) {
         try {
             const data = await callServerFunction('getInitialData');
             onDataLoaded(data);
+            if (targetPage) showPage(targetPage);
+            else showPage(_activePage); // คงอยู่หน้าเดิม
+        } catch(e) {
+            console.error('refreshData error:', e);
+        }
+    }
+
+    async function refreshDashboardData(btn) {
+        if(btn) { const icon = btn.querySelector('i'); if(icon) icon.classList.add('fa-spin'); }
+        try {
+            const data = await callServerFunction('getInitialData');
+            onDataLoaded(data);
+            showPage(_activePage);
             showToast('อัปเดตข้อมูลแล้ว');
         } catch(e) {
             showToast('อัปเดตไม่สำเร็จ', 'error');
         } finally {
-            if(btn) btn.classList.remove('fa-spin');
+            if(btn) { const icon = btn.querySelector('i'); if(icon) icon.classList.remove('fa-spin'); }
         }
     }
 
