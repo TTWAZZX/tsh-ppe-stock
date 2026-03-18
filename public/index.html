@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPE Stock Management System</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦺</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1884,6 +1885,7 @@
 
                 // ตรวจสอบ PDPA consent (ครั้งแรกที่ใช้งาน, ไม่ตรวจในโหมด admin)
                 if (!isAdmin && !localStorage.getItem('ppe_pdpa_accepted')) {
+                    hideLoading(); // ซ่อน loading ก่อนแสดง PDPA modal
                     const pdpaModal = document.getElementById('pdpaModal');
                     if (pdpaModal) pdpaModal.classList.remove('hidden');
                     return; // รอให้ยอมรับก่อนแล้วค่อย init ต่อ
@@ -1973,7 +1975,8 @@
         // ✅ หัวใจสำคัญ: สั่งให้หน้าจออัปเดตข้อมูลทันทีหลังจากโหลดเสร็จ
         updateUI(); 
         
-        // ✅ สำคัญมาก: ซ่อน Loading Skeleton (ตัวโหลดสีเทาๆ) เพื่อโชว์หน้าจริง
+        // ✅ สำคัญมาก: ซ่อน Loading Skeleton และ Loading Overlay
+        hideLoading();
         hideDashboardSkeleton();
     }
 
@@ -4283,7 +4286,7 @@
         const voucherId = sessionStorage.getItem('confirm_voucher_id');
 
         // ถ้าไม่ใช่โหมดรับของ หรือไม่มี ID ให้หยุด
-        if (mode !== 'confirmReceive' || !voucherId) return;
+        if (mode !== 'confirmReceive' || !voucherId) { hideLoading(); return; }
         if (isConfirmingReceive) return; // ป้องกันรันซ้ำ
 
         // ถ้ายังไม่ล็อกอิน ให้ไปล็อกอินก่อน
