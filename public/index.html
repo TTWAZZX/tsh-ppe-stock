@@ -1571,7 +1571,7 @@
   <div class="bg-white rounded-xl p-6 flex flex-col items-center gap-4 w-72">
     <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
     <div class="text-center">
-      <p class="font-semibold">กำลังยืนยันการรับของ</p>
+      <p class="font-semibold">กำลังดำเนินการ...</p>
       <p class="text-sm text-gray-500">กรุณารอสักครู่…</p>
     </div>
   </div>
@@ -1795,7 +1795,9 @@
             return;
         }
         _apiCallInProgress = true;
-        showLoading();
+        // ไม่แสดง overlay สำหรับ getInitialData (background data refresh)
+        const _showOverlay = action !== 'getInitialData';
+        if (_showOverlay) showLoading();
 
         // ส่ง admin token ไปกับทุก request เมื่อ login เป็น admin
         const bodyPayload = payload ? { ...payload } : {};
@@ -1830,7 +1832,7 @@
             onFailure(error);
             throw error;
         } finally {
-            hideLoading();
+            if (_showOverlay) hideLoading();
             _apiCallInProgress = false;
         }
     }
@@ -1910,8 +1912,11 @@
 
         } catch (err) {
             console.error('LIFF/App Error:', err);
-            hideLoading();
             setupUserInterface();
+        } finally {
+            // ล้าง overlay เสมอ ไม่ว่าจะสำเร็จหรือ error
+            hideLoading();
+            hideDashboardSkeleton();
         }
     }
 
@@ -2320,9 +2325,13 @@
     // ===========================================
     // UI Control & Helpers
     // ===========================================
-    function showLoading() {
+    function showLoading(message = 'กำลังดำเนินการ...') {
         const el = document.getElementById('loadingOverlay');
-        if (el) el.classList.remove('hidden');
+        if (el) {
+            const titleEl = el.querySelector('p.font-semibold');
+            if (titleEl) titleEl.textContent = message;
+            el.classList.remove('hidden');
+        }
     }
 
     function hideLoading() {
@@ -4313,7 +4322,7 @@
             }
 
             // 4. เริ่มกระบวนการรับของ
-            showLoading(); // ล็อคจออีกครั้ง
+            showLoading('กำลังยืนยันการรับของ'); // ล็อคจออีกครั้ง
             const profile = await liff.getProfile();
 
             // ยิง API ยืนยันรับของ (Backend)
