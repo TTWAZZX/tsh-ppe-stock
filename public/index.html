@@ -1208,11 +1208,14 @@
                                 <p class="text-sm text-gray-500 mt-1">คลิกที่การ์ดเพื่อดูรายละเอียดอุปกรณ์ทั้งหมด</p>
                             </div>
                             
-                            <div class="flex gap-2 w-full md:w-auto">
-                                <div class="relative flex-1 md:w-64">
+                            <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                                <div class="relative flex-1 min-w-[160px] md:w-64">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" id="matrixSearch" oninput="renderMatrixGrid()" placeholder="ค้นหางาน..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                    <input type="text" id="matrixSearch" oninput="renderMatrixGrid()" placeholder="ค้นหางาน..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
                                 </div>
+                                <select id="matrixDeptFilter" onchange="renderMatrixGrid()" class="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm bg-white text-gray-700">
+                                    <option value="">ทุกแผนก</option>
+                                </select>
                                 <button id="btnAddMatrixRule" onclick="openMatrixModal()" class="hidden px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-sm whitespace-nowrap">
                                     <i class="fa-solid fa-plus"></i> เพิ่มกฎ
                                 </button>
@@ -1221,7 +1224,7 @@
                         <div class="mt-4 flex flex-wrap gap-2" id="jobTagsContainer"></div>
                     </div>
 
-                    <div id="matrixContentGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                    <div id="matrixContentGrid" class="space-y-6"></div>
                     
                     <div id="matrixEmptyState" class="hidden flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-dashed border-gray-200">
                         <i class="fa-solid fa-helmet-safety text-4xl text-gray-300 mb-2"></i>
@@ -1344,8 +1347,8 @@
                             </div>
 
                             <div class="p-4 border-t border-gray-200 bg-white shrink-0 pb-safe">
-                                <button onclick="showPage('issue'); closeMatrixDetail()" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 active:scale-95 transition-all text-base flex items-center justify-center gap-2">
-                                    <span>เบิกอุปกรณ์ชุดนี้</span> <i class="fa-solid fa-arrow-right"></i>
+                                <button id="matrixIssueBtn" onclick="issueFromMatrix()" class="w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 active:scale-95 transition-all text-base flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-paper-plane"></i> <span>เบิกอุปกรณ์ชุดนี้</span>
                                 </button>
                             </div>
                         </div>
@@ -5939,106 +5942,175 @@
     // 📄 DOCUMENT & MATRIX UX LOGIC (V4)
     // ==========================================
 
-    // 1. ฟังก์ชัน Render หน้า Matrix (ปรับปรุงให้คลิกแล้วเปิด Modal)
+    // 1. ฟังก์ชัน Render หน้า Matrix — group by dept + stock badge + dept filter
     function renderMatrixGrid() {
         const container = document.getElementById('matrixContentGrid');
         const emptyState = document.getElementById('matrixEmptyState');
-        const search = document.getElementById('matrixSearch').value.toLowerCase();
-        
-        // ... (Render Documents ก่อน) ...
-        renderDocumentsList();
+        const searchInput = document.getElementById('matrixSearch');
+        const deptFilterEl = document.getElementById('matrixDeptFilter');
+        const search = searchInput ? searchInput.value.toLowerCase() : '';
+        const deptFilter = deptFilterEl ? deptFilterEl.value : '';
 
+        renderDocumentsList();
         if (!container) return;
-        
-        let rules = currentData.ppeMatrix || [];
-        // ... (Filter Logic เดิม) ...
-        if (search) {
-            rules = rules.filter(r => 
-                r.job_function.toLowerCase().includes(search) || 
-                (r.department && r.department.toLowerCase().includes(search))
-            );
+
+        let allRules = currentData.ppeMatrix || [];
+
+        // Populate dept dropdown (ครั้งแรก)
+        if (deptFilterEl && deptFilterEl.options.length <= 1) {
+            const depts = [...new Set(allRules.map(r => r.department || 'ทั่วไป').filter(Boolean))].sort();
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d; opt.textContent = d;
+                deptFilterEl.appendChild(opt);
+            });
         }
+
+        // Filter
+        let rules = allRules.filter(r => {
+            const items = Array.isArray(r.items_json) ? r.items_json : [];
+            const matchSearch = !search ||
+                r.job_function.toLowerCase().includes(search) ||
+                (r.department && r.department.toLowerCase().includes(search)) ||
+                items.some(i => i.name && i.name.toLowerCase().includes(search));
+            const matchDept = !deptFilter || (r.department || 'ทั่วไป') === deptFilter;
+            return matchSearch && matchDept;
+        });
 
         if (rules.length === 0) {
             container.innerHTML = '';
-            if(emptyState) emptyState.classList.remove('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
             return;
         }
-        if(emptyState) emptyState.classList.add('hidden');
-        
-        // Create Card HTML
-        container.innerHTML = rules.map(rule => {
-            // Unpack items
-            let items = Array.isArray(rule.items_json) ? rule.items_json : [];
-            // Count items
-            const itemCount = items.length;
-            const previewItems = items.slice(0, 3).map(i => i.name).join(', ');
-            const moreCount = itemCount > 3 ? `... (+${itemCount - 3})` : '';
+        if (emptyState) emptyState.classList.add('hidden');
 
-            // Admin Buttons (Stop Propagation เพื่อไม่ให้เปิด Modal ตอนกดแก้ไข)
+        // Helper: สร้าง card HTML
+        function buildCard(rule) {
+            let items = Array.isArray(rule.items_json) ? rule.items_json : [];
+            const itemCount = items.length;
+
+            // ตรวจสอบ stock
+            const outOfStock = items.filter(i => {
+                const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
+                return real && Number(real.stock) === 0;
+            });
+            const stockBadge = outOfStock.length > 0
+                ? `<span class="absolute top-3 left-3 z-10 flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full border border-red-200">
+                       <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> ของไม่ครบ ${outOfStock.length} รายการ
+                   </span>`
+                : '';
+
             const adminControls = isAdmin ? `
                 <div class="absolute top-3 right-3 flex gap-1 z-20" onclick="event.stopPropagation()">
                     <button onclick="editMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-blue-600 rounded shadow-sm hover:bg-blue-50"><i class="fas fa-edit"></i></button>
                     <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-red-600 rounded shadow-sm hover:bg-red-50"><i class="fas fa-trash"></i></button>
-                </div>
-            ` : '';
+                </div>` : '';
 
-            // Card Click -> openMatrixDetail(id)
             return `
-            <div onclick="openMatrixDetail(${rule.id})" class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-teal-300 transition-all cursor-pointer relative overflow-hidden group h-full flex flex-col">
+            <div onclick="openMatrixDetail(${rule.id})" class="bg-white rounded-xl border ${outOfStock.length > 0 ? 'border-red-100' : 'border-gray-200'} shadow-sm hover:shadow-lg hover:border-teal-300 transition-all cursor-pointer relative overflow-hidden group flex flex-col h-full">
+                ${stockBadge}
                 ${adminControls}
-                <div class="h-2 bg-gradient-to-r from-blue-500 to-teal-400"></div>
-                <div class="p-5 flex-1">
-                    <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-100 mb-2 inline-block">
-                        ${rule.department || 'General'}
-                    </span>
-                    <h4 class="font-bold text-gray-800 text-lg leading-tight mb-2 group-hover:text-teal-700 transition-colors">${rule.job_function}</h4>
-                    <p class="text-xs text-gray-500 line-clamp-2 h-8 mb-4">${rule.remark || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
-                    
+                <div class="h-1.5 bg-gradient-to-r from-teal-500 to-blue-500"></div>
+                <div class="p-4 flex-1 ${outOfStock.length > 0 ? 'pt-9' : ''}">
+                    <h4 class="font-bold text-gray-800 text-base leading-tight mb-1 group-hover:text-teal-700 transition-colors">${rule.job_function}</h4>
+                    <p class="text-xs text-gray-400 line-clamp-2 mb-4">${rule.remark || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
                     <div class="flex items-center gap-2">
                         <div class="flex -space-x-2 overflow-hidden">
                             ${items.slice(0, 4).map(i => {
                                 const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
                                 const src = real?.image_url || 'https://placehold.co/30?text=P';
-                                return `<img class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 object-cover" src="${src}" alt=""/>`;
+                                const isOut = real && Number(real.stock) === 0;
+                                return `<img class="inline-block h-7 w-7 rounded-full ring-2 ring-white bg-gray-100 object-cover ${isOut ? 'opacity-40 grayscale' : ''}" src="${src}" alt=""/>`;
                             }).join('')}
                         </div>
-                        <span class="text-xs text-gray-500 font-medium ml-2">${itemCount} รายการ</span>
+                        <span class="text-xs text-gray-500 ml-1">${itemCount} รายการ</span>
                     </div>
                 </div>
-                <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-between items-center group-hover:bg-teal-50 transition-colors">
+                <div class="bg-gray-50 px-4 py-2.5 border-t border-gray-100 flex justify-between items-center group-hover:bg-teal-50 transition-colors">
                     <span class="text-xs font-bold text-teal-600">ดูรายละเอียด</span>
-                    <i class="fa-solid fa-arrow-right text-teal-600 text-xs transform group-hover:translate-x-1 transition-transform"></i>
+                    <i class="fa-solid fa-arrow-right text-teal-500 text-xs group-hover:translate-x-1 transition-transform"></i>
                 </div>
             </div>`;
-        }).join('');
+        }
+
+        // Group by department
+        const groups = {};
+        rules.forEach(r => {
+            const dept = r.department || 'ทั่วไป';
+            if (!groups[dept]) groups[dept] = [];
+            groups[dept].push(r);
+        });
+
+        const deptKeys = Object.keys(groups).sort();
+        const isSingleGroup = deptKeys.length === 1;
+
+        container.innerHTML = deptKeys.map(dept => `
+            <div>
+                ${!isSingleGroup ? `
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fa-solid fa-building text-teal-500 text-xs"></i>${dept}
+                    </span>
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                    <span class="text-xs text-gray-400">${groups[dept].length} งาน</span>
+                </div>` : ''}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    ${groups[dept].map(buildCard).join('')}
+                </div>
+            </div>
+        `).join('');
     }
 
-    // 2. Detail Modal Logic (UX ใหม่)
+    // 2. Detail Modal Logic
+    let _currentMatrixRuleId = null;
+
     function openMatrixDetail(ruleId) {
         const rule = currentData.ppeMatrix.find(r => r.id == ruleId);
         if (!rule) return;
 
+        _currentMatrixRuleId = ruleId;
+
         document.getElementById('detailJob').textContent = rule.job_function;
-        document.getElementById('detailDept').textContent = rule.department || 'General';
+        document.getElementById('detailDept').textContent = rule.department || 'ทั่วไป';
         document.getElementById('detailDesc').textContent = rule.remark || 'ไม่ได้ระบุรายละเอียดลักษณะงาน';
 
         let items = Array.isArray(rule.items_json) ? rule.items_json : [];
+
+        // ตรวจสอบว่ามีของครบไหม — ถ้าไม่มีให้ปิดปุ่มเบิก
+        const hasAllStock = items.every(i => {
+            const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
+            return !real || Number(real.stock) > 0;
+        });
+        const issueBtn = document.getElementById('matrixIssueBtn');
+        if (issueBtn) {
+            issueBtn.disabled = false;
+            issueBtn.className = 'w-full py-3.5 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 active:scale-95 transition-all text-base flex items-center justify-center gap-2';
+            issueBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> <span>เบิกอุปกรณ์ชุดนี้</span>';
+        }
+
         const grid = document.getElementById('detailItemsGrid');
-        
         grid.innerHTML = items.map(i => {
             const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
             const img = real?.image_url || 'https://placehold.co/100?text=PPE';
-            
+            const stock = real ? Number(real.stock) : null;
+            const isOut = stock === 0;
+            const isLow = stock !== null && stock > 0 && stock <= Number(real?.reorderPoint || 0);
+
+            let stockBadge = '';
+            if (isOut) stockBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-circle-xmark text-[9px]"></i>หมดสต็อก</span>`;
+            else if (isLow) stockBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i>เหลือน้อย (${stock})</span>`;
+            else if (stock !== null) stockBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-circle-check text-[9px]"></i>พร้อม (${stock})</span>`;
+
             return `
-            <div class="bg-white p-3 rounded-xl border border-gray-200 flex gap-3 items-start shadow-sm">
-                <img src="${img}" class="w-14 h-14 rounded-lg object-cover bg-gray-50 border border-gray-100 shrink-0">
-                <div class="min-w-0">
+            <div class="bg-white p-3 rounded-xl border ${isOut ? 'border-red-100 opacity-60' : 'border-gray-200'} flex gap-3 items-start shadow-sm">
+                <img src="${img}" class="w-14 h-14 rounded-lg object-contain bg-gray-50 border border-gray-100 shrink-0 ${isOut ? 'grayscale' : ''}">
+                <div class="min-w-0 flex-1">
                     <h5 class="font-bold text-gray-800 text-sm truncate">${i.name}</h5>
                     <div class="text-xs text-gray-500 mt-1 space-y-0.5">
                         <p><i class="fa-solid fa-shield-halved w-4 text-center text-teal-500"></i> ${i.props || '-'}</p>
                         <p><i class="fa-solid fa-clock w-4 text-center text-blue-500"></i> ${i.lifespan || '-'}</p>
                     </div>
+                    <div class="mt-2">${stockBadge}</div>
                 </div>
             </div>`;
         }).join('');
@@ -6048,6 +6120,43 @@
 
     function closeMatrixDetail() {
         document.getElementById('matrixDetailModal').classList.add('hidden');
+        _currentMatrixRuleId = null;
+    }
+
+    // Pre-fill issue form จาก matrix rule
+    function issueFromMatrix() {
+        if (!_currentMatrixRuleId) return;
+        const rule = currentData.ppeMatrix.find(r => r.id == _currentMatrixRuleId);
+        if (!rule) return;
+
+        const items = Array.isArray(rule.items_json) ? rule.items_json : [];
+        const availableItems = items.filter(i => {
+            const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
+            return real && Number(real.stock) > 0;
+        });
+
+        if (availableItems.length === 0) {
+            showToast('อุปกรณ์ทุกรายการหมดสต็อก', 'error');
+            return;
+        }
+
+        closeMatrixDetail();
+        showPage('issue');
+
+        // รอให้หน้า issue render ก่อน แล้วค่อย pre-fill
+        setTimeout(() => {
+            const container = document.getElementById('issueItemsContainer');
+            if (container) container.innerHTML = '';
+            availableItems.forEach(i => {
+                const real = currentData.ppeItems.find(p => p.id == i.id);
+                if (real) addIssueRow(real);
+            });
+            if (availableItems.length < items.length) {
+                showToast(`เพิ่ม ${availableItems.length}/${items.length} รายการ (บางรายการหมดสต็อก)`, 'warning');
+            } else {
+                showToast(`เพิ่ม ${availableItems.length} รายการในใบเบิกแล้ว`, 'success');
+            }
+        }, 100);
     }
 
     // 3. Document Logic (Announcements)
