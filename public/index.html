@@ -229,6 +229,48 @@
 </head>
 <body class="antialiased">
 
+<!-- ✅ Splash Screen — แสดงทันทีที่เปิดแอป ก่อน LIFF/data โหลด -->
+<div id="splashScreen" class="fixed inset-0 z-[200] flex flex-col items-center justify-center select-none"
+     style="background: linear-gradient(160deg, #0f766e 0%, #0d9488 45%, #0891b2 100%);">
+
+  <div class="flex flex-col items-center gap-5 px-8 text-center">
+    <!-- Icon -->
+    <div class="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-2xl" style="animation: splashPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">
+      <i class="fa-solid fa-shield-halved text-5xl text-teal-600"></i>
+    </div>
+
+    <!-- App Name -->
+    <div style="animation: splashFadeUp 0.5s ease 0.15s both;">
+      <h1 class="text-4xl font-bold text-white tracking-wide">PPE Stock</h1>
+      <p class="text-teal-100 text-xs mt-1 tracking-widest uppercase">ระบบจัดการอุปกรณ์ความปลอดภัย</p>
+    </div>
+
+    <!-- Status -->
+    <div class="flex flex-col items-center gap-3 mt-2" style="animation: splashFadeUp 0.5s ease 0.3s both;">
+      <div class="w-9 h-9 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+      <p id="splashStatus" class="text-white/80 text-sm font-medium">กำลังเริ่มต้นระบบ…</p>
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="absolute bottom-10 left-8 right-8" style="animation: splashFadeUp 0.5s ease 0.4s both;">
+    <div class="w-full bg-white/20 rounded-full h-1">
+      <div id="splashProgress" class="h-1 bg-white rounded-full" style="width:5%; transition: width 0.7s ease-in-out;"></div>
+    </div>
+    <p class="text-center text-teal-200/50 text-xs mt-3">TSH · โรงพยาบาลทั่วไปขนาดเล็ก</p>
+  </div>
+</div>
+
+<style>
+@keyframes splashPop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes splashFadeUp {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+</style>
 <!-- loadingOverlay is defined further below (single instance) -->
 
 <div id="toastContainer" class="fixed top-5 right-5 z-[90] space-y-3"></div>
@@ -1872,22 +1914,24 @@
         const isConfirmMode = params.get('mode') === 'confirmReceive';
 
         if (isConfirmMode) {
-            showLoading(); // 🔒 ล็อคหน้าจอทันที (แสดง Loading Overlay)
+            showLoading('กำลังยืนยันการรับของ'); // 🔒 ล็อคหน้าจอทันที
         } else if (isFirstLoad) {
             showDashboardSkeleton(); // ถ้าเข้าปกติ ค่อยโชว์ Skeleton
         }
-        // 👆👆 จบส่วนที่เพิ่ม
-        
+
         try {
             // 1. Initialize LIFF
+            updateSplashStatus('กำลังเชื่อมต่อ LINE…', 25);
             await liff.init({ liffId: LIFF_ID });
-            
+
             if (liff.isLoggedIn()) {
+                updateSplashStatus('กำลังตรวจสอบสิทธิ์…', 55);
                 liffProfile = await liff.getProfile();
 
                 // ตรวจสอบ PDPA consent (ครั้งแรกที่ใช้งาน, ไม่ตรวจในโหมด admin)
                 if (!isAdmin && !localStorage.getItem('ppe_pdpa_accepted')) {
-                    hideLoading(); // ซ่อน loading ก่อนแสดง PDPA modal
+                    hideLoading();
+                    hideSplash(); // ซ่อน splash ก่อนแสดง PDPA modal
                     const pdpaModal = document.getElementById('pdpaModal');
                     if (pdpaModal) pdpaModal.classList.remove('hidden');
                     return; // รอให้ยอมรับก่อนแล้วค่อย init ต่อ
@@ -1902,11 +1946,13 @@
                     setupUserInterface();
                 }
             } else {
+                updateSplashStatus('กำลังเปลี่ยนเส้นทางไป LINE…', 40);
                 liff.login(); // บังคับ Login ถ้าเปิดผ่าน External Browser
                 return; // สำคัญ: หยุดไว้ก่อน
             }
 
-            // 2. Load Data (Logic เดิม)
+            // 2. Load Data
+            updateSplashStatus('กำลังโหลดข้อมูล…', 80);
             const data = await callServerFunction('getInitialData');
             onDataLoaded(data);
 
@@ -1914,9 +1960,10 @@
             console.error('LIFF/App Error:', err);
             setupUserInterface();
         } finally {
-            // ล้าง overlay เสมอ ไม่ว่าจะสำเร็จหรือ error
+            // ล้าง overlay + splash เสมอ ไม่ว่าจะสำเร็จหรือ error
             hideLoading();
             hideDashboardSkeleton();
+            hideSplash();
         }
     }
 
@@ -2337,6 +2384,25 @@
     function hideLoading() {
         const el = document.getElementById('loadingOverlay');
         if (el) el.classList.add('hidden');
+    }
+
+    // ===== Splash Screen Helpers =====
+    function updateSplashStatus(text, progress) {
+        const statusEl = document.getElementById('splashStatus');
+        if (statusEl) statusEl.textContent = text;
+        const progressEl = document.getElementById('splashProgress');
+        if (progressEl) progressEl.style.width = progress + '%';
+    }
+
+    function hideSplash() {
+        const el = document.getElementById('splashScreen');
+        if (!el || el.classList.contains('hidden')) return;
+        updateSplashStatus('พร้อมใช้งาน!', 100);
+        setTimeout(() => {
+            el.style.transition = 'opacity 0.45s ease-out';
+            el.style.opacity = '0';
+            setTimeout(() => el.classList.add('hidden'), 450);
+        }, 200);
     }
 
     // แก้ไขไม่ให้ Error ถ้าหา Element ไม่เจอ
