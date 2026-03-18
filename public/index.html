@@ -1430,7 +1430,11 @@
             
             <div class="relative group">
                 <a onclick="toggleMobileAdminMenu()" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
-                    <i class="fa-solid fa-bars text-xl mb-1"></i> <span>เมนู</span>
+                    <span class="relative inline-block">
+                        <i class="fa-solid fa-bars text-xl mb-1"></i>
+                        <span id="pendingBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
+                    </span>
+                    <span>เมนู</span>
                 </a>
                 
                 <div id="mobileMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
@@ -1507,6 +1511,34 @@
 
 <div id="voucherModal" class="fixed inset-0 bg-black/50 modal-backdrop flex items-center justify-center z-50 hidden"></div>
 <div id="approvalModal" class="fixed inset-0 bg-black/50 modal-backdrop flex items-center justify-center z-50 hidden"></div>
+
+<!-- PDPA Consent Modal -->
+<div id="pdpaModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[100] hidden backdrop-blur-sm">
+    <div class="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 sm:p-8 mx-0 sm:mx-4 animate-slide-up">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-shield-halved text-teal-600 text-lg"></i>
+            </div>
+            <h2 class="text-lg font-bold text-gray-900">นโยบายความเป็นส่วนตัว (PDPA)</h2>
+        </div>
+        <p class="text-sm text-gray-600 mb-3 leading-relaxed">
+            ระบบนี้เก็บรวบรวมข้อมูลส่วนบุคคลของท่าน ได้แก่ ชื่อ-นามสกุล และ LINE User ID เพื่อวัตถุประสงค์ในการบริหารจัดการอุปกรณ์ PPE ภายในองค์กร โดยแผนก Safety เป็นผู้ดูแลข้อมูล
+        </p>
+        <ul class="text-xs text-gray-500 space-y-1 mb-5 pl-4 list-disc">
+            <li>ข้อมูลใช้เฉพาะภายในองค์กรเท่านั้น ไม่เปิดเผยแก่บุคคลภายนอก</li>
+            <li>ท่านสามารถขอตรวจสอบ แก้ไข หรือลบข้อมูลได้โดยติดต่อแผนก Safety</li>
+            <li>การใช้งานระบบถือว่าท่านยอมรับนโยบายนี้</li>
+        </ul>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button onclick="acceptPdpa()" class="flex-1 py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 active:scale-95 transition-all shadow-md">
+                <i class="fa-solid fa-check mr-2"></i>ยอมรับและใช้งาน
+            </button>
+            <button onclick="window.close ? window.close() : liff.closeWindow()" class="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 active:scale-95 transition-all">
+                ปฏิเสธ / ออก
+            </button>
+        </div>
+    </div>
+</div>
 
 <div id="confirmationModal" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
@@ -1888,6 +1920,13 @@
             if (liff.isLoggedIn()) {
                 liffProfile = await liff.getProfile();
 
+                // ตรวจสอบ PDPA consent (ครั้งแรกที่ใช้งาน, ไม่ตรวจในโหมด admin)
+                if (!isAdmin && !localStorage.getItem('ppe_pdpa_accepted')) {
+                    const pdpaModal = document.getElementById('pdpaModal');
+                    if (pdpaModal) pdpaModal.classList.remove('hidden');
+                    return; // รอให้ยอมรับก่อนแล้วค่อย init ต่อ
+                }
+
                 // ⭐⭐⭐ จุดสำคัญที่สุด ⭐⭐⭐
                 // ตรวจว่ามาจากปุ่ม "ยืนยันรับของ" หรือไม่
                 await handleLiffConfirmReceive();
@@ -1911,6 +1950,14 @@
         }
     }
 
+
+    function acceptPdpa() {
+        localStorage.setItem('ppe_pdpa_accepted', '1');
+        const modal = document.getElementById('pdpaModal');
+        if (modal) modal.classList.add('hidden');
+        // init ต่อจากที่ค้างไว้
+        initializeApp(false);
+    }
 
     // ฟังก์ชันจัดหน้าจอสำหรับ User ทั่วไป
     function setupUserInterface() {
@@ -1965,10 +2012,12 @@
     }
 
     function onFailure(error) {
-        // The error is already logged in callServerFunction, so we just update the UI
         hideLoading();
         hideDashboardSkeleton();
-        showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+        // แสดงเฉพาะ Thai business error — ซ่อน technical details
+        const isSafeMessage = error.message && /^[ก-๙]|^ไม่|^สต็อก|^อุปกรณ์|^ใบเบิก|^รองรับ|^ข้อมูล|^ไฟล์/.test(error.message);
+        const msg = isSafeMessage ? error.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+        showToast(msg, 'error');
     }
 
     function updateUI() {
@@ -2050,6 +2099,21 @@
         if(typeof renderCategoryList === 'function') renderCategoryList();
 
         renderFeedbackSection();
+        updatePendingBadge();
+    }
+
+    // แสดง badge จำนวน pending บนปุ่มเมนู mobile (เฉพาะ Admin)
+    function updatePendingBadge() {
+        const badge = document.getElementById('pendingBadge');
+        if (!badge) return;
+        if (!isAdmin) { badge.classList.add('hidden'); return; }
+        const count = (currentData.issueVouchers || []).filter(v => v.status === 'pending').length;
+        if (count > 0) {
+            badge.textContent = count > 9 ? '9+' : String(count);
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
     }
 
     // แทนที่ฟังก์ชัน showPage เดิม
@@ -2060,9 +2124,15 @@
         const pageElement = document.getElementById(pageName + 'Page');
         if (pageElement) pageElement.classList.remove('hidden');
 
-        // จัดการ Active Tab
+        // จัดการ Active Tab — ลบออกทุกอัน แล้ว highlight เฉพาะ page ปัจจุบัน
         document.querySelectorAll('.nav-item, .nav-item-mobile').forEach(item => {
             item.classList.remove('bg-teal-50', 'text-teal-600', 'font-bold');
+        });
+        document.querySelectorAll('.nav-item, .nav-item-mobile').forEach(item => {
+            const onclick = item.getAttribute('onclick') || '';
+            if (onclick.includes(`showPage('${pageName}')`)) {
+                item.classList.add('text-teal-600', 'font-bold');
+            }
         });
 
         // ⭐⭐⭐ ส่วนที่เพิ่มสำหรับหน้า Report ⭐⭐⭐
@@ -2302,9 +2372,13 @@
     function showToast(message, type = 'success') {
         const toastContainer = document.getElementById('toastContainer');
         const toast = document.createElement('div');
-        const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-        const bgColor = type === 'success' ? 'bg-teal-500' : 'bg-red-500';
-        toast.className = `toast p-4 rounded-lg shadow-lg text-white ${bgColor} flex items-center space-x-3`;
+        const config = {
+            success: { icon: 'fa-check-circle',          bg: 'bg-teal-500'   },
+            error:   { icon: 'fa-exclamation-circle',    bg: 'bg-red-500'    },
+            warning: { icon: 'fa-triangle-exclamation',  bg: 'bg-yellow-500' },
+        };
+        const { icon, bg } = config[type] || config.error;
+        toast.className = `toast p-4 rounded-lg shadow-lg text-white ${bg} flex items-center space-x-3`;
         toast.innerHTML = `<i class="fas ${icon} text-xl"></i><span>${message}</span>`;
         toastContainer.appendChild(toast);
         setTimeout(() => {
@@ -2672,13 +2746,17 @@
                         </h4>
                     </div>
 
-                    <div class="mt-auto pt-2 border-t border-gray-100 flex items-end justify-between">
+                    <div class="mt-auto pt-2 border-t border-gray-100 flex items-end justify-between gap-2">
                         <div>
                             <p class="text-[10px] text-gray-400">คงเหลือ</p>
                             <p class="text-sm sm:text-lg font-bold ${stock === 0 ? 'text-red-500' : 'text-gray-800'}">
                                 ${stock} <span class="text-[10px] font-normal text-gray-500">${item.unit}</span>
                             </p>
                         </div>
+                        ${!isAdmin && stock > 0 ? `
+                        <button onclick="showPage('issue'); event.stopPropagation();" class="flex-shrink-0 flex items-center gap-1 px-2 py-1 bg-teal-600 text-white text-[10px] font-bold rounded-lg hover:bg-teal-700 active:scale-95 transition-all shadow-sm">
+                            <i class="fas fa-paper-plane text-[9px]"></i> ขอเบิก
+                        </button>` : ''}
                     </div>
                 </div>
             </div>`;
@@ -2845,10 +2923,17 @@
             
             const reasonText = voucher.reason || 'เบิกทั่วไป';
 
+            const hoursWaiting = Math.floor((Date.now() - new Date(voucher.timestamp)) / 3600000);
+            const ageBadge = hoursWaiting >= 24
+                ? `<span class="inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-fire text-[9px]"></i> ${hoursWaiting}ชม.</span>`
+                : hoursWaiting >= 4
+                ? `<span class="inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-clock text-[9px]"></i> ${hoursWaiting}ชม.</span>`
+                : '';
+
             return `
             <tr class="hover:bg-gray-50 transition-colors border-b">
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-bold text-teal-600">#${voucher.id}</div>
+                    <div class="text-sm font-bold text-teal-600 flex items-center flex-wrap">#${voucher.id}${ageBadge}</div>
                     <div class="text-xs text-gray-500">
                         <i class="fa-regular fa-calendar mr-1"></i>
                         ${new Date(voucher.timestamp).toLocaleDateString('th-TH', { dateStyle: 'medium' })}

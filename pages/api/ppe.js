@@ -13,8 +13,11 @@ const supabase = createClient(
 // ตั้งค่า admin จาก env (แทน ScriptProperties)
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_BASE64 = process.env.ADMIN_PASSWORD_BASE64 || null;
+const ADMIN_PASSWORD_SCRYPT = process.env.ADMIN_PASSWORD_SCRYPT || null; // ใหม่: scrypt hash
 // SESSION_SECRET ต้องตั้งค่าใน Vercel Environment Variables ด้วย (สุ่ม string ยาวๆ)
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 นาที
+const MAX_LOGIN_FAILURES = 5;
 
 // Actions ที่ต้องเป็น Admin เท่านั้น
 const ADMIN_ONLY_ACTIONS = new Set([
@@ -56,6 +59,11 @@ export default async function handler(req, res) {
       }
     }
 
+    // ดึง actor สำหรับ audit log
+    const actor = ADMIN_ONLY_ACTIONS.has(action)
+      ? extractUsernameFromToken(payload?.adminToken)
+      : (payload?.userId || payload?.user || 'anonymous');
+
     let result;
 
     switch (action) {
@@ -65,83 +73,99 @@ export default async function handler(req, res) {
 
       case 'saveCategory':
         result = await saveCategory(payload);
+        await writeAuditLog(actor, 'saveCategory', 'categories', result?.id, { name: payload.name });
         break;
 
       case 'deleteCategory':
         result = await deleteCategory(payload.categoryId);
+        await writeAuditLog(actor, 'deleteCategory', 'categories', payload.categoryId);
         break;
 
       case 'savePpeItem':
         result = await savePpeItem(payload);
+        await writeAuditLog(actor, 'savePpeItem', 'ppe_items', result?.item?.id, { name: payload.name, isNew: result?.isNew });
         break;
 
       case 'addNewVoucher':
         result = await addNewVoucher(payload);
+        await writeAuditLog(actor, 'addNewVoucher', 'issue_vouchers', result?.id, { department: payload.department, itemCount: payload.items?.length });
         break;
 
       case 'approveVoucher':
         result = await approveVoucher(payload.voucherId);
+        await writeAuditLog(actor, 'approveVoucher', 'issue_vouchers', payload.voucherId);
         break;
 
       case 'approvePartialVoucher':
         result = await approvePartialVoucher(payload);
+        await writeAuditLog(actor, 'approvePartialVoucher', 'issue_vouchers', payload.voucherId, { items: payload.items });
         break;
 
       case 'rejectVoucher':
         result = await rejectVoucher(payload.voucherId);
+        await writeAuditLog(actor, 'rejectVoucher', 'issue_vouchers', payload.voucherId);
         break;
 
       case 'confirmReceive':
         result = await confirmReceive(payload);
-        break;  
+        await writeAuditLog(actor, 'confirmReceive', 'issue_vouchers', payload.voucherId, { receivedBy: payload.userName });
+        break;
 
       case 'borrowItem':
         result = await borrowItem(payload);
+        await writeAuditLog(actor, 'borrowItem', 'loan_transactions', result?.newLoan?.loanId, { itemId: payload.itemId, department: payload.department });
         break;
 
       case 'returnItem':
         result = await returnItem(payload.loanId);
+        await writeAuditLog(actor, 'returnItem', 'loan_transactions', payload.loanId);
         break;
 
       case 'addReceiveTransaction':
         result = await addReceiveTransactionAndUpdateStock(payload);
+        await writeAuditLog(actor, 'addReceiveTransaction', 'receive_transactions', null, { itemId: payload.itemId, quantity: payload.quantity });
         break;
 
-      case 'checkAdminCredentials':
-        result = await checkAdminCredentials(payload.username, payload.password);
+      case 'checkAdminCredentials': {
+        const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? 'unknown';
+        result = await handleLoginWithLockout(payload.username, payload.password, ip);
         break;
+      }
 
       case 'deletePpeItem':
         result = await deletePpeItem(payload);
+        await writeAuditLog(actor, 'deletePpeItem', 'ppe_items', payload.id);
         break;
 
-      // ⭐⭐⭐ เพิ่มส่วนนี้: บันทึก Feedback ลง Supabase ⭐⭐⭐
       case 'saveFeedback':
         result = await saveFeedback(payload);
         break;
-      
+
       case 'saveMatrixRule':
         result = await saveMatrixRule(payload);
+        await writeAuditLog(actor, 'saveMatrixRule', 'ppe_matrix', result?.id, { jobFunction: payload.jobFunction });
         break;
 
       case 'deleteMatrixRule':
         result = await deleteMatrixRule(payload);
+        await writeAuditLog(actor, 'deleteMatrixRule', 'ppe_matrix', payload.id);
         break;
 
       case 'uploadDocument':
         result = await uploadDocument(payload);
+        await writeAuditLog(actor, 'uploadDocument', 'ppe_documents', result?.id, { title: payload.title });
         break;
 
       case 'deleteDocument':
         result = await deleteDocument(payload);
+        await writeAuditLog(actor, 'deleteDocument', 'ppe_documents', payload.id);
         break;
 
       default:
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
 
-    // ส่ง version กลับไปเพื่อเช็คว่า Server อัปเดตโค้ดแล้ว
-    return res.status(200).json({ status: 'success', data: result, version: '1.4-feedback-added' });
+    return res.status(200).json({ status: 'success', data: result, version: '2.0-enterprise' });
   } catch (err) {
     console.error('API Error:', err);
     // ส่งเฉพาะ error message ที่เป็น Thai (business logic) กลับไป frontend
@@ -149,6 +173,88 @@ export default async function handler(req, res) {
     const isSafeMessage = !/supabase|postgres|connection|ECONN|ETIMED|permission denied|relation|column|syntax/i.test(err.message);
     const clientMessage = isSafeMessage ? err.message : 'เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่อีกครั้ง';
     return res.status(500).json({ status: 'error', message: clientMessage });
+  }
+}
+
+// ------------------------- Enterprise Helper Functions -------------------------
+
+// Audit Log: บันทึกทุก action — fire-and-forget ไม่ throw ไม่กระทบ main flow
+async function writeAuditLog(actor, action, entityType, entityId, details = {}) {
+  try {
+    await supabase.from('audit_log').insert({
+      actor: String(actor || 'anonymous'),
+      action,
+      entity_type: entityType,
+      entity_id: String(entityId ?? ''),
+      details,
+    });
+  } catch (e) {
+    console.error('[audit_log] write failed:', e.message);
+  }
+}
+
+// ดึง username จาก HMAC token
+function extractUsernameFromToken(token) {
+  if (!token) return 'unknown';
+  const lastColon = token.lastIndexOf(':');
+  const secondLast = token.lastIndexOf(':', lastColon - 1);
+  return token.substring(0, secondLast) || 'unknown';
+}
+
+// Account Lockout: ตรวจ + บันทึก login attempts
+async function handleLoginWithLockout(username, password, ip) {
+  const windowStart = new Date(Date.now() - LOCKOUT_WINDOW_MS).toISOString();
+
+  const { count } = await supabase
+    .from('login_attempts')
+    .select('*', { count: 'exact', head: true })
+    .eq('username', username)
+    .eq('success', false)
+    .gte('attempted_at', windowStart);
+
+  if ((count ?? 0) >= MAX_LOGIN_FAILURES) {
+    await supabase.from('login_attempts').insert({ username, ip, success: false });
+    throw new Error('บัญชีถูกล็อกชั่วคราว กรุณารอ 15 นาทีแล้วลองใหม่');
+  }
+
+  const token = await checkAdminCredentials(username, password);
+  await supabase.from('login_attempts').insert({ username, ip, success: !!token });
+  return token;
+}
+
+// Auto Stock Alert: แจ้ง LINE admin เมื่อ stock ต่ำกว่า reorder point
+async function checkAndAlertLowStock(updatedItems) {
+  const ADMIN_LINE_USER_ID = process.env.ADMIN_LINE_USER_ID;
+  const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!ADMIN_LINE_USER_ID || !LINE_TOKEN || !updatedItems?.length) return;
+
+  const ids = updatedItems.map(i => Number(i.id));
+  const { data: items } = await supabase
+    .from('ppe_items')
+    .select('id, name, stock, reorderPoint')
+    .in('id', ids)
+    .is('deleted_at', null);
+
+  const lowItems = (items || []).filter(
+    i => Number(i.reorderPoint) > 0 && Number(i.stock) <= Number(i.reorderPoint)
+  );
+  if (!lowItems.length) return;
+
+  const lines = lowItems.map(i =>
+    `• ${i.name}: เหลือ ${i.stock} ชิ้น (จุดสั่งซื้อ: ${i.reorderPoint})`
+  ).join('\n');
+
+  try {
+    await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LINE_TOKEN}` },
+      body: JSON.stringify({
+        to: ADMIN_LINE_USER_ID,
+        messages: [{ type: 'text', text: `⚠️ แจ้งเตือนสต็อกต่ำ\n\n${lines}\n\nกรุณาสั่งซื้อเพิ่มเติม` }],
+      }),
+    });
+  } catch (e) {
+    console.error('[stock-alert] LINE push failed:', e.message);
   }
 }
 
@@ -220,7 +326,7 @@ async function getInitialData() {
     matrixRes,
     docsRes // ⭐ เพิ่มตัวรับ
   ] = await Promise.all([
-    supabase.from('ppe_items').select('*'),
+    supabase.from('ppe_items').select('*').is('deleted_at', null),
     supabase.from('issue_vouchers').select('*'),
     supabase.from('receive_transactions').select('*'),
     supabase.from('loan_transactions').select('*'),
@@ -392,6 +498,8 @@ async function approveVoucher(voucherId) {
     .eq('id', voucherId);
   if (upErr) throw upErr;
 
+  checkAndAlertLowStock(updatedStockItems).catch((e) => console.error('Stock alert error:', e));
+
   return { updatedVoucherId: voucherId, status: 'approved', updatedStockItems };
 }
 
@@ -446,6 +554,8 @@ async function approvePartialVoucher(approvalData) {
     })
     .eq('id', voucherId);
   if (upErr) throw upErr;
+
+  checkAndAlertLowStock(updatedStockItems).catch((e) => console.error('Stock alert error:', e));
 
   return { updatedVoucherId: voucherId, status: newStatus, updatedStockItems };
 }
@@ -574,14 +684,30 @@ function verifyAdminToken(token) {
 }
 
 async function checkAdminCredentials(username, password) {
-  if (!ADMIN_PASSWORD_BASE64) {
-    console.warn('Admin credentials are not set in environment variables.');
-    return false;
+  if (username !== ADMIN_USERNAME) return false;
+
+  // เส้นทางหลัก: scrypt (ปลอดภัยกว่า)
+  if (ADMIN_PASSWORD_SCRYPT) {
+    const [salt, storedHash] = ADMIN_PASSWORD_SCRYPT.split(':');
+    try {
+      const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+      const match = crypto.timingSafeEqual(
+        Buffer.from(derived, 'hex'),
+        Buffer.from(storedHash, 'hex')
+      );
+      return match ? generateAdminToken(username) : false;
+    } catch {
+      return false;
+    }
   }
-  const providedBase64 = Buffer.from(password, 'utf8').toString('base64');
-  if (username === ADMIN_USERNAME && providedBase64 === ADMIN_PASSWORD_BASE64) {
-    return generateAdminToken(username);
+
+  // fallback: Base64 (ใช้ได้จนกว่าจะ set ADMIN_PASSWORD_SCRYPT)
+  if (ADMIN_PASSWORD_BASE64) {
+    const provided = Buffer.from(password, 'utf8').toString('base64');
+    if (provided === ADMIN_PASSWORD_BASE64) return generateAdminToken(username);
   }
+
+  console.warn('⚠️ ไม่มี admin credentials ตั้งค่าใน environment variables');
   return false;
 }
 
@@ -604,7 +730,8 @@ async function updateStockLevels(items, operation = 'decrease') {
   const { data: ppeRows, error } = await supabase
     .from('ppe_items')
     .select('*')
-    .in('id', ids);
+    .in('id', ids)
+    .is('deleted_at', null);
   if (error) throw error;
 
   const updatedItems = [];
@@ -846,22 +973,16 @@ async function confirmReceive(payload) {
 
 // ✅ ฟังก์ชันลบอุปกรณ์ (เวอร์ชัน Supabase)
 async function deletePpeItem(payload) {
-  if (!payload || !payload.id) {
-    throw new Error('Missing Item ID');
-  }
+  if (!payload || !payload.id) throw new Error('Missing Item ID');
 
-  // สั่งลบข้อมูลในตาราง ppe_items ที่ id ตรงกัน
+  // Soft delete — ตั้ง deleted_at แทนการลบจริง (กู้คืนได้จาก Supabase dashboard)
   const { error } = await supabase
     .from('ppe_items')
-    .delete()
-    .eq('id', payload.id); 
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', payload.id);
 
-  if (error) {
-    console.error('Error deleting item:', error);
-    throw error;
-  }
-
-  return { status: "success", message: "Deleted successfully" };
+  if (error) throw error;
+  return { status: 'success', message: 'Soft deleted successfully' };
 }
 
 // ⭐⭐⭐ แก้ไขฟังก์ชันนี้ใน api/ppe.js ⭐⭐⭐
