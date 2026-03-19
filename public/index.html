@@ -1308,10 +1308,10 @@
 
                     <div id="pdfViewerModal" class="fixed inset-0 z-[100] hidden">
                         <!-- Backdrop -->
-                        <div class="absolute inset-0 bg-black/60 sm:bg-black/95" onclick="closePdfViewer()"></div>
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePdfViewer()"></div>
 
-                        <!-- Mobile: Bottom Sheet -->
-                        <div class="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 space-y-4 animate-slide-up" onclick="event.stopPropagation()">
+                        <!-- Mobile: Bottom Sheet (hidden on desktop via JS) -->
+                        <div id="pdfMobileSheet" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 space-y-4 animate-slide-up" onclick="event.stopPropagation()" style="display:none">
                             <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto"></div>
                             <div class="flex items-center gap-4">
                                 <div class="bg-red-50 p-3 rounded-2xl shrink-0">
@@ -1329,45 +1329,47 @@
                             <button onclick="closePdfViewer()" class="w-full py-3 text-gray-400 text-sm font-medium">ยกเลิก</button>
                         </div>
 
-                        <!-- Desktop: Centered modal viewer -->
-                        <div class="hidden sm:flex items-center justify-center h-full p-6 pointer-events-none">
-                            <div class="pointer-events-auto w-full max-w-5xl h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden animate-modal-in">
+                        <!-- Desktop: Centered modal card (controlled by JS) -->
+                        <div id="pdfDesktopCard" onclick="event.stopPropagation()"
+                             style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                                    width:90%; max-width:1100px; height:90vh;
+                                    background:#fff; border-radius:16px; box-shadow:0 25px 60px rgba(0,0,0,0.4);
+                                    overflow:hidden; flex-direction:column; animation: modalIn 0.25s cubic-bezier(0.16,1,0.3,1);">
 
-                                <!-- Header -->
-                                <div class="flex items-center gap-3 px-5 py-3.5 bg-white border-b border-gray-100 shrink-0">
-                                    <!-- File icon + meta -->
-                                    <div class="flex items-center gap-3 flex-1 min-w-0">
-                                        <div class="bg-red-50 p-2 rounded-xl shrink-0">
-                                            <i class="fa-solid fa-file-pdf text-xl text-red-500"></i>
-                                        </div>
-                                        <div class="min-w-0">
-                                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none mb-0.5">PDF Document</p>
-                                            <h3 id="pdfViewerTitleDesktop" class="font-semibold text-gray-800 text-sm truncate leading-snug"></h3>
-                                        </div>
-                                    </div>
-                                    <!-- Action buttons -->
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        <a id="pdfOpenNewTab" href="#" target="_blank"
-                                           class="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-teal-600 bg-gray-100 hover:bg-teal-50 px-3 py-2 rounded-lg transition-colors">
-                                            <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i> เปิดในแท็บใหม่
-                                        </a>
-                                        <button onclick="closePdfViewer()"
-                                                class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                                            <i class="fa-solid fa-xmark text-base"></i>
-                                        </button>
-                                    </div>
+                            <!-- Header -->
+                            <div style="display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid #f3f4f6; flex-shrink:0; background:#fff;">
+                                <div style="background:#fef2f2; padding:8px; border-radius:12px; flex-shrink:0;">
+                                    <i class="fa-solid fa-file-pdf" style="font-size:20px; color:#ef4444;"></i>
                                 </div>
+                                <div style="flex:1; min-width:0;">
+                                    <p style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 2px;">PDF Document</p>
+                                    <h3 id="pdfViewerTitleDesktop" style="font-size:14px; font-weight:600; color:#1f2937; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></h3>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                                    <a id="pdfOpenNewTab" href="#" target="_blank"
+                                       style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; color:#4b5563; background:#f3f4f6; padding:7px 14px; border-radius:8px; text-decoration:none; transition:background 0.15s;"
+                                       onmouseover="this.style.background='#f0fdf4';this.style.color='#0d9488'"
+                                       onmouseout="this.style.background='#f3f4f6';this.style.color='#4b5563'">
+                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;"></i> เปิดในแท็บใหม่
+                                    </a>
+                                    <button onclick="closePdfViewer()"
+                                            style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:8px; cursor:pointer; color:#9ca3af; transition:background 0.15s;"
+                                            onmouseover="this.style.background='#f3f4f6';this.style.color='#374151'"
+                                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af'">
+                                        <i class="fa-solid fa-xmark" style="font-size:16px;"></i>
+                                    </button>
+                                </div>
+                            </div>
 
-                                <!-- Loading indicator (shows while iframe loads) -->
-                                <div id="pdfLoadingBar" class="h-0.5 bg-gray-100 shrink-0">
-                                    <div class="h-full bg-teal-500 w-0 transition-all duration-700" id="pdfLoadingBarFill"></div>
-                                </div>
+                            <!-- Loading bar -->
+                            <div style="height:2px; background:#f3f4f6; flex-shrink:0;">
+                                <div id="pdfLoadingBarFill" style="height:100%; background:#0d9488; width:0%; transition:width 0.7s ease;"></div>
+                            </div>
 
-                                <!-- iframe -->
-                                <div class="flex-1 bg-gray-50 overflow-hidden">
-                                    <iframe id="pdfFrame" src="" class="w-full h-full border-0"
-                                            onload="document.getElementById('pdfLoadingBarFill').style.width='100%'"></iframe>
-                                </div>
+                            <!-- iframe -->
+                            <div style="flex:1; background:#f9fafb; overflow:hidden;">
+                                <iframe id="pdfFrame" src="" style="width:100%; height:100%; border:none; display:block;"
+                                        onload="document.getElementById('pdfLoadingBarFill').style.width='100%'"></iframe>
                             </div>
                         </div>
                     </div>
@@ -6285,29 +6287,40 @@
     }
 
     function openPdf(url, title) {
-        // อัปเดตชื่อเอกสารทั้ง mobile และ desktop
-        const titleMobile  = document.getElementById('pdfViewerTitle');
-        const titleDesktop = document.getElementById('pdfViewerTitleDesktop');
-        if (titleMobile)  titleMobile.textContent  = title;
-        if (titleDesktop) titleDesktop.textContent = title;
-
-        // Mobile bottom sheet link
-        const downloadLink = document.getElementById('pdfDownloadLink');
-        if (downloadLink) downloadLink.href = url;
-
-        // Desktop: "เปิดในแท็บใหม่" button + iframe
-        const openNewTab = document.getElementById('pdfOpenNewTab');
-        if (openNewTab) openNewTab.href = url;
-
         const isDesktop = window.innerWidth >= 640;
-        const iframe = document.getElementById('pdfFrame');
-        if (isDesktop && iframe) {
-            // Reset loading bar
+
+        const mobileSheet  = document.getElementById('pdfMobileSheet');
+        const desktopCard  = document.getElementById('pdfDesktopCard');
+
+        if (isDesktop) {
+            // ─── Desktop ─────────────────────────────────────────────
+            if (mobileSheet) mobileSheet.style.display = 'none';
+            if (desktopCard) desktopCard.style.display = 'flex';
+
+            // Set title and links
+            const titleDesktop = document.getElementById('pdfViewerTitleDesktop');
+            if (titleDesktop) titleDesktop.textContent = title;
+            const openNewTab = document.getElementById('pdfOpenNewTab');
+            if (openNewTab) openNewTab.href = url;
+
+            // Animate loading bar: 0% → 60% while iframe loads, then onload sets 100%
             const barFill = document.getElementById('pdfLoadingBarFill');
             if (barFill) barFill.style.width = '0%';
-            // Small delay so the bar animates to ~60% before iframe loads
             setTimeout(() => { if (barFill) barFill.style.width = '60%'; }, 50);
-            iframe.src = url + '#toolbar=0';
+
+            const iframe = document.getElementById('pdfFrame');
+            if (iframe) iframe.src = url + '#toolbar=0';
+
+        } else {
+            // ─── Mobile ──────────────────────────────────────────────
+            if (desktopCard)  desktopCard.style.display  = 'none';
+            if (mobileSheet)  mobileSheet.style.display  = 'flex';
+            mobileSheet.style.flexDirection = 'column';
+
+            const titleMobile  = document.getElementById('pdfViewerTitle');
+            if (titleMobile) titleMobile.textContent = title;
+            const downloadLink = document.getElementById('pdfDownloadLink');
+            if (downloadLink) downloadLink.href = url;
         }
 
         document.getElementById('pdfViewerModal').classList.remove('hidden');
