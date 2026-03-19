@@ -229,6 +229,26 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* ─── Admin Responsive Fixes ──────────────────────────────────────────── */
+        /* Sidebar never appears on mobile regardless of JS class manipulation */
+        @media (max-width: 767px) {
+            #adminSidebar { display: none !important; }
+        }
+        /* Admin mobile nav active item */
+        #adminMobileNav .nav-item-mobile.active,
+        #userMobileNav  .nav-item-mobile.active  { color: #0d9488; }
+        /* Ensure touch targets meet 44px minimum on admin forms */
+        @media (max-width: 767px) {
+            #manageForm input, #manageForm select,
+            #receiveForm input, #receiveForm select {
+                min-height: 44px;
+            }
+            /* Report filter: stack to 2 columns on small phones */
+            #reportPage .grid-cols-1.md\:grid-cols-4 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -280,7 +300,7 @@
 <div id="toastContainer" class="fixed top-5 right-5 z-[90] space-y-3"></div>
 
 <div class="flex h-screen bg-gray-50">
-    <aside class="hidden lg:flex lg:flex-col w-64 bg-white border-r border-gray-200">
+    <aside id="adminSidebar" class="hidden md:flex md:flex-col w-64 bg-white border-r border-gray-200">
         <div class="h-16 flex items-center px-6 border-b border-gray-200">
             <img src="/logo.png" alt="Company Logo" class="h-9 w-9 rounded-full mr-3" onerror="this.style.display='none'">
             <h1 class="text-lg font-bold text-gray-800">PPE Stock</h1>
@@ -336,7 +356,7 @@
     </aside>
 
     <div class="flex flex-col flex-1 overflow-hidden">
-        <header class="lg:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4">
+        <header class="md:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4">
              <div class="flex items-center">
                 <img src="/logo.png" alt="Company Logo" class="h-9 w-9 rounded-full mr-3" onerror="this.style.display='none'">
                 <h1 class="text-lg font-bold text-gray-800">PPE Stock</h1>
@@ -353,7 +373,7 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 px-2 sm:pt-4 sm:px-6 lg:px-8 pb-32 page-container relative">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 px-2 sm:pt-4 sm:px-6 md:px-8 pb-32 page-container relative">
                 <div id="dashboardPage" class="page">
                     <div class="max-w-7xl mx-auto space-y-6">
                     
@@ -1406,64 +1426,85 @@
 
         </main>
         
-        <nav id="mobileNav" class="lg:hidden bg-white border-t flex justify-around p-2 pb-safe text-xs text-gray-500 fixed bottom-0 w-full z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <!-- ─── User Mobile Nav (แสดงเมื่อไม่ได้ login เป็น Admin) ──────────────── -->
+        <nav id="userMobileNav" class="md:hidden bg-white border-t flex justify-around p-2 pb-safe text-xs text-gray-500 fixed bottom-0 w-full z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
             <a onclick="showPage('dashboard')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600 text-teal-600">
-                <i class="fa-solid fa-chart-pie text-xl mb-1"></i> <span>หน้าแรก</span>
+                <i class="fa-solid fa-chart-pie text-xl mb-1"></i><span>หน้าแรก</span>
             </a>
             <a onclick="showPage('stock')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
-                <i class="fa-solid fa-boxes-stacked text-xl mb-1"></i> <span>สต็อก</span>
+                <i class="fa-solid fa-boxes-stacked text-xl mb-1"></i><span>สต็อก</span>
             </a>
             <a onclick="showPage('issue')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
-                <i class="fa-solid fa-file-export text-xl mb-1"></i> <span>เบิก</span>
+                <i class="fa-solid fa-file-export text-xl mb-1"></i><span>เบิก</span>
             </a>
             <a onclick="showPage('loan')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
-                <i class="fa-solid fa-hand-holding-hand text-xl mb-1"></i> <span>ยืม</span>
+                <i class="fa-solid fa-hand-holding-hand text-xl mb-1"></i><span>ยืม</span>
             </a>
-            
-            <div class="relative group">
+            <div class="relative">
                 <a onclick="toggleMobileAdminMenu()" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
-                    <span class="relative inline-block">
-                        <i class="fa-solid fa-bars text-xl mb-1"></i>
-                        <span id="pendingBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
-                    </span>
-                    <span>เมนู</span>
+                    <i class="fa-solid fa-bars text-xl mb-1"></i><span>เมนู</span>
                 </a>
-                
                 <div id="mobileMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
-    
                     <a onclick="showPage('allHistory'); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-clock-rotate-left mr-3 text-teal-500 w-5 text-center"></i> ประวัติทั้งหมด
                     </a>
-
                     <a onclick="showPage('matrix'); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-clipboard-list mr-3 text-teal-500 w-5 text-center"></i> มาตรฐาน PPE
                     </a>
-
-                    <div id="adminMobileLinks" class="hidden border-t pt-2 mt-2">
-                        <p class="px-4 text-[10px] text-gray-400 font-bold uppercase mb-2">เครื่องมือ Admin</p>
-                        <a onclick="showPage('pending'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-yellow-50 text-gray-700 hover:text-yellow-700 rounded-lg flex items-center cursor-pointer">
-                            <i class="fa-solid fa-hourglass-half mr-3 text-yellow-500 w-5 text-center"></i> อนุมัติคำขอ
-                        </a>
-                        <a onclick="showPage('receive'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-teal-50 text-gray-700 hover:text-teal-700 rounded-lg flex items-center cursor-pointer">
-                            <i class="fa-solid fa-truck-ramp-box mr-3 text-teal-500 w-5 text-center"></i> รับของเข้า
-                        </a>
-                        <a onclick="showPage('manage'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-blue-50 text-gray-700 hover:text-blue-700 rounded-lg flex items-center cursor-pointer">
-                            <i class="fa-solid fa-gear mr-3 text-blue-500 w-5 text-center"></i> จัดการของ
-                        </a>
-                        <a onclick="showPage('report'); toggleMobileAdminMenu()" class="block px-4 py-2.5 hover:bg-purple-50 text-gray-700 hover:text-purple-700 rounded-lg flex items-center cursor-pointer">
-                            <i class="fa-solid fa-chart-line mr-3 text-purple-500 w-5 text-center"></i> รายงาน
-                        </a>
-                        
-                        </div>
-
                     <div class="border-t pt-2 mt-2">
-                        <div id="userMobileLinks">
-                            <a onclick="showLoginModal(); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-teal-50 text-teal-600 rounded-lg font-medium flex items-center cursor-pointer">
-                                <i class="fa-solid fa-user-shield mr-3 w-5 text-center"></i> Admin Login
-                            </a>
-                        </div>
-                        
-                        <a id="mobileLogoutBtn" onclick="logout(); toggleMobileAdminMenu()" class="hidden block px-4 py-3 hover:bg-red-50 text-red-600 rounded-lg font-medium flex items-center cursor-pointer">
+                        <a onclick="showLoginModal(); toggleMobileAdminMenu()" class="block px-4 py-3 hover:bg-teal-50 text-teal-600 rounded-lg font-medium flex items-center cursor-pointer">
+                            <i class="fa-solid fa-user-shield mr-3 w-5 text-center"></i> Admin Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ─── Admin Mobile Nav (แสดงเมื่อ login เป็น Admin บน mobile เท่านั้น) ── -->
+        <nav id="adminMobileNav" class="hidden md:hidden bg-white border-t flex justify-around p-2 pb-safe text-xs text-gray-500 fixed bottom-0 w-full z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+            <!-- แดชบอร์ด -->
+            <a onclick="showPage('dashboard')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600 text-teal-600">
+                <i class="fa-solid fa-chart-pie text-xl mb-1"></i><span>หน้าแรก</span>
+            </a>
+            <!-- รออนุมัติ — แสดง badge จำนวน pending -->
+            <a onclick="showPage('pending')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-yellow-600 relative">
+                <span class="relative inline-block">
+                    <i class="fa-solid fa-hourglass-half text-xl mb-1"></i>
+                    <span id="pendingBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
+                </span>
+                <span>รออนุมัติ</span>
+            </a>
+            <!-- จัดการอุปกรณ์ -->
+            <a onclick="showPage('manage')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-blue-600">
+                <i class="fa-solid fa-gear text-xl mb-1"></i><span>จัดการ</span>
+            </a>
+            <!-- รับของเข้า -->
+            <a onclick="showPage('receive')" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
+                <i class="fa-solid fa-truck-ramp-box text-xl mb-1"></i><span>รับของ</span>
+            </a>
+            <!-- เมนูเพิ่มเติม Admin -->
+            <div class="relative">
+                <a onclick="toggleAdminMoreMenu()" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer transition-colors hover:text-teal-600">
+                    <i class="fa-solid fa-bars text-xl mb-1"></i><span>เพิ่มเติม</span>
+                </a>
+                <div id="adminMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
+                    <a onclick="showPage('stock'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-boxes-stacked mr-3 text-teal-500 w-5 text-center"></i> สต็อกทั้งหมด
+                    </a>
+                    <a onclick="showPage('report'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-chart-line mr-3 text-purple-500 w-5 text-center"></i> รายงาน
+                    </a>
+                    <a onclick="showPage('allHistory'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-clock-rotate-left mr-3 text-gray-500 w-5 text-center"></i> ประวัติทั้งหมด
+                    </a>
+                    <a onclick="showPage('matrix'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-clipboard-list mr-3 text-teal-500 w-5 text-center"></i> มาตรฐาน PPE
+                    </a>
+                    <a onclick="showPage('issue'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-file-export mr-3 text-orange-500 w-5 text-center"></i> เบิกจ่าย
+                    </a>
+                    <div class="border-t pt-2 mt-2">
+                        <a onclick="logout(); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-red-50 text-red-600 rounded-lg font-medium flex items-center cursor-pointer">
                             <i class="fa-solid fa-right-from-bracket mr-3 w-5 text-center"></i> ออกจากระบบ
                         </a>
                     </div>
@@ -1969,10 +2010,9 @@
         // 2. ปรับ Dashboard ให้เป็น User Dashboard
         renderUserDashboard();
         
-        // 3. แสดง Bottom Nav (Nav ตัวเดิมที่มีอยู่แล้ว)
-        // แก้ไขบรรทัดนี้: เติม \\ หน้า : เพื่อแก้ SyntaxError
-        const mobileNav = document.querySelector('nav.lg\\:hidden'); 
-        if (mobileNav) mobileNav.classList.remove('hidden');
+        // 3. แสดง User Bottom Nav (mobile)
+        const userMobileNav = document.getElementById('userMobileNav');
+        if (userMobileNav) userMobileNav.classList.remove('hidden');
 
         // 4. Auto-fill ชื่อ
         autoFillUserIdentity();
@@ -2021,73 +2061,56 @@
 
     function updateUI() {
         if (!currentData || !currentData.ppeItems) return;
-        
-        // ประกาศตัวแปร Element ต่างๆ
-        const adminPanel = document.getElementById('adminDashboardPanel');
-        const userPanel = document.getElementById('userDashboardPanel');
-        const sidebar = document.querySelector('aside');
-        const header = document.querySelector('header');
-        
-        // ตัวแปรเมนูมือถือ
-        const mobileNav = document.getElementById('mobileNav');
-        const adminMobileLinks = document.getElementById('adminMobileLinks');
-        const userMobileLinks = document.getElementById('userMobileLinks');
-        
-        // --- 1. เพิ่มตัวแปรปุ่ม Logout ตรงนี้ครับ ---
-        const mobileLogoutBtn = document.getElementById('mobileLogoutBtn'); 
-        
-        // ตัวแปรเมนู Sidebar Admin
-        const adminMenu = document.getElementById('adminMenu');
+
+        // ─── Elements ────────────────────────────────────────────────────────────
+        const adminPanel     = document.getElementById('adminDashboardPanel');
+        const userPanel      = document.getElementById('userDashboardPanel');
+        const sidebar        = document.getElementById('adminSidebar');
+        const header         = document.querySelector('header');
+        const adminMenu      = document.getElementById('adminMenu');
+        // Role-based bottom navs
+        const userMobileNav  = document.getElementById('userMobileNav');
+        const adminMobileNav = document.getElementById('adminMobileNav');
 
         if (isAdmin) {
-            // === โหมด ADMIN ===
-            
-            // 1. เปิด Dashboard Admin
+            // ══ โหมด ADMIN ══════════════════════════════════════════════════════
+
+            // 1. Dashboard panel
             if(adminPanel) adminPanel.classList.remove('hidden');
-            if(userPanel) userPanel.classList.add('hidden');
+            if(userPanel)  userPanel.classList.add('hidden');
 
-            // 2. จัดการ Sidebar & Header
-            if(sidebar) {
-                sidebar.classList.remove('hidden');
-                sidebar.classList.add('lg:flex');
-            }
-            if(header) header.classList.remove('hidden'); 
+            // 2. Sidebar: clear inline style → CSS handles md:flex on tablet/desktop
+            //    CSS guard (#adminSidebar @max-width:767px) prevents it on mobile
+            if(sidebar) sidebar.style.display = '';
 
-            // 3. เปิดเมนูใน Sidebar
+            // 3. Header: show on mobile (md:hidden hides it automatically on tablet+)
+            if(header) header.classList.remove('hidden');
+
+            // 4. Sidebar admin menu section
             if(adminMenu) adminMenu.classList.remove('hidden');
 
-            // 4. จัดการเมนูมือถือ
-            if(mobileNav) mobileNav.classList.remove('hidden');
-            
-            // 5. สลับไส้ในเมนูมือถือ เป็นของ Admin
-            if(adminMobileLinks) adminMobileLinks.classList.remove('hidden');
-            if(userMobileLinks) userMobileLinks.classList.add('hidden');
-
-            // --- 2. สั่งเปิดปุ่ม Logout (สำหรับ Admin) ---
-            if(mobileLogoutBtn) mobileLogoutBtn.classList.remove('hidden');
+            // 5. Bottom nav: hide user nav, show admin nav (mobile only)
+            if(userMobileNav)  userMobileNav.classList.add('hidden');
+            if(adminMobileNav) adminMobileNav.classList.remove('hidden');
 
             updateDashboard();
 
         } else {
-            // === โหมด USER ===
-            
-            // 1. เปิด Dashboard User
-            if(adminPanel) adminPanel.classList.add('hidden');
-            if(userPanel) userPanel.classList.remove('hidden');
+            // ══ โหมด USER ═══════════════════════════════════════════════════════
 
-            // 2. ปิด Sidebar & Header Admin
-            if(sidebar) sidebar.classList.add('hidden'); 
+            // 1. Dashboard panel
+            if(adminPanel) adminPanel.classList.add('hidden');
+            if(userPanel)  userPanel.classList.remove('hidden');
+
+            // 2. Sidebar: force hide everywhere (inline style overrides md:flex)
+            if(sidebar) sidebar.style.display = 'none';
+
+            // 3. Header: hide (user mode has no header — login is in menu popup)
             if(header) header.classList.add('hidden');
 
-            // 3. เปิดเมนูมือถือ
-            if(mobileNav) mobileNav.classList.remove('hidden');
-            
-            // 4. สลับไส้ในเมนูมือถือ เป็นของ User
-            if(adminMobileLinks) adminMobileLinks.classList.add('hidden');
-            if(userMobileLinks) userMobileLinks.classList.remove('hidden');
-
-            // --- 3. สั่งปิดปุ่ม Logout (สำหรับ User) ---
-            if(mobileLogoutBtn) mobileLogoutBtn.classList.add('hidden');
+            // 4. Bottom nav: show user nav, hide admin nav
+            if(userMobileNav)  userMobileNav.classList.remove('hidden');
+            if(adminMobileNav) adminMobileNav.classList.add('hidden');
 
             renderUserDashboard();
         }
@@ -4710,21 +4733,15 @@
 
     function toggleMobileAdminMenu() {
         const menu = document.getElementById('mobileMoreMenu');
-        menu.classList.toggle('hidden');
+        if (menu) menu.classList.toggle('hidden');
     }
 
-    // อัปเดตฟังก์ชัน updateUI ให้จัดการเมนูมือถือด้วย
-    // (เพิ่ม logic นี้เข้าไปในฟังก์ชัน updateUI เดิม ตรงส่วนท้ายๆ)
-    const adminLinks = document.getElementById('adminMobileLinks');
-    const userLinks = document.getElementById('userMobileLinks');
-    
-    if (isAdmin) {
-        if(adminLinks) adminLinks.classList.remove('hidden');
-        if(userLinks) userLinks.classList.add('hidden');
-    } else {
-        if(adminLinks) adminLinks.classList.add('hidden');
-        if(userLinks) userLinks.classList.remove('hidden');
+    function toggleAdminMoreMenu() {
+        const menu = document.getElementById('adminMoreMenu');
+        if (menu) menu.classList.toggle('hidden');
     }
+
+    // หมายเหตุ: nav swap logic ถูกรวมเข้าใน updateUI() แล้ว
 
     // ฟังก์ชันบันทึกการเบิก (Issue) - ส่ง Flex Message
     async function saveIssueVoucher(e) { 
