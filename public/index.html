@@ -1618,12 +1618,14 @@
 </div>
 
 <!-- 🔒 Loading Overlay -->
-<div id="loadingOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60">
+<!-- Fix: added 'flex' class (required for items-center/justify-center to work) -->
+<!-- Fix: added id="overlayTitle" and id="overlaySubtext" for dynamic message updates -->
+<div id="loadingOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60">
   <div class="bg-white rounded-xl p-6 flex flex-col items-center gap-4 w-72">
     <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
     <div class="text-center">
-      <p class="font-semibold">กำลังดำเนินการ...</p>
-      <p class="text-sm text-gray-500">กรุณารอสักครู่…</p>
+      <p id="overlayTitle" class="font-semibold text-gray-800">กำลังดำเนินการ...</p>
+      <p id="overlaySubtext" class="text-sm text-gray-500 mt-1">กรุณารอสักครู่…</p>
     </div>
   </div>
 </div>
@@ -1839,52 +1841,20 @@
         });
     }
 
+    // ─── callServerFunction (Refactored → delegates to apiCall) ──────────────
+    // เก็บไว้เพื่อ backward-compat กับ call sites ที่ยังไม่ได้ migrate
+    // ใหม่: ใช้ apiCall() จาก api-client.js โดยตรง
     async function callServerFunction(action, payload = null) {
-        // ป้องกัน double submit — ถ้ามี API call ค้างอยู่ ให้ block
-        if (_apiCallInProgress) {
-            showToast('กรุณารอการดำเนินการก่อนหน้าให้เสร็จก่อน', 'error');
-            return;
-        }
-        _apiCallInProgress = true;
-        // ไม่แสดง overlay สำหรับ getInitialData (background data refresh)
-        const _showOverlay = action !== 'getInitialData';
-        if (_showOverlay) showLoading();
-
-        // ส่ง admin token ไปกับทุก request เมื่อ login เป็น admin
-        const bodyPayload = payload ? { ...payload } : {};
-        if (isAdmin && adminSessionToken) {
-            bodyPayload.adminToken = adminSessionToken;
-        }
+        // sync admin token ให้ api-client.js อ่านได้
+        window._adminToken = (isAdmin && adminSessionToken) ? adminSessionToken : null;
 
         try {
-            const response = await fetch(WEB_APP_URL, {
-                method: 'POST',
-                redirect: 'follow',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8',
-                },
-                body: JSON.stringify({ action: action, payload: bodyPayload })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-
-            if (result.status === 'error') {
-                throw new Error(result.message);
-            }
-
-            return result.data;
-
+            return await apiCall(action, payload);
         } catch (error) {
+            if (error.name === 'AbortError') return null; // cancelled — ไม่ต้อง toast
             console.error(`API call failed for action "${action}":`, error);
             onFailure(error);
             throw error;
-        } finally {
-            if (_showOverlay) hideLoading();
-            _apiCallInProgress = false;
         }
     }
 
@@ -1893,7 +1863,7 @@
     // ===========================================
     let isAdmin = false;
     let adminSessionToken = null;   // HMAC token จาก server หลัง login สำเร็จ
-    let _apiCallInProgress = false; // ป้องกัน double submit
+    // _apiCallInProgress ถูกแทนที่ด้วย LoadingManager แล้ว — ลบออกได้
     let _activePage = 'dashboard';  // จำหน้าปัจจุบัน
     let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], dashboardMetrics: {} };
     let categoryChartInstance = null;
@@ -1913,55 +1883,53 @@
     // ✅ แก้ไข initializeApp (เวอร์ชันถูกต้อง)
     async function initializeApp(isFirstLoad = false) {
         const storedSession = localStorage.getItem('ppe_admin_session');
-        const storedToken = localStorage.getItem('ppe_admin_token');
+        const storedToken   = localStorage.getItem('ppe_admin_token');
         if (storedSession === 'true' && storedToken) {
-            isAdmin = true;
+            isAdmin          = true;
             adminSessionToken = storedToken;
+            window._adminToken = storedToken;
         }
-        // 👇👇 เพิ่มส่วนนี้: เช็คก่อนเลยว่าเข้ามาเพื่อยืนยันรับของไหม
-        const params = new URLSearchParams(window.location.search);
+
+        const params        = new URLSearchParams(window.location.search);
         const isConfirmMode = params.get('mode') === 'confirmReceive';
 
+        // ── Loading state ด้วย LoadingManager (ไม่ใช่ showLoading/showDashboardSkeleton โดยตรง)
         if (isConfirmMode) {
-            showLoading('กำลังยืนยันการรับของ'); // 🔒 ล็อคหน้าจอทันที
+            LoadingManager.start('action.confirmReceive', { message: 'กำลังยืนยันการรับของ' });
         } else if (isFirstLoad) {
-            showDashboardSkeleton(); // ถ้าเข้าปกติ ค่อยโชว์ Skeleton
+            LoadingManager.start('page.dashboard');
         }
 
         try {
             // 1. Initialize LIFF
-            updateSplashStatus('กำลังเชื่อมต่อ LINE…', 25);
+            LoadingManager.updateSplash('กำลังเชื่อมต่อ LINE…', 25);
             await liff.init({ liffId: LIFF_ID });
 
             if (liff.isLoggedIn()) {
-                updateSplashStatus('กำลังตรวจสอบสิทธิ์…', 55);
+                LoadingManager.updateSplash('กำลังตรวจสอบสิทธิ์…', 55);
                 liffProfile = await liff.getProfile();
 
-                // ตรวจสอบ PDPA consent (ครั้งแรกที่ใช้งาน, ไม่ตรวจในโหมด admin)
+                // ตรวจสอบ PDPA consent
                 if (!isAdmin && !localStorage.getItem('ppe_pdpa_accepted')) {
-                    hideLoading();
-                    hideSplash(); // ซ่อน splash ก่อนแสดง PDPA modal
+                    LoadingManager.cancel('action.confirmReceive');
+                    LoadingManager.cancel('page.dashboard');
+                    hideSplash(); // Fix: splash ไม่เคย start() ผ่าน LoadingManager → ต้องใช้ hideSplash() โดยตรง
                     const pdpaModal = document.getElementById('pdpaModal');
                     if (pdpaModal) pdpaModal.classList.remove('hidden');
-                    return; // รอให้ยอมรับก่อนแล้วค่อย init ต่อ
+                    return;
                 }
 
-                // ⭐⭐⭐ จุดสำคัญที่สุด ⭐⭐⭐
-                // ตรวจว่ามาจากปุ่ม "ยืนยันรับของ" หรือไม่
                 await handleLiffConfirmReceive();
 
-                // โหมด User ปกติ
-                if (!isAdmin) {
-                    setupUserInterface();
-                }
+                if (!isAdmin) setupUserInterface();
             } else {
-                updateSplashStatus('กำลังเปลี่ยนเส้นทางไป LINE…', 40);
-                liff.login(); // บังคับ Login ถ้าเปิดผ่าน External Browser
-                return; // สำคัญ: หยุดไว้ก่อน
+                LoadingManager.updateSplash('กำลังเปลี่ยนเส้นทางไป LINE…', 40);
+                liff.login();
+                return;
             }
 
-            // 2. Load Data
-            updateSplashStatus('กำลังโหลดข้อมูล…', 80);
+            // 2. Load Data (deduplication: ถ้ามีการ call ซ้อน จะใช้ promise เดิม)
+            LoadingManager.updateSplash('กำลังโหลดข้อมูล…', 80);
             const data = await callServerFunction('getInitialData');
             onDataLoaded(data);
 
@@ -1969,10 +1937,10 @@
             console.error('LIFF/App Error:', err);
             setupUserInterface();
         } finally {
-            // ล้าง overlay + splash เสมอ ไม่ว่าจะสำเร็จหรือ error
-            hideLoading();
-            hideDashboardSkeleton();
-            hideSplash();
+            // ── Cancel/stop ทุก key ที่ initializeApp เปิดไว้
+            LoadingManager.stop('action.confirmReceive');
+            LoadingManager.stop('page.dashboard');
+            hideSplash(); // splash ยังใช้ legacy fn เพราะมี fade-out animation พิเศษ
         }
     }
 
@@ -2149,6 +2117,13 @@
 
     // แทนที่ฟังก์ชัน showPage เดิม
     function showPage(pageName) {
+        // ── Cancel widget-level loading จากหน้าก่อนหน้า (ป้องกัน ghost loading)
+        // action.* ไม่ cancel เพราะ mutation ที่ค้างอยู่ควรเสร็จก่อน
+        if (window.LoadingManager) {
+            LoadingManager.cancel('widget.feedback');
+            LoadingManager.cancel('widget.matrix');
+        }
+
         _activePage = pageName;
         document.querySelectorAll('.page-container > .page').forEach(page => {
             if (page.id !== `${pageName}Page`) page.classList.add('hidden');
@@ -2381,53 +2356,37 @@
     // ===========================================
     // UI Control & Helpers
     // ===========================================
+    // ─── Legacy Loading Helpers (Thin wrappers → LoadingManager) ─────────────
+    // ยังคงไว้เพื่อ backward-compat กับ call sites ที่ยังไม่ได้ migrate
+    // แต่ละ fn นี้ delegate ไป LoadingManager แทนการจัดการ DOM เอง
+
     function showLoading(message = 'กำลังดำเนินการ...') {
-        const el = document.getElementById('loadingOverlay');
-        if (el) {
-            const titleEl = el.querySelector('p.font-semibold');
-            if (titleEl) titleEl.textContent = message;
-            el.classList.remove('hidden');
-        }
+        LoadingManager.start('action.legacy', { message });
     }
-
     function hideLoading() {
-        const el = document.getElementById('loadingOverlay');
-        if (el) el.classList.add('hidden');
+        LoadingManager.stop('action.legacy');
     }
 
-    // ===== Splash Screen Helpers =====
     function updateSplashStatus(text, progress) {
-        const statusEl = document.getElementById('splashStatus');
-        if (statusEl) statusEl.textContent = text;
-        const progressEl = document.getElementById('splashProgress');
-        if (progressEl) progressEl.style.width = progress + '%';
+        LoadingManager.updateSplash(text, progress);
     }
 
     function hideSplash() {
         const el = document.getElementById('splashScreen');
         if (!el || el.classList.contains('hidden')) return;
-        updateSplashStatus('พร้อมใช้งาน!', 100);
+        LoadingManager.updateSplash('พร้อมใช้งาน!', 100);
         setTimeout(() => {
             el.style.transition = 'opacity 0.45s ease-out';
-            el.style.opacity = '0';
+            el.style.opacity    = '0';
             setTimeout(() => el.classList.add('hidden'), 450);
         }, 200);
     }
 
-    // แก้ไขไม่ให้ Error ถ้าหา Element ไม่เจอ
     function showDashboardSkeleton() {
-        const adminPanel = document.getElementById('adminDashboardPanel');
-        const userPanel = document.getElementById('userDashboardPanel');
-        const skeleton = document.getElementById('dashboardSkeleton');
-        
-        if(adminPanel) adminPanel.classList.add('hidden');
-        if(userPanel) userPanel.classList.add('hidden');
-        if(skeleton) skeleton.classList.remove('hidden');
+        LoadingManager.start('page.dashboard');
     }
-
     function hideDashboardSkeleton() {
-        const skeleton = document.getElementById('dashboardSkeleton');
-        if(skeleton) skeleton.classList.add('hidden');
+        LoadingManager.stop('page.dashboard');
     }
     function showToast(message, type = 'success') {
         const toastContainer = document.getElementById('toastContainer');
@@ -6286,6 +6245,11 @@
     class="hidden fixed bottom-24 right-4 z-40 w-14 h-14 bg-teal-600 text-white rounded-full shadow-lg shadow-teal-300 flex items-center justify-center hover:bg-teal-700 active:scale-90 transition-all">
     <i class="fa-solid fa-plus text-xl"></i>
 </button>
+
+<!-- ─── Enterprise Loading System ─────────────────────────────────── -->
+<script src="/js/loading-manager.js"></script>
+<script src="/js/skeleton-registry.js"></script>
+<script src="/js/api-client.js"></script>
 
 </body>
 </html>
