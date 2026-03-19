@@ -141,6 +141,13 @@
         .animate-slide-up {
             animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to   { opacity: 1; transform: scale(1)    translateY(0);   }
+        }
+        .animate-modal-in {
+            animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
 
         /* เพิ่มรองรับ Safe Area */
         .pb-safe {
@@ -1322,16 +1329,45 @@
                             <button onclick="closePdfViewer()" class="w-full py-3 text-gray-400 text-sm font-medium">ยกเลิก</button>
                         </div>
 
-                        <!-- Desktop: Full-screen iframe viewer -->
-                        <div class="hidden sm:flex flex-col h-full">
-                            <div class="flex justify-between items-center p-4 text-white shrink-0">
-                                <h3 id="pdfViewerTitleDesktop" class="font-bold text-lg truncate pr-4 max-w-[70%]">เอกสาร</h3>
-                                <button onclick="closePdfViewer()" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
-                                    <i class="fa-solid fa-xmark text-xl"></i>
-                                </button>
-                            </div>
-                            <div class="flex-1 bg-gray-900 w-full">
-                                <iframe id="pdfFrame" src="" class="w-full h-full border-0"></iframe>
+                        <!-- Desktop: Centered modal viewer -->
+                        <div class="hidden sm:flex items-center justify-center h-full p-6 pointer-events-none">
+                            <div class="pointer-events-auto w-full max-w-5xl h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden animate-modal-in">
+
+                                <!-- Header -->
+                                <div class="flex items-center gap-3 px-5 py-3.5 bg-white border-b border-gray-100 shrink-0">
+                                    <!-- File icon + meta -->
+                                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                                        <div class="bg-red-50 p-2 rounded-xl shrink-0">
+                                            <i class="fa-solid fa-file-pdf text-xl text-red-500"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none mb-0.5">PDF Document</p>
+                                            <h3 id="pdfViewerTitleDesktop" class="font-semibold text-gray-800 text-sm truncate leading-snug"></h3>
+                                        </div>
+                                    </div>
+                                    <!-- Action buttons -->
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <a id="pdfOpenNewTab" href="#" target="_blank"
+                                           class="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-teal-600 bg-gray-100 hover:bg-teal-50 px-3 py-2 rounded-lg transition-colors">
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i> เปิดในแท็บใหม่
+                                        </a>
+                                        <button onclick="closePdfViewer()"
+                                                class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                            <i class="fa-solid fa-xmark text-base"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Loading indicator (shows while iframe loads) -->
+                                <div id="pdfLoadingBar" class="h-0.5 bg-gray-100 shrink-0">
+                                    <div class="h-full bg-teal-500 w-0 transition-all duration-700" id="pdfLoadingBarFill"></div>
+                                </div>
+
+                                <!-- iframe -->
+                                <div class="flex-1 bg-gray-50 overflow-hidden">
+                                    <iframe id="pdfFrame" src="" class="w-full h-full border-0"
+                                            onload="document.getElementById('pdfLoadingBarFill').style.width='100%'"></iframe>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -6255,14 +6291,22 @@
         if (titleMobile)  titleMobile.textContent  = title;
         if (titleDesktop) titleDesktop.textContent = title;
 
-        // Mobile bottom sheet: set download link
+        // Mobile bottom sheet link
         const downloadLink = document.getElementById('pdfDownloadLink');
         if (downloadLink) downloadLink.href = url;
 
-        // Desktop iframe: load PDF only on desktop (sm: breakpoint = 640px)
+        // Desktop: "เปิดในแท็บใหม่" button + iframe
+        const openNewTab = document.getElementById('pdfOpenNewTab');
+        if (openNewTab) openNewTab.href = url;
+
         const isDesktop = window.innerWidth >= 640;
         const iframe = document.getElementById('pdfFrame');
         if (isDesktop && iframe) {
+            // Reset loading bar
+            const barFill = document.getElementById('pdfLoadingBarFill');
+            if (barFill) barFill.style.width = '0%';
+            // Small delay so the bar animates to ~60% before iframe loads
+            setTimeout(() => { if (barFill) barFill.style.width = '60%'; }, 50);
             iframe.src = url + '#toolbar=0';
         }
 
