@@ -2102,10 +2102,12 @@
             if(adminPanel) adminPanel.classList.add('hidden');
             if(userPanel)  userPanel.classList.remove('hidden');
 
-            // 2. Sidebar: force hide everywhere (inline style overrides md:flex)
-            if(sidebar) sidebar.style.display = 'none';
+            // 2. Sidebar: show on desktop (CSS md:flex), hide admin-only section
+            //    CSS guard (@max-width:767px) prevents it from showing on mobile
+            if(sidebar) sidebar.style.display = '';
+            if(adminMenu) adminMenu.classList.add('hidden');
 
-            // 3. Header: hide (user mode has no header — login is in menu popup)
+            // 3. Header: hide on mobile too (sidebar handles desktop nav; mobile nav handles phone)
             if(header) header.classList.add('hidden');
 
             // 4. Bottom nav: show user nav, hide admin nav
