@@ -2972,10 +2972,22 @@
                 </div>
 
                 <div class="flex items-center justify-between w-full md:w-auto gap-4 mt-2 md:mt-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100">
-                    <span class="px-3 py-1 text-xs font-bold rounded-full ${status.color}">
-                        ${status.text}
-                    </span>
-                    
+                    <div class="flex flex-col gap-1">
+                        <span class="px-3 py-1 text-xs font-bold rounded-full ${status.color}">
+                            ${status.text}
+                        </span>
+                        ${(v.status === 'approved' || v.status === 'partially_approved')
+                            ? v.status_received === 'received'
+                                ? `<span class="px-3 py-1 text-xs font-bold rounded-full bg-green-100 text-green-700 flex items-center gap-1">
+                                       <i class="fa-solid fa-circle-check text-[10px]"></i> รับแล้ว
+                                       <span class="font-normal text-green-600 text-[10px] ml-0.5">${v.received_at ? new Date(v.received_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : ''}</span>
+                                   </span>`
+                                : `<span class="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                                       <i class="fa-regular fa-clock text-[10px]"></i> รอรับของ
+                                   </span>`
+                            : ''}
+                    </div>
+
                     <div class="flex items-center gap-2">
                         ${reviewBtn} <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
                             <i class="fa-solid fa-receipt"></i>
