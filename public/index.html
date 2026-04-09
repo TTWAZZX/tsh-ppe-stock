@@ -4424,12 +4424,12 @@
 
         try {
             isConfirmingReceive = true;
-            hideSplash();   // ซ่อน Splash ก่อน ไม่งั้น Modal จะอยู่หลัง Splash
-            hideLoading();  // ปลดล็อคจอเพื่อให้กด Modal ยืนยันได้
+            hideSplash();                                    // ซ่อน Splash ก่อน ไม่งั้น Modal จะอยู่หลัง Splash
+            LoadingManager.cancel('action.confirmReceive'); // เคลียร์ overlay ที่ initializeApp เปิดไว้ ก่อน show modal
 
             // 3. ถามยืนยัน "ได้รับของแล้วใช่ไหม?"
             const confirm = await showConfirmationModal('ยืนยันรับของ', 'ยืนยันว่าคุณได้รับอุปกรณ์แล้วใช่หรือไม่?');
-            
+
             if (!confirm) {
                 // ถ้ากด "ยกเลิก" -> ล้าง session แล้วจบ
                 sessionStorage.removeItem('confirm_mode');
@@ -4439,8 +4439,7 @@
             }
 
             // 4. เริ่มกระบวนการรับของ
-            LoadingManager.cancel('action.confirmReceive'); // เคลียร์ key ที่ initializeApp เปิดไว้ก่อน
-            showLoading('กำลังยืนยันการรับของ'); // ล็อคจออีกครั้งด้วย action.legacy (key เดียว สะอาด)
+            showLoading('กำลังยืนยันการรับของ'); // แสดง overlay หลังจาก user กดยืนยันแล้วเท่านั้น
 
             // ใช้ liffProfile ที่ fetch ไว้แล้วใน initializeApp — ไม่ต้อง getProfile() ซ้ำ (อาจค้าง)
             const profile = liffProfile || await liff.getProfile();
