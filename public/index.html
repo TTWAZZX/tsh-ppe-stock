@@ -4439,8 +4439,11 @@
             }
 
             // 4. เริ่มกระบวนการรับของ
-            showLoading('กำลังยืนยันการรับของ'); // ล็อคจออีกครั้ง
-            const profile = await liff.getProfile();
+            LoadingManager.cancel('action.confirmReceive'); // เคลียร์ key ที่ initializeApp เปิดไว้ก่อน
+            showLoading('กำลังยืนยันการรับของ'); // ล็อคจออีกครั้งด้วย action.legacy (key เดียว สะอาด)
+
+            // ใช้ liffProfile ที่ fetch ไว้แล้วใน initializeApp — ไม่ต้อง getProfile() ซ้ำ (อาจค้าง)
+            const profile = liffProfile || await liff.getProfile();
 
             // ยิง API ยืนยันรับของ (Backend)
             await callServerFunction('confirmReceive', {
@@ -4451,34 +4454,35 @@
 
             // แจ้งเตือนสำเร็จ
             showToast('ยืนยันรับของเรียบร้อย', 'success');
-            
+
             // เคลียร์ค่าจาก Session (เพราะทำรายการเสร็จแล้ว)
             sessionStorage.removeItem('confirm_mode');
             const confirmedId = sessionStorage.getItem('confirm_voucher_id'); // เก็บ ID ไว้ใช้เปิดหน้า Review
             sessionStorage.removeItem('confirm_voucher_id');
 
             // --- ⚡ จุดสำคัญ: บังคับรีวิวทันที ---
-            
+
             // 5. โหลดข้อมูลใหม่ (เพื่อให้ App รู้จัก Voucher นี้)
             const updatedData = await callServerFunction('getInitialData');
             onDataLoaded(updatedData);
             hideLoading();
-            
+
             // กลับไปหน้า Dashboard รอไว้ก่อน
-            showPage('dashboard'); 
-            
+            showPage('dashboard');
+
             // 6. เปิดหน้าเลือกของแบบบังคับ (ส่ง true ไปในพารามิเตอร์ที่ 2)
             // หน่วงเวลาเล็กน้อยเพื่อให้ UI พร้อม
             setTimeout(() => {
                 // เรียก openRatingSelector(id, mandatory=true)
                 openRatingSelector(confirmedId, true);
             }, 500);
-            
+
             // ----------------------------------------------------
 
         } catch (err) {
             console.error(err);
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+            LoadingManager.cancel('action.confirmReceive'); // เคลียร์ทุก key ที่อาจค้าง
             hideLoading();
         } finally {
             isConfirmingReceive = false;
