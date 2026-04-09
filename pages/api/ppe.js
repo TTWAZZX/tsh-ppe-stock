@@ -24,7 +24,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'saveCategory', 'deleteCategory', 'savePpeItem', 'deletePpeItem',
   'approveVoucher', 'approvePartialVoucher', 'rejectVoucher',
   'addReceiveTransaction', 'saveMatrixRule', 'deleteMatrixRule',
-  'uploadDocument', 'deleteDocument',
+  'uploadDocument', 'deleteDocument', 'deleteVoucher',
 ]);
 
 // ปิด bodyParser เดิมของ Next.js เพื่อให้เราอ่าน text/plain เอง
@@ -159,6 +159,11 @@ export default async function handler(req, res) {
       case 'deleteDocument':
         result = await deleteDocument(payload);
         await writeAuditLog(actor, 'deleteDocument', 'ppe_documents', payload.id);
+        break;
+
+      case 'deleteVoucher':
+        result = await deleteVoucher(payload.voucherId);
+        await writeAuditLog(actor, 'deleteVoucher', 'issue_vouchers', payload.voucherId);
         break;
 
       default:
@@ -983,6 +988,18 @@ async function deletePpeItem(payload) {
 
   if (error) throw error;
   return { status: 'success', message: 'Soft deleted successfully' };
+}
+
+async function deleteVoucher(voucherId) {
+  if (!voucherId) throw new Error('Missing voucherId');
+
+  const { error } = await supabase
+    .from('issue_vouchers')
+    .delete()
+    .eq('id', voucherId);
+
+  if (error) throw error;
+  return { status: 'success' };
 }
 
 // ⭐⭐⭐ แก้ไขฟังก์ชันนี้ใน api/ppe.js ⭐⭐⭐

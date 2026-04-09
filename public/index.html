@@ -2989,10 +2989,14 @@
                     </div>
 
                     <div class="flex items-center gap-2">
-                        ${reviewBtn} <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
+                        ${reviewBtn}
+                        <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
                             <i class="fa-solid fa-receipt"></i>
                         </button>
-                        
+                        ${isAdmin ? `
+                        <button onclick="deleteVoucherById(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-100 transition-colors" title="ลบใบเบิก">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>` : ''}
                         <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
                             <i class="fa-solid fa-chevron-right"></i>
                         </div>
@@ -3003,7 +3007,23 @@
         }).join('');
     }
     
-    function updatePendingTable() { 
+    async function deleteVoucherById(voucherId) {
+        const confirmed = await showConfirmationModal(
+            'ลบใบเบิก',
+            `ยืนยันการลบใบเบิก #${voucherId}?\nการลบจะไม่สามารถกู้คืนได้`
+        );
+        if (!confirmed) return;
+
+        try {
+            await callServerFunction('deleteVoucher', { voucherId });
+            showToast('ลบใบเบิกเรียบร้อยแล้ว', 'success');
+            await refreshData('allHistory');
+        } catch (err) {
+            showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+        }
+    }
+
+    function updatePendingTable() {
         const tbody = document.getElementById('pendingTableBody');
         const emptyState = document.getElementById('pendingEmptyState');
         

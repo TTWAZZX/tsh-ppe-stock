@@ -44,6 +44,7 @@ const ACTION_LOADING_KEYS = {
   deleteMatrixRule:     { key: 'action.deleteMatrix',     overlay: true },
   uploadDocument:       { key: 'action.uploadDoc',        overlay: true },
   deleteDocument:       { key: 'action.deleteDoc',        overlay: true },
+  deleteVoucher:        { key: 'action.deleteVoucher',    overlay: true },
   saveFeedback:         { key: 'action.feedback',         overlay: true },
   adminLogin:           { key: 'action.login',            overlay: true },
   updateStockLevels:    { key: 'action.stock',            overlay: true },
