@@ -54,3 +54,24 @@ test('invokes centralized Admin login handler on API 403', async () => {
   );
   assert.equal(called, true);
 });
+
+test('preserves feedback-required code and voucher details on API 409', async () => {
+  const browser = loadApiClient(async () => ({
+    ok: false,
+    status: 409,
+    json: async () => ({
+      message: 'กรุณาให้คะแนนใบเบิกเดิมให้ครบ',
+      code: 'FEEDBACK_REQUIRED',
+      details: { voucherId: 117, ratedCount: 1, total: 2 },
+    }),
+  }));
+
+  await assert.rejects(
+    browser.apiCall('addNewVoucher', {}, { silent: true }),
+    error => (
+      error.statusCode === 409
+      && error.code === 'FEEDBACK_REQUIRED'
+      && error.details?.voucherId === 117
+    ),
+  );
+});

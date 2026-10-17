@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { createLineNotificationService } from '../../lib/notification-service.js';
 import { createNotificationWorkflows } from '../../lib/notification-workflows.js';
 import { createPpeFlexMessage } from '../../lib/line-flex.js';
+import { findIncompleteReceivedVoucher, parseVoucherItems } from '../../lib/feedback-policy.js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
@@ -245,7 +246,12 @@ export default async function handler(req, res) {
     const isSafeMessage = !/supabase|postgres|connection|ECONN|ETIMED|permission denied|relation|column|syntax/i.test(err.message);
     const clientMessage = isSafeMessage ? err.message : 'เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่อีกครั้ง';
     const statusCode = Number.isInteger(err.statusCode) ? err.statusCode : 500;
-    return res.status(statusCode).json({ status: 'error', message: clientMessage });
+    return res.status(statusCode).json({
+      status: 'error',
+      message: clientMessage,
+      ...(err.code ? { code: err.code } : {}),
+      ...(err.details && typeof err.details === 'object' ? { details: err.details } : {}),
+    });
   }
 }
 
@@ -302,9 +308,11 @@ async function verifyLineAccessToken(accessToken) {
   return safeProfile;
 }
 
-function createHttpError(statusCode, message) {
+function createHttpError(statusCode, message, code = '', details = null) {
   const error = new Error(message);
   error.statusCode = statusCode;
+  if (code) error.code = code;
+  if (details) error.details = details;
   return error;
 }
 
@@ -565,13 +573,31 @@ async function saveFeedback(payload, auth) {
   }
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('คะแนนต้องอยู่ระหว่าง 1 ถึง 5');
 
-  let voucherQuery = supabase.from('issue_vouchers').select('id, userid, itemsJson').eq('id', transactionId);
-  if (!auth.isAdmin) voucherQuery = voucherQuery.eq('userid', auth.lineUser.userId);
+  if (auth.isAdmin) throw createHttpError(403, 'ผู้ดูแลระบบดูสถานะคะแนนได้ แต่ไม่สามารถให้คะแนนแทนผู้ใช้');
+  let voucherQuery = supabase.from('issue_vouchers').select('id, userid, itemsJson, status, status_received').eq('id', transactionId);
+  voucherQuery = voucherQuery.eq('userid', auth.lineUser.userId);
   const { data: voucher, error: voucherError } = await voucherQuery.maybeSingle();
   if (voucherError) throw voucherError;
   if (!voucher) throw createHttpError(403, 'คุณไม่มีสิทธิ์ประเมินรายการนี้');
-  const voucherItems = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
+  if (!['approved', 'partially_approved'].includes(voucher.status) || voucher.status_received !== 'received') {
+    throw createHttpError(409, 'ให้คะแนนได้หลังจากยืนยันรับอุปกรณ์แล้วเท่านั้น');
+  }
+  const voucherItems = parseVoucherItems(voucher.itemsJson);
   if (!voucherItems.some(item => Number(item.itemId) === itemId)) throw new Error('ไม่พบอุปกรณ์นี้ในใบเบิก');
+
+  const { data: existingFeedback, error: existingError } = await supabase
+    .from('feedback')
+    .select('*')
+    .eq('transaction_id', transactionId)
+    .eq('item_id', itemId)
+    .eq('feedback_type', type)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existingFeedback) {
+    return { status: 'success', data: [existingFeedback], alreadyRated: true };
+  }
 
   const { data: storedItem } = await supabase.from('ppe_items').select('name').eq('id', itemId).maybeSingle();
   const user = auth.isAdmin ? `Admin (${auth.adminUsername})` : auth.lineUser.displayName;
@@ -834,6 +860,42 @@ async function addNewVoucher(voucherData, auth) {
     : auth.lineUser.userId;
   const requestedName = String(voucherData.user || '').trim();
   const userName = requestedName || (auth.lineUser?.displayName || 'ผู้ใช้');
+  if (!auth.isAdmin) {
+    const { data: receivedVouchers, error: receivedError } = await supabase
+      .from('issue_vouchers')
+      .select('id, timestamp, received_at, status, status_received, itemsJson')
+      .eq('userid', ownerUserId)
+      .eq('status_received', 'received')
+      .in('status', ['approved', 'partially_approved']);
+    if (receivedError) throw receivedError;
+
+    const voucherIds = (receivedVouchers || []).map(voucher => voucher.id);
+    let feedbackRows = [];
+    if (voucherIds.length) {
+      const { data: feedback, error: feedbackError } = await supabase
+        .from('feedback')
+        .select('transaction_id, item_id, feedback_type, rating, created_at')
+        .in('transaction_id', voucherIds)
+        .order('created_at', { ascending: false });
+      if (feedbackError) throw feedbackError;
+      feedbackRows = feedback || [];
+    }
+
+    const incomplete = findIncompleteReceivedVoucher(receivedVouchers || [], feedbackRows);
+    if (incomplete) {
+      throw createHttpError(
+        409,
+        `กรุณาให้คะแนนอุปกรณ์ในใบเบิก #${incomplete.voucher.id} ให้ครบก่อนสร้างใบเบิกใหม่`,
+        'FEEDBACK_REQUIRED',
+        {
+          voucherId: incomplete.voucher.id,
+          ratedCount: incomplete.progress.ratedCount,
+          total: incomplete.progress.total,
+          missingItemIds: incomplete.progress.missingItemIds,
+        }
+      );
+    }
+  }
   const nextId = await getNextId('issue_vouchers', 'id');
   const { data, error } = await supabase
     .from('issue_vouchers')

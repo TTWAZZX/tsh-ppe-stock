@@ -2456,9 +2456,12 @@
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh]">
         
         <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-50">
-            <h3 class="font-bold text-teal-800 flex items-center gap-2">
-                <i class="fa-solid fa-star-half-stroke"></i> เลือกรายการรีวิว
-            </h3>
+            <div>
+                <h3 class="font-bold text-teal-800 flex items-center gap-2">
+                    <i class="fa-solid fa-star-half-stroke"></i> ให้คะแนนอุปกรณ์
+                </h3>
+                <p id="rateSelectorProgress" class="text-xs text-teal-700 mt-0.5">ตรวจสอบสถานะคะแนนของใบเบิก</p>
+            </div>
             <button id="btnCloseRateSelector" onclick="closeRateSelector()" class="text-gray-400 hover:text-gray-600">
                 <i class="fa-solid fa-times text-xl"></i>
             </button>
@@ -3386,6 +3389,41 @@
         }
     }
 
+    function getVoucherFeedbackState(voucher) {
+        const itemIds = [...new Set(getVoucherItems(voucher)
+            .map(item => Number(item.itemId))
+            .filter(itemId => Number.isInteger(itemId) && itemId > 0))];
+        const latestByItem = new Map();
+        (currentData.feedbackData || [])
+            .filter(row => (
+                String(row.transaction_id) === String(voucher?.id)
+                && (!row.feedback_type || String(row.feedback_type) === 'issue')
+            ))
+            .forEach(row => {
+                const itemId = Number(row.item_id);
+                if (itemIds.includes(itemId) && !latestByItem.has(itemId)) latestByItem.set(itemId, row);
+            });
+        const ratings = [...latestByItem.values()]
+            .map(row => Number(row.rating))
+            .filter(rating => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+        const ratedCount = latestByItem.size;
+        return {
+            total: itemIds.length,
+            ratedCount,
+            complete: itemIds.length > 0 && ratedCount === itemIds.length,
+            average: ratings.length ? (ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1) : null,
+            latestByItem,
+        };
+    }
+
+    function getOutstandingFeedbackVoucher() {
+        if (isAdmin) return null;
+        return getVisibleIssueHistory()
+            .filter(voucher => ['approved', 'partially_approved'].includes(voucher.status) && voucher.status_received === 'received')
+            .sort((a, b) => new Date(a.received_at || a.timestamp) - new Date(b.received_at || b.timestamp))
+            .find(voucher => !getVoucherFeedbackState(voucher).complete) || null;
+    }
+
     function getVisibleIssueHistory() {
         return (currentData.issueVouchers || []).filter(voucher => isRecordOwnedByCurrentUser(voucher, 'user'));
     }
@@ -4101,15 +4139,18 @@
 
             const ppeItem = currentData.ppeItems.find(p => p.id == firstItemData.itemId) || { name: 'อุปกรณ์', image_url: '' };
             const isOwner = isRecordOwnedByCurrentUser(v, 'user');
+            const feedbackState = getVoucherFeedbackState(v);
+            const isReceived = v.status_received === 'received';
             const safeItemName = escapeLoanText(ppeItem.name || 'อุปกรณ์');
             const safeUser = escapeLoanText(v.user || '-');
             const safeDepartment = escapeLoanText(v.department || '-');
             
-            const reviewBtn = isOwner ? `
-                <button onclick="openRatingSelector('${v.id}'); event.stopPropagation();" 
-                        class="w-8 h-8 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center hover:bg-yellow-100 transition-colors border border-yellow-100 shadow-sm" 
-                        title="ให้คะแนนสินค้า">
-                    <i class="fa-regular fa-star"></i>
+            const reviewBtn = (isOwner && isReceived) ? `
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openRatingSelector('${v.id}'); return false;"
+                        class="min-h-8 px-2.5 rounded-full ${feedbackState.complete ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'} flex items-center gap-1.5 justify-center hover:brightness-95 transition-colors border shadow-sm text-xs font-bold"
+                        title="${feedbackState.complete ? `ให้คะแนนแล้ว ${feedbackState.average} ดาว` : `รอให้คะแนน ${feedbackState.ratedCount}/${feedbackState.total} รายการ`}">
+                    <i class="${feedbackState.complete ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+                    <span>${feedbackState.complete ? `${feedbackState.average} ดาว` : `รอประเมิน ${feedbackState.ratedCount}/${feedbackState.total}`}</span>
                 </button>
             ` : ''; 
             // ^^^ ถ้าไม่ใช่เจ้าของ ให้เป็นค่าว่าง (ไม่แสดงปุ่ม)
@@ -4160,11 +4201,11 @@
 
                     <div class="flex items-center gap-2">
                         ${reviewBtn}
-                        <button onclick="showVoucherSlip(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเสร็จ">
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); showVoucherSlip(${v.id}); return false;" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเบิก">
                             <i class="fa-solid fa-receipt"></i>
                         </button>
                         ${isAdmin ? `
-                        <button onclick="deleteVoucherById(${v.id}); event.stopPropagation();" class="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-100 transition-colors" title="ลบใบเบิก">
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); deleteVoucherById(${v.id}); return false;" class="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-100 transition-colors" title="ลบใบเบิก">
                             <i class="fa-solid fa-trash text-xs"></i>
                         </button>` : ''}
                         <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
@@ -5787,6 +5828,17 @@
         }).join('');
 
         const status = getStatusInfo(voucher.status);
+        const feedbackState = getVoucherFeedbackState(voucher);
+        const feedbackRows = items.map(item => {
+            const ppeItem = currentData.ppeItems.find(p => Number(p.id) === Number(item.itemId));
+            const feedback = feedbackState.latestByItem.get(Number(item.itemId));
+            return `<div class="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-0">
+                <span class="text-sm text-gray-700 truncate">${escapeLoanText(ppeItem?.name || 'อุปกรณ์')}</span>
+                ${feedback
+                    ? `<span class="text-xs font-bold text-yellow-700 whitespace-nowrap"><i class="fa-solid fa-star text-yellow-400 mr-1"></i>${Number(feedback.rating).toFixed(1)} / 5</span>`
+                    : `<span class="text-xs font-bold text-amber-700 whitespace-nowrap">ยังไม่ให้คะแนน</span>`}
+            </div>`;
+        }).join('');
         const canAdminConfirm = isAdmin
             && (voucher.status === 'approved' || voucher.status === 'partially_approved')
             && voucher.status_received !== 'received';
@@ -5822,6 +5874,13 @@
                     </div>
                     ${voucher.adminNotes ? `<div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800"><p class="text-xs font-bold mb-0.5"><i class="fa-solid fa-comment-dots mr-1"></i>หมายเหตุจากผู้อนุมัติ</p><p>${escapeLoanText(voucher.adminNotes)}</p></div>` : ''}
                     ${receivedInfo}
+                    ${voucher.status_received === 'received' ? `<div class="rounded-lg border ${feedbackState.complete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'} px-3 py-2">
+                        <div class="flex items-center justify-between gap-3 mb-1">
+                            <p class="text-sm font-bold ${feedbackState.complete ? 'text-green-800' : 'text-amber-800'}"><i class="fa-solid fa-star mr-1"></i>สถานะการประเมิน</p>
+                            <span class="text-xs font-bold ${feedbackState.complete ? 'text-green-700' : 'text-amber-700'}">${feedbackState.complete ? `ครบแล้ว · เฉลี่ย ${feedbackState.average} ดาว` : `${feedbackState.ratedCount}/${feedbackState.total} รายการ`}</span>
+                        </div>
+                        <div class="bg-white/70 rounded-md px-2">${feedbackRows}</div>
+                    </div>` : ''}
                 </div>
                 <div class="mt-6 flex flex-col gap-3">
                     ${canAdminConfirm ? `
@@ -6363,8 +6422,9 @@
             onDataLoaded(updatedData);
             hideLoading();
 
-            // กลับไปหน้า Dashboard รอไว้ก่อน
-            showPage('dashboard');
+            // แสดงประวัติใบเบิกไว้ด้านหลัง แล้วเปิดการประเมินแบบบังคับทันที
+            showPage('allHistory');
+            if (typeof showHistoryTab === 'function') showHistoryTab('issue');
 
             // 6. เปิดหน้าเลือกของแบบบังคับ (ส่ง true ไปในพารามิเตอร์ที่ 2)
             // หน่วงเวลาเล็กน้อยเพื่อให้ UI พร้อม
@@ -6823,6 +6883,16 @@
                 return;
             }
 
+            const outstandingFeedback = getOutstandingFeedbackVoucher();
+            if (outstandingFeedback) {
+                const progress = getVoucherFeedbackState(outstandingFeedback);
+                showToast(`กรุณาให้คะแนนใบเบิก #${outstandingFeedback.id} ให้ครบก่อนเบิกครั้งใหม่ (${progress.ratedCount}/${progress.total})`, 'warning');
+                showPage('allHistory');
+                if (typeof showHistoryTab === 'function') showHistoryTab('issue');
+                openRatingSelector(outstandingFeedback.id, true);
+                return;
+            }
+
             // 2. รับค่าจากฟอร์ม (รองรับ LINE / พิมพ์เอง)
             const nameMode =
                 document.querySelector('input[name="issueUserMode"]:checked')?.value || 'line';
@@ -6912,7 +6982,14 @@
         } catch (error) {
             if (typeof hideLoading === 'function') hideLoading();
             console.error("Save Error:", error);
-            showToast("บันทึกไม่สำเร็จ: " + error.message, 'error');
+            if (error.code === 'FEEDBACK_REQUIRED' && error.details?.voucherId) {
+                showToast(error.message, 'warning');
+                showPage('allHistory');
+                if (typeof showHistoryTab === 'function') showHistoryTab('issue');
+                openRatingSelector(error.details.voucherId, true);
+            } else {
+                showToast("บันทึกไม่สำเร็จ: " + error.message, 'error');
+            }
         } finally {
             isSavingIssueVoucher = false;
             updateIssueFormSummary();
@@ -7465,16 +7542,21 @@
         showLoading();
 
         try {
-            await callServerFunction('saveFeedback', payload);
+            const result = await callServerFunction('saveFeedback', payload);
             
-            showToast('บันทึกคะแนนแล้ว ⭐');
+            showToast(result?.alreadyRated ? 'รายการนี้ให้คะแนนแล้ว' : 'บันทึกคะแนนแล้ว ⭐');
 
-            // ✅✅✅ ส่วนที่เพิ่ม: อัปเดตข้อมูล Local ทันทีเพื่อให้ List ขึ้นติ๊กถูก ✅✅✅
             if (!currentData.feedbackData) currentData.feedbackData = [];
-            currentData.feedbackData.push({
-                transaction_id: payload.transactionId,
-                item_id: payload.itemId,
-                rating: payload.rating,
+            currentData.feedbackData = currentData.feedbackData.filter(row => !(
+                String(row.transaction_id) === String(payload.transactionId)
+                && String(row.item_id) === String(payload.itemId)
+            ));
+            const savedRow = Array.isArray(result?.data) ? result.data[0] : null;
+            currentData.feedbackData.unshift(savedRow || {
+                transaction_id: Number(payload.transactionId),
+                item_id: Number(payload.itemId),
+                feedback_type: payload.type,
+                rating: Number(payload.rating),
                 comment: payload.comment,
                 user_name: payload.user,
                 item_name: payload.itemName,
@@ -7489,10 +7571,12 @@
                 // แต่ในที่นี้เราส่ง payload.transactionId ไปได้เลย
                 openRatingSelector(payload.transactionId, isMandatoryReview);
             }
-            // ✅✅✅ จบส่วนที่เพิ่ม ✅✅✅
+            updateHistoryTable();
             
         } catch (error) {
-            // ... (Error handling เดิม) ...
+            showToast(error.message || 'บันทึกคะแนนไม่สำเร็จ กรุณาลองใหม่', 'error');
+            const voucherId = Number(payload.transactionId);
+            if (voucherId) openRatingSelector(voucherId, isMandatoryReview);
         } finally {
             hideLoading();
         }
@@ -7502,11 +7586,24 @@
     // 🌟 MANDATORY REVIEW SYSTEM LOGIC
     // ==========================================
     
-    let isMandatoryReview = false; // ตัวแปรเช็คสถานะการบังคับ
+    let isMandatoryReview = false;
+    let activeRatingVoucherId = null;
+
+    function openFeedbackForVoucherItem(voucherId, itemId) {
+        const voucher = currentData.issueVouchers.find(entry => String(entry.id) === String(voucherId));
+        if (!voucher || isAdmin || !isRecordOwnedByCurrentUser(voucher, 'user')) {
+            return showToast('เฉพาะเจ้าของใบเบิกเท่านั้นที่ให้คะแนนได้', 'error');
+        }
+        const item = currentData.ppeItems.find(entry => Number(entry.id) === Number(itemId));
+        openFeedbackModal({
+            id: Number(itemId),
+            name: item?.name || 'อุปกรณ์',
+            image_url: item?.image_url || ''
+        }, String(voucherId), 'issue');
+    }
 
     // ฟังก์ชันเปิดหน้าเลือกของ (ปรับปรุง Logic ความปลอดภัย)
     function openRatingSelector(voucherId, mandatory = false) {
-        isMandatoryReview = mandatory;
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
         
         if (!voucher) {
@@ -7514,52 +7611,49 @@
             return; 
         }
 
-        // 🔒🔒🔒 Security Check: กันเหนียวอีกชั้น 🔒🔒🔒
-        const currentUser = (typeof liffProfile !== 'undefined' && liffProfile) ? liffProfile.displayName : '';
-        // ถ้าชื่อไม่ตรง และ ไม่ใช่โหมดบังคับ (โหมดบังคับจะปลอดภัยเพราะมาจาก ConfirmFlow) -> ห้ามเปิด
-        if (!mandatory && voucher.user !== currentUser && !isAdmin) {
-             return showToast('คุณไม่ใช่เจ้าของรายการนี้ ไม่สามารถประเมินได้', 'error');
-        }
-        // 🔒🔒🔒 ------------------------------- 🔒🔒🔒
+        const isOwner = !isAdmin && isRecordOwnedByCurrentUser(voucher, 'user');
+        if (!isAdmin && !isOwner) return showToast('คุณไม่ใช่เจ้าของรายการนี้ ไม่สามารถประเมินได้', 'error');
+        if (voucher.status_received !== 'received') return showToast('ให้คะแนนได้หลังจากยืนยันรับอุปกรณ์แล้ว', 'warning');
 
-        let items = [];
-        try { items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]'); } catch (e) { items = []; }
+        const items = getVoucherItems(voucher);
+        const feedbackState = getVoucherFeedbackState(voucher);
+        const canSubmitRating = isOwner;
+        activeRatingVoucherId = voucher.id;
+        isMandatoryReview = Boolean(mandatory && canSubmitRating && !feedbackState.complete);
 
         const listContainer = document.getElementById('rateItemList');
         listContainer.innerHTML = '';
-
-        let allRated = true;
+        const progressLabel = document.getElementById('rateSelectorProgress');
+        if (progressLabel) {
+            progressLabel.textContent = feedbackState.complete
+                ? `ใบเบิก #${voucher.id} · ให้คะแนนครบแล้ว · เฉลี่ย ${feedbackState.average} ดาว`
+                : `ใบเบิก #${voucher.id} · ให้คะแนนแล้ว ${feedbackState.ratedCount}/${feedbackState.total} รายการ`;
+        }
 
         items.forEach(item => {
-            // ... (โค้ดสร้างรายการเหมือนเดิม ไม่ต้องแก้ข้างใน loop) ...
-            // คัดลอกไส้ใน loop เดิมมาใส่ตรงนี้ได้เลย
-            // หรือใช้โค้ดเต็มด้านล่างนี้
-             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
+            const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
             const itemName = ppe ? ppe.name : 'Unknown Item';
             const imgUrl = ppe?.image_url || 'https://placehold.co/100?text=Item';
-
-            const isRated = (currentData.feedbackData || []).some(f => 
-                String(f.transaction_id) === String(voucherId) && 
-                String(f.item_id) === String(item.itemId)
-            );
-
-            if (!isRated) allRated = false;
+            const feedback = feedbackState.latestByItem.get(Number(item.itemId));
+            const isRated = Boolean(feedback);
 
             const cardClass = isRated 
-                ? 'bg-green-50 border-green-200 opacity-80' 
-                : 'bg-white border-gray-200 hover:border-teal-400 hover:shadow-md cursor-pointer animate-pulse-slow';
+                ? 'bg-green-50 border-green-200'
+                : canSubmitRating
+                    ? 'bg-white border-gray-200 hover:border-teal-400 hover:shadow-md cursor-pointer animate-pulse-slow'
+                    : 'bg-amber-50 border-amber-200';
             
             const iconHtml = isRated
-                ? `<div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><i class="fa-solid fa-check"></i></div>`
-                : `<div class="w-8 h-8 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i class="fa-regular fa-star text-lg"></i></div>`;
+                ? `<div class="text-right"><div class="text-yellow-500 whitespace-nowrap">${'<i class="fa-solid fa-star"></i>'.repeat(Number(feedback.rating) || 0)}</div><p class="text-[11px] font-bold text-green-700">${Number(feedback.rating).toFixed(1)} / 5</p></div>`
+                : `<div class="text-right"><div class="w-8 h-8 ml-auto rounded-full bg-orange-100 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i class="fa-regular fa-star text-lg"></i></div><p class="text-[11px] font-bold text-amber-700 mt-1">ยังไม่ให้คะแนน</p></div>`;
 
-            const onClick = isRated ? '' : `onclick="openFeedbackModal({id: '${item.itemId}', name: '${itemName}', image_url: '${imgUrl}'}, '${voucherId}', 'issue');"`;
+            const onClick = (!isRated && canSubmitRating) ? `onclick="openFeedbackForVoucherItem('${voucherId}', '${item.itemId}')"` : '';
 
             const html = `
             <div ${onClick} class="flex items-center gap-3 p-3 rounded-xl border ${cardClass} transition-all group relative overflow-hidden">
-                <img src="${imgUrl}" class="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100">
+                <img src="${escapeLoanText(imgUrl)}" alt="${escapeLoanText(itemName)}" class="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100">
                 <div class="flex-1 min-w-0">
-                    <h4 class="font-bold text-gray-800 text-sm truncate">${itemName}</h4>
+                    <h4 class="font-bold text-gray-800 text-sm truncate">${escapeLoanText(itemName)}</h4>
                     <p class="text-xs text-gray-500">จำนวน: ${item.quantity}</p>
                 </div>
                 <div>${iconHtml}</div>
@@ -7569,7 +7663,6 @@
             listContainer.insertAdjacentHTML('beforeend', html);
         });
 
-        // ... (ส่วนจัดการปุ่มเหมือนเดิม) ...
         const closeBtn = document.getElementById('btnCloseRateSelector');
         const finishBtn = document.getElementById('btnFinishRating');
 
@@ -7579,14 +7672,16 @@
             closeBtn.classList.remove('hidden');
         }
 
-        if (allRated) {
+        if (feedbackState.complete || isAdmin) {
             finishBtn.disabled = false;
             finishBtn.classList.remove('bg-gray-400');
             finishBtn.classList.add('bg-teal-600', 'hover:bg-teal-700', 'text-white');
-            finishBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> เสร็จสิ้น';
+            finishBtn.innerHTML = isAdmin
+                ? '<i class="fa-solid fa-eye"></i> ปิดหน้าสถานะคะแนน'
+                : '<i class="fa-solid fa-check-circle"></i> เสร็จสิ้น';
         } else {
             finishBtn.disabled = true;
-            finishBtn.innerHTML = '<span>กรุณารีวิวให้ครบทุกชิ้น</span>';
+            finishBtn.innerHTML = `<span>กรุณารีวิวให้ครบทุกชิ้น (${feedbackState.ratedCount}/${feedbackState.total})</span>`;
         }
 
         document.getElementById('rateItemSelectorModal').classList.remove('hidden');
@@ -7594,14 +7689,27 @@
 
     // 2. ฟังก์ชันปิดหน้าเลือกของ
     function closeRateSelector() {
+        if (isMandatoryReview && activeRatingVoucherId) {
+            const voucher = currentData.issueVouchers.find(entry => String(entry.id) === String(activeRatingVoucherId));
+            if (voucher && !getVoucherFeedbackState(voucher).complete) {
+                return showToast('กรุณาให้คะแนนอุปกรณ์ให้ครบทุกชิ้นก่อน', 'warning');
+            }
+        }
         document.getElementById('rateItemSelectorModal').classList.add('hidden');
-        isMandatoryReview = false; // Reset flag
+        isMandatoryReview = false;
+        activeRatingVoucherId = null;
     }
 
     // 3. ฟังก์ชันเมื่อกดปุ่ม "เสร็จสิ้น" (Mandatory Flow)
     function finishMandatoryRating() {
+        if (activeRatingVoucherId && !isAdmin) {
+            const voucher = currentData.issueVouchers.find(entry => String(entry.id) === String(activeRatingVoucherId));
+            if (voucher && !getVoucherFeedbackState(voucher).complete) {
+                return showToast('กรุณาให้คะแนนอุปกรณ์ให้ครบทุกชิ้นก่อน', 'warning');
+            }
+        }
         closeRateSelector();
-        showToast('ขอบคุณสำหรับข้อมูลครับ! 🙏');
+        if (!isAdmin) showToast('ขอบคุณสำหรับคะแนนครับ! ตอนนี้สามารถเบิกครั้งถัดไปได้แล้ว 🙏');
         
         // ปิด LIFF ทันที
         if (liff.isInClient()) {

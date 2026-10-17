@@ -132,6 +132,8 @@ async function _doFetch(body, signal) {
   if (!response.ok) {
     const error = new Error(result.message || `API Error: ${response.status}`);
     error.statusCode = response.status;
+    error.code = result.code || '';
+    error.details = result.details || null;
     if (response.status === 401 && typeof window.handleLineSessionExpired === 'function') {
       try {
         error.authenticationRedirected = Boolean(await window.handleLineSessionExpired(error.message));
