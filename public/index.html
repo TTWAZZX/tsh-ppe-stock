@@ -463,6 +463,9 @@
                 <a href="#" onclick="showPage('report')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
                     <i class="fa-solid fa-chart-line w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> รายงานสรุป
                 </a>
+                <a href="#" onclick="showPage('notifications')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-teal-50 hover:text-teal-600">
+                    <i class="fa-solid fa-bell w-6 h-6 mr-3 text-gray-400 group-hover:text-teal-600"></i> การแจ้งเตือน
+                </a>
             </div>
         </nav>
         <div class="p-4 border-t border-gray-200">
@@ -1705,6 +1708,85 @@
                     </div>
             </div>
 
+            <div id="notificationsPage" class="page hidden admin-page">
+                <div class="module-shell space-y-4 pb-24">
+                    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-bell text-teal-600"></i> ศูนย์การแจ้งเตือน
+                                </h2>
+                                <p class="text-sm text-gray-500 mt-1">ติดตามผลส่งข้อความ ตั้งค่าผู้รับ Admin และสั่งประมวลผลข้อความที่ต้องส่งซ้ำ</p>
+                            </div>
+                            <div class="grid grid-cols-2 sm:flex gap-2 w-full lg:w-auto">
+                                <button type="button" onclick="runLoanDueReminders()" class="min-h-11 px-4 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 font-semibold text-sm hover:bg-orange-100">
+                                    <i class="fa-solid fa-calendar-check mr-1"></i> เตือนกำหนดคืน
+                                </button>
+                                <button type="button" onclick="retryDueNotifications()" class="min-h-11 px-4 rounded-lg bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700 shadow-sm">
+                                    <i class="fa-solid fa-rotate mr-1"></i> ส่งข้อความค้าง
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="grid grid-cols-2 xl:grid-cols-4 gap-3" aria-label="สรุปสถานะข้อความ">
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm"><p class="text-xs font-semibold text-gray-500">ข้อความทั้งหมด</p><p id="notificationMetricTotal" class="text-2xl font-bold text-gray-800 mt-1">0</p></div>
+                        <div class="bg-white rounded-xl border border-emerald-200 p-4 shadow-sm"><p class="text-xs font-semibold text-emerald-700">ส่งสำเร็จ</p><p id="notificationMetricSent" class="text-2xl font-bold text-emerald-600 mt-1">0</p></div>
+                        <div class="bg-white rounded-xl border border-orange-200 p-4 shadow-sm"><p class="text-xs font-semibold text-orange-700">รอส่งซ้ำ</p><p id="notificationMetricRetry" class="text-2xl font-bold text-orange-600 mt-1">0</p></div>
+                        <div class="bg-white rounded-xl border border-red-200 p-4 shadow-sm"><p class="text-xs font-semibold text-red-700">ส่งไม่สำเร็จ</p><p id="notificationMetricFailed" class="text-2xl font-bold text-red-600 mt-1">0</p></div>
+                    </section>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+                        <section class="xl:col-span-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="p-4 sm:p-5 border-b border-gray-100">
+                                <h3 class="font-bold text-gray-800"><i class="fa-solid fa-user-shield text-teal-600 mr-2"></i>ผู้รับแจ้งเตือน Admin</h3>
+                                <p class="text-xs text-gray-500 mt-1">เพิ่ม LINE User ID และเลือกประเภทข้อความที่ต้องการรับ</p>
+                            </div>
+                            <form id="notificationRecipientForm" onsubmit="saveNotificationRecipient(event)" class="p-4 sm:p-5 space-y-3 bg-gray-50/50">
+                                <input type="hidden" id="notificationRecipientId">
+                                <div>
+                                    <label for="notificationRecipientLabel" class="block text-xs font-bold text-gray-700 mb-1">ชื่อผู้รับ</label>
+                                    <input id="notificationRecipientLabel" required maxlength="120" placeholder="เช่น Safety Admin" class="w-full min-h-11 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                                </div>
+                                <div>
+                                    <label for="notificationRecipientLineId" class="block text-xs font-bold text-gray-700 mb-1">LINE User ID</label>
+                                    <input id="notificationRecipientLineId" required pattern="U[0-9a-f]{32}" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" class="w-full min-h-11 px-3 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-teal-500">
+                                </div>
+                                <fieldset>
+                                    <legend class="block text-xs font-bold text-gray-700 mb-2">หัวข้อแจ้งเตือน</legend>
+                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="notificationTopic" value="all" checked onchange="syncNotificationTopicSelection(this)"> ทั้งหมด</label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="notificationTopic" value="issue" onchange="syncNotificationTopicSelection(this)"> ใบเบิก</label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="notificationTopic" value="loan" onchange="syncNotificationTopicSelection(this)"> ยืม-คืน</label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="notificationTopic" value="stock" onchange="syncNotificationTopicSelection(this)"> สต็อกต่ำ</label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="notificationTopic" value="receipt" onchange="syncNotificationTopicSelection(this)"> รับของ</label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="notificationTopic" value="system" onchange="syncNotificationTopicSelection(this)"> ระบบ</label>
+                                    </div>
+                                </fieldset>
+                                <div class="grid grid-cols-3 gap-2 pt-2">
+                                    <button type="button" onclick="resetNotificationRecipientForm()" class="min-h-11 rounded-lg border border-gray-300 bg-white text-gray-600 font-semibold">ล้าง</button>
+                                    <button type="submit" class="col-span-2 min-h-11 rounded-lg bg-teal-600 text-white font-bold hover:bg-teal-700"><i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกผู้รับ</button>
+                                </div>
+                            </form>
+                            <div id="notificationRecipientList" class="divide-y divide-gray-100"></div>
+                        </section>
+
+                        <section class="xl:col-span-8 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-w-0">
+                            <div class="p-4 sm:p-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                <div><h3 class="font-bold text-gray-800"><i class="fa-solid fa-list-check text-teal-600 mr-2"></i>สถานะข้อความ</h3><p id="notificationResultCount" class="text-xs text-gray-500 mt-1">กำลังโหลด...</p></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
+                                    <div class="relative"><i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input id="notificationSearch" type="search" oninput="renderNotificationLogs()" placeholder="ค้นหาประเภท เลขอ้างอิง..." class="w-full md:w-64 min-h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm"></div>
+                                    <select id="notificationStatusFilter" onchange="renderNotificationLogs()" class="min-h-11 px-3 border border-gray-300 rounded-lg bg-white text-sm">
+                                        <option value="">ทุกสถานะ</option><option value="sent">ส่งสำเร็จ</option><option value="retry_scheduled">รอส่งซ้ำ</option><option value="failed">ไม่สำเร็จ</option><option value="skipped">ข้าม</option><option value="duplicate">ส่งแล้ว/ซ้ำ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="notificationLogList" class="divide-y divide-gray-100 max-h-[680px] overflow-y-auto"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
             <div id="matrixPage" class="page hidden">
                 <div class="module-shell space-y-5">
                     
@@ -2038,6 +2120,9 @@
                     </a>
                     <a onclick="showPage('report'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-chart-line mr-3 text-purple-500 w-5 text-center"></i> รายงาน
+                    </a>
+                    <a onclick="showPage('notifications'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                        <i class="fa-solid fa-bell mr-3 text-orange-500 w-5 text-center"></i> การแจ้งเตือน
                     </a>
                     <a onclick="showPage('allHistory'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-clock-rotate-left mr-3 text-gray-500 w-5 text-center"></i> ประวัติทั้งหมด
@@ -2419,7 +2504,6 @@
     // API Configuration
     // ===========================================
     const WEB_APP_URL = "/api/ppe";
-    const ADMIN_USER_ID = 'Ucadb3c0f63ada96c0432a0aede267ff9';
     const CURRENT_ADMIN_NAME = window.currentAdminName || 'Admin';
 
     /**
@@ -2460,10 +2544,12 @@
     // ===========================================
     let isAdmin = false;
     let adminSessionToken = null;   // HMAC token จาก server หลัง login สำเร็จ
+    window._lineAccessToken = null; // ส่งให้ server ตรวจตัวตนกับ LINE; ไม่ใช้ userId จาก browser เป็นหลักฐาน
     // _apiCallInProgress ถูกแทนที่ด้วย LoadingManager แล้ว — ลบออกได้
     let _activePage = 'dashboard';  // จำหน้าปัจจุบัน
     const MODULE_STATE_KEY = 'ppe_active_module';
     const HISTORY_TAB_STATE_KEY = 'ppe_active_history_tab';
+    let _deepLinkHandled = false;
     const MODULE_ROUTES = Object.freeze({
         dashboard: { adminOnly: false },
         stock: { adminOnly: false },
@@ -2474,7 +2560,8 @@
         pending: { adminOnly: true },
         manage: { adminOnly: true },
         receive: { adminOnly: true },
-        report: { adminOnly: true }
+        report: { adminOnly: true },
+        notifications: { adminOnly: true }
     });
     let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], dashboardMetrics: {} };
     let categoryChartInstance = null;
@@ -2548,10 +2635,52 @@
     }
 
     function getRestorableModule() {
+        const fromQuery = normalizeModuleName(new URLSearchParams(window.location.search).get('module'));
         const fromHash = normalizeModuleName(window.location.hash);
         const fromSession = normalizeModuleName(sessionStorage.getItem(MODULE_STATE_KEY));
-        const requested = fromHash || fromSession || 'dashboard';
+        const requested = fromQuery || fromHash || fromSession || 'dashboard';
         return canAccessModule(requested) ? requested : 'dashboard';
+    }
+
+    function applyDeepLinkFocus() {
+        if (_deepLinkHandled) return;
+        const params = new URLSearchParams(window.location.search);
+        const requestedModule = normalizeModuleName(params.get('module'));
+        const voucherId = Number(params.get('voucherId'));
+        const loanId = Number(params.get('loanId'));
+        const mode = params.get('mode');
+
+        if (Number.isInteger(voucherId) && voucherId > 0 && mode !== 'confirmReceive') {
+            const voucher = (currentData.issueVouchers || []).find(row => Number(row.id) === voucherId);
+            if (voucher) {
+                _deepLinkHandled = true;
+                if (requestedModule === 'pending' && isAdmin) {
+                    showPage('pending', { restoring: true });
+                    setTimeout(() => showApprovalModal(voucherId), 120);
+                } else {
+                    showPage('allHistory', { restoring: true });
+                    setTimeout(() => showVoucherDetails(voucherId), 120);
+                }
+                return;
+            }
+        }
+
+        if (Number.isInteger(loanId) && loanId > 0) {
+            _deepLinkHandled = true;
+            showPage(params.get('module') === 'allHistory' ? 'allHistory' : 'loan', { restoring: true });
+            if (_activePage === 'allHistory') {
+                showHistoryTab('loan');
+            } else {
+                updateOnLoanTable();
+                setTimeout(() => {
+                    const card = document.querySelector(`[data-loan-id="${loanId}"]`);
+                    if (!card) return;
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.classList.add('ring-2', 'ring-teal-500', 'ring-offset-2');
+                    setTimeout(() => card.classList.remove('ring-2', 'ring-teal-500', 'ring-offset-2'), 4000);
+                }, 150);
+            }
+        }
     }
 
     function persistActiveModule(pageName) {
@@ -2601,6 +2730,7 @@
             // Local preview must not call liff.login(): LINE always returns to the
             // configured LIFF endpoint (production), not back to localhost.
             if (IS_LOCAL_DEVELOPMENT) {
+                window._lineAccessToken = null;
                 LoadingManager.updateSplash('กำลังเปิดโหมดทดสอบ Local…', 45);
                 liffProfile = getLocalDevelopmentProfile();
                 if (!isAdmin) setupUserInterface();
@@ -2610,6 +2740,8 @@
                 await liff.init({ liffId: LIFF_ID });
 
                 if (liff.isLoggedIn()) {
+                    window._lineAccessToken = liff.getAccessToken();
+                    if (!window._lineAccessToken) throw new Error('ไม่พบ LINE access token กรุณาเข้าสู่ระบบใหม่');
                     LoadingManager.updateSplash('กำลังตรวจสอบสิทธิ์…', 55);
                     liffProfile = await liff.getProfile();
 
@@ -2640,6 +2772,19 @@
 
         } catch (err) {
             console.error('LIFF/App Error:', err);
+            if (err?.statusCode === 403 && isAdmin) {
+                isAdmin = false;
+                adminSessionToken = null;
+                window._adminToken = null;
+                localStorage.removeItem('ppe_admin_session');
+                localStorage.removeItem('ppe_admin_name');
+                localStorage.removeItem('ppe_admin_token');
+                sessionStorage.removeItem('ppe_admin_session');
+                sessionStorage.removeItem('ppe_admin_token');
+                showToast('เซสชัน Admin หมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warning');
+                await initializeApp(false);
+                return;
+            }
             setupUserInterface();
         } finally {
             // ── Cancel/stop ทุก key ที่ initializeApp เปิดไว้
@@ -2712,6 +2857,7 @@
         // หน้า Matrix อาจถูกเปิดจาก URL hash ก่อนคำขอข้อมูลจะเสร็จ
         // จึงต้องวาดซ้ำหลัง currentData ได้รับข้อมูลจริงจาก API
         if (_activePage === 'matrix') initMatrixPage();
+        applyDeepLinkFocus();
         
         // ✅ สำคัญมาก: ซ่อน Loading Skeleton และ Loading Overlay
         hideLoading();
@@ -2924,6 +3070,10 @@
             setReceiveUserMode(receiveLineRadio?.checked ? 'line' : 'custom', false);
             renderReceiveOverview();
             updateReceiveFormState();
+        }
+
+        if (pageName === 'notifications' && typeof loadNotificationCenter === 'function') {
+            loadNotificationCenter();
         }
 
         persistActiveModule(pageName);
@@ -3351,7 +3501,7 @@
         const remember = document.getElementById('rememberMe').checked;
 
         callServerFunction('checkAdminCredentials', { username, password })
-            .then(token => {
+            .then(async token => {
                 if (token) {
                     isAdmin = true;
                     adminSessionToken = token;
@@ -3371,8 +3521,8 @@
                         localStorage.removeItem('ppe_admin_name');
                     }
 
-                    updateUI();
-                    showPage(canAccessModule(_activePage) ? _activePage : 'dashboard');
+                    const requestedModule = getRestorableModule();
+                    await refreshData(canAccessModule(requestedModule) ? requestedModule : (canAccessModule(_activePage) ? _activePage : 'dashboard'));
                     showToast('เข้าสู่ระบบ Admin สำเร็จ');
                 } else {
                     showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
@@ -3383,7 +3533,7 @@
             });
     }
 
-    function logout() {
+    async function logout() {
         isAdmin = false;
         adminSessionToken = null;
         localStorage.removeItem('ppe_admin_session');
@@ -3391,8 +3541,8 @@
         localStorage.removeItem('ppe_admin_token');
         sessionStorage.removeItem('ppe_admin_session');
         sessionStorage.removeItem('ppe_admin_token');
-        updateUI();
-        showPage('dashboard');
+        window._adminToken = null;
+        await refreshData('dashboard');
         showToast('ออกจากระบบแล้ว');
     }
 
@@ -4419,7 +4569,7 @@
             // 👆👆 จบส่วนเช็ค
 
             return `
-            <article class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border ${cardBorder} bg-white shadow-sm transition-all duration-200 hover:shadow-md">
+            <article data-loan-id="${loan.loanId}" class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border ${cardBorder} bg-white shadow-sm transition-all duration-200 hover:shadow-md">
                 
                 <div class="flex-shrink-0">
                     ${imgHtml}
@@ -5649,11 +5799,7 @@
         if (!confirmed) return;
 
         try {
-            await callServerFunction('confirmReceive', {
-                voucherId: Number(voucherId),
-                userId: 'admin',
-                userName: `Admin (รับแทน ${userName})`
-            });
+            await callServerFunction('confirmReceive', { voucherId: Number(voucherId) });
             showToast('บันทึกการรับของเรียบร้อย', 'success');
             hideVoucherModal();
             await refreshData(_activePage);
@@ -5997,49 +6143,6 @@
         };
     }
 
-    async function sendApprovalLine(type, voucher, items) {
-
-        let title = 'อัปเดตใบเบิก';
-        let color = '#374151';
-        let icon = 'ℹ️';
-
-        if (type === 'approved') {
-            title = 'อนุมัติเรียบร้อย';
-            color = '#16A34A';
-            icon = '✅';
-        } else if (type === 'rejected') {
-            title = 'ไม่อนุมัติใบเบิก';
-            color = '#DC2626';
-            icon = '❌';
-        } else if (type === 'partial') {
-            title = 'อนุมัติบางส่วน';
-            color = '#D97706';
-            icon = '⚠️';
-        }
-
-        const flex = createApprovalFlex({
-            title,
-            icon,
-            color,
-            voucher,
-            items,
-            approvalStatus: type // ✅ เพิ่มบรรทัดนี้: ส่งสถานะเข้าไปด้วย
-        });
-
-        try {
-            const response = await fetch('/api/push', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: voucher.userid, messages: [flex] })
-            });
-            if (!response.ok) throw new Error(`LINE push failed (${response.status})`);
-            return true;
-        } catch (error) {
-            console.warn('บันทึกผลอนุมัติแล้ว แต่ส่ง LINE ไม่สำเร็จ:', error);
-            return false;
-        }
-    }
-
     // ===========================================
     // 🛠️ ADMIN APPROVAL FUNCTIONS (เพิ่มกลับเข้าไป)
     // ===========================================
@@ -6066,9 +6169,9 @@
         setApprovalActionBusy(true);
         try {
             const adminNote = getApprovalAdminNote();
-            await callServerFunction('approveVoucher', { voucherId, adminNote });
+            const result = await callServerFunction('approveVoucher', { voucherId, adminNote });
             voucher.decisionNote = adminNote;
-            const notified = await sendApprovalLine('approved', voucher, getVoucherItems(voucher));
+            const notified = Boolean(result?.notification?.sent);
             showToast(notified ? 'อนุมัติและแจ้งผู้ใช้สำเร็จ' : 'อนุมัติสำเร็จ แต่ส่ง LINE ไม่สำเร็จ', notified ? 'success' : 'warning');
             hideApprovalModal();
             await refreshData('pending');
@@ -6088,9 +6191,9 @@
         if (!voucher) return showToast('ไม่พบใบเบิกนี้ กรุณารีเฟรชข้อมูล', 'error');
         setApprovalActionBusy(true);
         try {
-            await callServerFunction('rejectVoucher', { voucherId, adminNote });
+            const result = await callServerFunction('rejectVoucher', { voucherId, adminNote });
             voucher.decisionNote = adminNote;
-            const notified = await sendApprovalLine('rejected', voucher, getVoucherItems(voucher));
+            const notified = Boolean(result?.notification?.sent);
             showToast(notified ? 'ปฏิเสธและแจ้งผู้ใช้แล้ว' : 'บันทึกการปฏิเสธแล้ว แต่ส่ง LINE ไม่สำเร็จ', notified ? 'success' : 'warning');
             hideApprovalModal();
             await refreshData('pending');
@@ -6131,13 +6234,13 @@
 
         setApprovalActionBusy(true);
         try {
-            await callServerFunction('approvePartialVoucher', {
+            const result = await callServerFunction('approvePartialVoucher', {
                 voucherId,
                 items: approvedItems,
                 adminNote: getApprovalAdminNote()
             });
             voucher.decisionNote = getApprovalAdminNote();
-            const notified = await sendApprovalLine('partial', voucher, approvedItems.filter(item => item.quantity > 0));
+            const notified = Boolean(result?.notification?.sent);
             showToast(notified ? 'อนุมัติตามจำนวนและแจ้งผู้ใช้แล้ว' : 'อนุมัติสำเร็จ แต่ส่ง LINE ไม่สำเร็จ', notified ? 'success' : 'warning');
             hideApprovalModal();
             await refreshData('pending');
@@ -6193,15 +6296,8 @@
             // 4. เริ่มกระบวนการรับของ
             showLoading('กำลังยืนยันการรับของ'); // แสดง overlay หลังจาก user กดยืนยันแล้วเท่านั้น
 
-            // ใช้ liffProfile ที่ fetch ไว้แล้วใน initializeApp — ไม่ต้อง getProfile() ซ้ำ (อาจค้าง)
-            const profile = liffProfile || await liff.getProfile();
-
-            // ยิง API ยืนยันรับของ (Backend)
-            await callServerFunction('confirmReceive', {
-                voucherId: Number(voucherId),
-                userId: profile.userId,
-                userName: profile.displayName
-            });
+            // Server ตรวจ LINE access token และเจ้าของใบเบิกก่อนยืนยันทุกครั้ง
+            await callServerFunction('confirmReceive', { voucherId: Number(voucherId) });
 
             // แจ้งเตือนสำเร็จ
             showToast('ยืนยันรับของเรียบร้อย', 'success');
@@ -6515,15 +6611,6 @@
 
             localStorage.setItem('last_employee_id', empId);
             localStorage.setItem('last_department', dept);
-            const loanFlex = createLoanFlex(selectedItem, userName, dept, dueDate);
-
-            if (currentUserId) {
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUserId, messages: [loanFlex] }) }).catch(console.error);
-            }
-            if (typeof ADMIN_USER_ID !== 'undefined' && ADMIN_USER_ID) {
-                fetch('/api/push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: ADMIN_USER_ID, messages: [loanFlex] }) }).catch(console.error);
-            }
-
             if (result?.newLoan) currentData.loanTransactions.unshift(result.newLoan);
             if (result?.updatedItem) {
                 const item = currentData.ppeItems.find(entry => Number(entry.id) === Number(result.updatedItem.id));
@@ -6577,23 +6664,8 @@
         );
         
         if (confirmed) {
-            const targetUserId = loan.userid || loan.userId || '';
-
             try {
                 await callServerFunction('returnItem', { loanId });
-                // ✅ ส่ง Flex Message สีน้ำเงิน
-                if (targetUserId) {
-                    const flex = createStatusFlex(
-                        'รับคืนอุปกรณ์แล้ว ✅',
-                        loan.loanId,
-                        [
-                            { itemId: loan.itemId, quantity: 1 }
-                        ],
-                        '#3B82F6'
-                        );                  
-                    fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: targetUserId, messages: [flex] }) }).catch(console.error);
-                }
-
                 await refreshData('loan');
                 showToast(`รับคืน ${itemName} สำเร็จ`, 'success');
             } catch (error) {
@@ -6772,49 +6844,12 @@
             currentData.issueVouchers.unshift(newVoucher); 
             // ⭐⭐⭐ จบส่วนที่เพิ่ม ⭐⭐⭐
 
-            // 5. 🔔 สร้าง Flex Message
-            const userFlex = createIssueFlex(
-                newVoucher.id,
-                userName,
-                dept,
-                cart,
-                'รออนุมัติ'
-            );
-
-            const adminFlex = createIssueFlex(
-                newVoucher.id,
-                userName,
-                dept,
-                cart,
-                'มีใบเบิกใหม่ถึงคุณ'
-            );
-
-            // 6. แจ้งเตือนผู้เบิก
-            if (currentUserId) {
-                fetch('/api/push', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: currentUserId,
-                        messages: [userFlex]
-                    })
-                }).catch(console.error);
-            }
-
-            // 7. แจ้งเตือนแอดมิน
-            if (typeof ADMIN_USER_ID !== 'undefined' && ADMIN_USER_ID) {
-                fetch('/api/push', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: ADMIN_USER_ID,
-                        messages: [adminFlex]
-                    })
-                }).catch(console.error);
-            }
-
             if (typeof hideLoading === 'function') hideLoading();
-            showToast('บันทึกใบเบิกเรียบร้อยแล้ว', 'success');
+            const userNotified = Boolean(newVoucher?.notification?.user?.sent);
+            showToast(
+                userNotified || !currentUserId ? 'บันทึกใบเบิกเรียบร้อยแล้ว' : 'บันทึกใบเบิกแล้ว แต่ส่ง LINE ไม่สำเร็จ',
+                userNotified || !currentUserId ? 'success' : 'warning'
+            );
             showVoucherSlip(newVoucher.id);
 
             // 8. reset ฟอร์ม
@@ -6832,26 +6867,6 @@
         } finally {
             isSavingIssueVoucher = false;
             updateIssueFormSummary();
-        }
-    }
-
-    async function sendLineNotify(msg) {
-        try {
-            const safeMessage =
-                typeof msg === 'string'
-                    ? msg
-                    : JSON.stringify(msg, null, 2);
-
-            await fetch('/api/notify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: safeMessage })
-            });
-
-        } catch (error) {
-            console.error('ส่งไลน์ไม่ผ่าน:', error);
         }
     }
 
@@ -8414,6 +8429,169 @@
         }
 
         document.getElementById('pdfViewerModal').classList.remove('hidden');
+    }
+
+    let notificationLogs = [];
+    let notificationRecipients = [];
+
+    function notificationStatusMeta(status) {
+        return {
+            sent: { label: 'ส่งสำเร็จ', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'fa-circle-check' },
+            duplicate: { label: 'ส่งแล้ว/ซ้ำ', className: 'bg-blue-50 text-blue-700 border-blue-200', icon: 'fa-clone' },
+            retry_scheduled: { label: 'รอส่งซ้ำ', className: 'bg-orange-50 text-orange-700 border-orange-200', icon: 'fa-clock' },
+            processing: { label: 'กำลังส่ง', className: 'bg-blue-50 text-blue-700 border-blue-200', icon: 'fa-spinner fa-spin' },
+            pending: { label: 'รอดำเนินการ', className: 'bg-gray-50 text-gray-700 border-gray-200', icon: 'fa-hourglass' },
+            failed: { label: 'ไม่สำเร็จ', className: 'bg-red-50 text-red-700 border-red-200', icon: 'fa-circle-xmark' },
+            skipped: { label: 'ข้าม', className: 'bg-gray-50 text-gray-600 border-gray-200', icon: 'fa-forward' },
+        }[status] || { label: status || '-', className: 'bg-gray-50 text-gray-600 border-gray-200', icon: 'fa-circle-info' };
+    }
+
+    async function loadNotificationCenter() {
+        if (!isAdmin) return;
+        const logList = document.getElementById('notificationLogList');
+        if (logList) logList.innerHTML = '<div class="p-10 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>กำลังโหลดสถานะข้อความ...</p></div>';
+        window._adminToken = adminSessionToken;
+        try {
+            const [logs, recipientState] = await Promise.all([
+                apiCall('getNotificationLogs', { limit: 200 }, { silent: true }),
+                apiCall('getNotificationRecipients', null, { silent: true }),
+            ]);
+            notificationLogs = Array.isArray(logs) ? logs : [];
+            notificationRecipients = Array.isArray(recipientState?.recipients) ? recipientState.recipients : [];
+            renderNotificationLogs();
+            renderNotificationRecipients();
+        } catch (error) {
+            if (logList) logList.innerHTML = createEmptyState('โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'fa-solid fa-triangle-exclamation');
+            showToast(error.message || 'โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'error');
+        }
+    }
+
+    function renderNotificationLogs() {
+        const container = document.getElementById('notificationLogList');
+        if (!container) return;
+        const search = String(document.getElementById('notificationSearch')?.value || '').trim().toLowerCase();
+        const statusFilter = document.getElementById('notificationStatusFilter')?.value || '';
+        const rows = notificationLogs.filter(row => (!statusFilter || row.status === statusFilter) && `${row.notification_type || ''} ${row.entity_type || ''} ${row.entity_id || ''} ${row.event_key || ''} ${row.recipient || ''}`.toLowerCase().includes(search));
+        const countByStatus = notificationLogs.reduce((counts, row) => {
+            counts[row.status] = (counts[row.status] || 0) + 1;
+            return counts;
+        }, {});
+        const setMetric = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = Number(value || 0).toLocaleString('th-TH'); };
+        setMetric('notificationMetricTotal', notificationLogs.length);
+        setMetric('notificationMetricSent', (countByStatus.sent || 0) + (countByStatus.duplicate || 0));
+        setMetric('notificationMetricRetry', (countByStatus.retry_scheduled || 0) + (countByStatus.pending || 0) + (countByStatus.processing || 0));
+        setMetric('notificationMetricFailed', countByStatus.failed || 0);
+        const resultCount = document.getElementById('notificationResultCount');
+        if (resultCount) resultCount.textContent = `แสดง ${rows.length.toLocaleString('th-TH')} จาก ${notificationLogs.length.toLocaleString('th-TH')} ข้อความล่าสุด`;
+        if (!rows.length) {
+            container.innerHTML = createEmptyState(search ? 'ไม่พบข้อความที่ค้นหา' : 'ยังไม่มีประวัติการส่งข้อความ', search ? 'fa-solid fa-magnifying-glass' : 'fa-solid fa-bell-slash');
+            return;
+        }
+        container.innerHTML = rows.map(row => {
+            const meta = notificationStatusMeta(row.status);
+            const createdAt = row.created_at ? new Date(row.created_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+            const canRetry = ['failed', 'retry_scheduled', 'skipped'].includes(row.status);
+            return `<article class="p-4 sm:p-5 hover:bg-gray-50 transition-colors">
+                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2"><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-bold ${meta.className}"><i class="fa-solid ${meta.icon}"></i>${meta.label}</span><strong class="text-sm text-gray-800 break-all">${escapeLoanText(row.notification_type || 'general')}</strong></div>
+                        <p class="text-xs text-gray-500 mt-2">${escapeLoanText(row.entity_type || 'ข้อความทั่วไป')}${row.entity_id ? ` #${escapeLoanText(row.entity_id)}` : ''} · ผู้รับ ${escapeLoanText(row.recipient || '-')}</p>
+                        <p class="text-[11px] text-gray-400 mt-1">${createdAt} · พยายาม ${Number(row.attempt_count || 0)}/${Number(row.max_attempts || 0)} ครั้ง${row.provider_http_status ? ` · HTTP ${Number(row.provider_http_status)}` : ''}</p>
+                        ${row.last_error ? `<p class="mt-2 text-xs text-red-600 break-words"><i class="fa-solid fa-circle-exclamation mr-1"></i>${escapeLoanText(row.last_error)}</p>` : ''}
+                    </div>
+                    ${canRetry ? `<button type="button" onclick="retryNotification(${Number(row.id)})" class="min-h-10 px-3 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 flex-shrink-0"><i class="fa-solid fa-rotate mr-1"></i>ลองส่งอีกครั้ง</button>` : ''}
+                </div>
+            </article>`;
+        }).join('');
+    }
+
+    function renderNotificationRecipients() {
+        const container = document.getElementById('notificationRecipientList');
+        if (!container) return;
+        if (!notificationRecipients.length) {
+            container.innerHTML = '<div class="p-5 text-center text-sm text-gray-500">ยังไม่มีผู้รับแจ้งเตือน Admin</div>';
+            return;
+        }
+        const topicLabels = { all: 'ทั้งหมด', issue: 'ใบเบิก', loan: 'ยืม-คืน', stock: 'สต็อกต่ำ', receipt: 'รับของ', system: 'ระบบ' };
+        container.innerHTML = notificationRecipients.map(recipient => `
+            <article class="p-4 flex items-start gap-3 ${recipient.enabled ? '' : 'opacity-60'}">
+                <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user-shield"></i></div>
+                <div class="flex-1 min-w-0"><div class="flex flex-wrap items-center gap-2"><strong class="text-sm text-gray-800">${escapeLoanText(recipient.label)}</strong>${recipient.source === 'environment' ? '<span class="text-[10px] px-2 py-0.5 bg-gray-100 rounded-full text-gray-500">ENV</span>' : ''}</div><p class="text-[11px] font-mono text-gray-400 mt-1">${escapeLoanText(recipient.maskedLineUserId)}</p><p class="text-xs text-gray-500 mt-1">${(recipient.topics || []).map(topic => topicLabels[topic] || topic).join(', ')}</p></div>
+                ${recipient.source === 'database' ? `<div class="flex gap-1"><button type="button" onclick="editNotificationRecipient(${Number(recipient.id)})" class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:text-teal-600" aria-label="แก้ไข"><i class="fa-solid fa-pen"></i></button><button type="button" onclick="toggleNotificationRecipient(${Number(recipient.id)}, ${recipient.enabled ? 'false' : 'true'})" class="w-9 h-9 rounded-lg ${recipient.enabled ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}" aria-label="${recipient.enabled ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}"><i class="fa-solid ${recipient.enabled ? 'fa-bell-slash' : 'fa-bell'}"></i></button></div>` : ''}
+            </article>`).join('');
+    }
+
+    function syncNotificationTopicSelection(changed) {
+        const boxes = [...document.querySelectorAll('input[name="notificationTopic"]')];
+        const allBox = boxes.find(box => box.value === 'all');
+        if (changed.value === 'all' && changed.checked) boxes.filter(box => box !== allBox).forEach(box => { box.checked = false; });
+        if (changed.value !== 'all' && changed.checked && allBox) allBox.checked = false;
+        if (!boxes.some(box => box.checked) && allBox) allBox.checked = true;
+    }
+
+    function resetNotificationRecipientForm() {
+        document.getElementById('notificationRecipientForm')?.reset();
+        const id = document.getElementById('notificationRecipientId');
+        if (id) id.value = '';
+    }
+
+    function editNotificationRecipient(id) {
+        const recipient = notificationRecipients.find(row => Number(row.id) === Number(id));
+        if (!recipient || recipient.source !== 'database') return;
+        document.getElementById('notificationRecipientId').value = recipient.id;
+        document.getElementById('notificationRecipientLabel').value = recipient.label;
+        document.getElementById('notificationRecipientLineId').value = recipient.lineUserId;
+        document.querySelectorAll('input[name="notificationTopic"]').forEach(box => { box.checked = recipient.topics.includes(box.value); });
+        document.getElementById('notificationRecipientForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function saveNotificationRecipient(event) {
+        event.preventDefault();
+        const topics = [...document.querySelectorAll('input[name="notificationTopic"]:checked')].map(input => input.value);
+        try {
+            await callServerFunction('saveNotificationRecipient', {
+                id: document.getElementById('notificationRecipientId').value || null,
+                label: document.getElementById('notificationRecipientLabel').value,
+                lineUserId: document.getElementById('notificationRecipientLineId').value,
+                topics,
+                enabled: true,
+            });
+            resetNotificationRecipientForm();
+            showToast('บันทึกผู้รับแจ้งเตือนแล้ว');
+            await loadNotificationCenter();
+        } catch (error) { showToast(error.message || 'บันทึกผู้รับไม่สำเร็จ', 'error'); }
+    }
+
+    async function toggleNotificationRecipient(id, enabled) {
+        try {
+            await callServerFunction('toggleNotificationRecipient', { id, enabled });
+            showToast(enabled ? 'เปิดรับการแจ้งเตือนแล้ว' : 'ปิดรับการแจ้งเตือนแล้ว');
+            await loadNotificationCenter();
+        } catch (error) { showToast(error.message || 'แก้ไขสถานะไม่สำเร็จ', 'error'); }
+    }
+
+    async function retryNotification(id) {
+        try {
+            const result = await callServerFunction('retryNotification', { notificationId: id });
+            showToast(result?.sent ? 'ส่งข้อความสำเร็จแล้ว' : 'บันทึกการลองส่งอีกครั้งแล้ว', result?.status === 'failed' ? 'warning' : 'success');
+            await loadNotificationCenter();
+        } catch (error) { showToast(error.message || 'ลองส่งข้อความไม่สำเร็จ', 'error'); }
+    }
+
+    async function retryDueNotifications() {
+        try {
+            const result = await callServerFunction('retryDueNotifications', { limit: 25 });
+            showToast(`ประมวลผล ${Number(result?.processed || 0)} ข้อความ ส่งสำเร็จ ${Number(result?.sent || 0)} ข้อความ`);
+            await loadNotificationCenter();
+        } catch (error) { showToast(error.message || 'ประมวลผลข้อความค้างไม่สำเร็จ', 'error'); }
+    }
+
+    async function runLoanDueReminders() {
+        try {
+            const result = await callServerFunction('runLoanDueReminders');
+            showToast(`ตรวจ ${Number(result?.checked || 0)} รายการ สร้างการเตือน ${Number(result?.processed || 0)} รายการ`);
+            await loadNotificationCenter();
+        } catch (error) { showToast(error.message || 'แจ้งเตือนกำหนดคืนไม่สำเร็จ', 'error'); }
     }
 
 </script>

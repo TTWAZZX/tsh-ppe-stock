@@ -3,6 +3,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { createLineNotificationService } from '../../lib/notification-service.js';
+import { createNotificationWorkflows } from '../../lib/notification-workflows.js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
@@ -16,8 +18,22 @@ const ADMIN_PASSWORD_BASE64 = process.env.ADMIN_PASSWORD_BASE64 || null;
 const ADMIN_PASSWORD_SCRYPT = process.env.ADMIN_PASSWORD_SCRYPT || null; // ใหม่: scrypt hash
 // SESSION_SECRET ต้องตั้งค่าใน Vercel Environment Variables ด้วย (สุ่ม string ยาวๆ)
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
+const LINE_LOGIN_CHANNEL_ID = process.env.LINE_LOGIN_CHANNEL_ID || '2007053300';
+const LIFF_ID = process.env.LIFF_ID || '2007053300-JTSerFbF';
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+const ADMIN_LINE_USER_ID = process.env.ADMIN_LINE_USER_ID || '';
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 นาที
 const MAX_LOGIN_FAILURES = 5;
+const notificationService = createLineNotificationService({
+  supabase,
+  channelAccessToken: LINE_CHANNEL_ACCESS_TOKEN,
+});
+const notificationWorkflows = createNotificationWorkflows({
+  supabase,
+  notificationService,
+  liffId: LIFF_ID,
+  fallbackAdminUserId: ADMIN_LINE_USER_ID,
+});
 
 // Actions ที่ต้องเป็น Admin เท่านั้น
 const ADMIN_ONLY_ACTIONS = new Set([
@@ -25,7 +41,17 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'approveVoucher', 'approvePartialVoucher', 'rejectVoucher',
   'addReceiveTransaction', 'saveMatrixRule', 'deleteMatrixRule',
   'uploadDocument', 'deleteDocument', 'deleteVoucher', 'returnItem',
+  'checkLineStatus', 'getNotificationLogs', 'retryNotification', 'retryDueNotifications',
+  'getNotificationRecipients', 'saveNotificationRecipient', 'toggleNotificationRecipient',
+  'runLoanDueReminders',
 ]);
+
+const LINE_OR_ADMIN_ACTIONS = new Set([
+  'addNewVoucher', 'borrowItem', 'confirmReceive', 'saveFeedback',
+]);
+
+const LINE_USER_ID_PATTERN = /^U[0-9a-f]{32}$/;
+const lineIdentityCache = new Map();
 
 // ปิด bodyParser เดิมของ Next.js เพื่อให้เราอ่าน text/plain เอง
 export const config = {
@@ -35,13 +61,9 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // CORS เบื้องต้น
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -51,24 +73,25 @@ export default async function handler(req, res) {
   try {
     const rawBody = await getRawBody(req);
     const { action, payload } = JSON.parse(rawBody || '{}');
+    const requestPayload = payload && typeof payload === 'object' ? payload : {};
+    const auth = action === 'checkAdminCredentials'
+      ? { isAdmin: false, adminUsername: null, lineUser: null }
+      : await authenticateRequest(requestPayload);
 
-    // ตรวจสอบ admin token สำหรับ actions ที่ต้องการสิทธิ์ admin
-    if (ADMIN_ONLY_ACTIONS.has(action)) {
-      if (!verifyAdminToken(payload?.adminToken)) {
-        return res.status(403).json({ status: 'error', message: 'Unauthorized' });
-      }
+    if (ADMIN_ONLY_ACTIONS.has(action) && !auth.isAdmin) {
+      return res.status(403).json({ status: 'error', message: 'Unauthorized' });
+    }
+    if (LINE_OR_ADMIN_ACTIONS.has(action) && !auth.isAdmin && !auth.lineUser) {
+      return res.status(401).json({ status: 'error', message: 'กรุณาเข้าสู่ระบบผ่าน LINE ใหม่อีกครั้ง' });
     }
 
-    // ดึง actor สำหรับ audit log
-    const actor = ADMIN_ONLY_ACTIONS.has(action)
-      ? extractUsernameFromToken(payload?.adminToken)
-      : (payload?.userId || payload?.user || 'anonymous');
+    const actor = auth.isAdmin ? `admin:${auth.adminUsername}` : (auth.lineUser?.userId || 'anonymous');
 
     let result;
 
     switch (action) {
       case 'getInitialData':
-        result = await getInitialData();
+        result = await getInitialData(auth);
         break;
 
       case 'saveCategory':
@@ -87,38 +110,38 @@ export default async function handler(req, res) {
         break;
 
       case 'addNewVoucher':
-        result = await addNewVoucher(payload);
-        await writeAuditLog(actor, 'addNewVoucher', 'issue_vouchers', result?.id, { department: payload.department, itemCount: payload.items?.length });
+        result = await addNewVoucher(requestPayload, auth);
+        await writeAuditLog(actor, 'addNewVoucher', 'issue_vouchers', result?.id, { department: requestPayload.department, itemCount: requestPayload.items?.length });
         break;
 
       case 'approveVoucher':
-        result = await approveVoucher(payload);
-        await writeAuditLog(actor, 'approveVoucher', 'issue_vouchers', payload.voucherId);
+        result = await approveVoucher(requestPayload);
+        await writeAuditLog(actor, 'approveVoucher', 'issue_vouchers', requestPayload.voucherId);
         break;
 
       case 'approvePartialVoucher':
-        result = await approvePartialVoucher(payload);
-        await writeAuditLog(actor, 'approvePartialVoucher', 'issue_vouchers', payload.voucherId, { items: payload.items });
+        result = await approvePartialVoucher(requestPayload);
+        await writeAuditLog(actor, 'approvePartialVoucher', 'issue_vouchers', requestPayload.voucherId, { items: requestPayload.items });
         break;
 
       case 'rejectVoucher':
-        result = await rejectVoucher(payload);
-        await writeAuditLog(actor, 'rejectVoucher', 'issue_vouchers', payload.voucherId);
+        result = await rejectVoucher(requestPayload);
+        await writeAuditLog(actor, 'rejectVoucher', 'issue_vouchers', requestPayload.voucherId);
         break;
 
       case 'confirmReceive':
-        result = await confirmReceive(payload);
-        await writeAuditLog(actor, 'confirmReceive', 'issue_vouchers', payload.voucherId, { receivedBy: payload.userName });
+        result = await confirmReceive(requestPayload, auth);
+        await writeAuditLog(actor, auth.isAdmin ? 'adminConfirmReceive' : 'confirmReceive', 'issue_vouchers', requestPayload.voucherId, { receivedBy: result?.receivedBy });
         break;
 
       case 'borrowItem':
-        result = await borrowItem(payload);
-        await writeAuditLog(actor, 'borrowItem', 'loan_transactions', result?.newLoan?.loanId, { itemId: payload.itemId, department: payload.department });
+        result = await borrowItem(requestPayload, auth);
+        await writeAuditLog(actor, 'borrowItem', 'loan_transactions', result?.newLoan?.loanId, { itemId: requestPayload.itemId, department: requestPayload.department });
         break;
 
       case 'returnItem':
-        result = await returnItem(payload.loanId);
-        await writeAuditLog(actor, 'returnItem', 'loan_transactions', payload.loanId);
+        result = await returnItem(requestPayload.loanId);
+        await writeAuditLog(actor, 'returnItem', 'loan_transactions', requestPayload.loanId);
         break;
 
       case 'addReceiveTransaction':
@@ -144,7 +167,7 @@ export default async function handler(req, res) {
         break;
 
       case 'saveFeedback':
-        result = await saveFeedback(payload);
+        result = await saveFeedback(requestPayload, auth);
         break;
 
       case 'saveMatrixRule':
@@ -172,22 +195,212 @@ export default async function handler(req, res) {
         await writeAuditLog(actor, 'deleteVoucher', 'issue_vouchers', payload.voucherId);
         break;
 
+      case 'checkLineStatus':
+        result = await checkLineIntegrationStatus();
+        break;
+
+      case 'getNotificationLogs':
+        result = await notificationService.list({ limit: requestPayload.limit, status: requestPayload.status });
+        break;
+
+      case 'retryNotification':
+        result = await notificationService.retryById(requestPayload.notificationId);
+        await writeAuditLog(actor, 'retryNotification', 'notification_log', requestPayload.notificationId, { resultStatus: result?.status });
+        break;
+
+      case 'retryDueNotifications':
+        result = await notificationService.retryDue({ limit: requestPayload.limit });
+        await writeAuditLog(actor, 'retryDueNotifications', 'notification_log', '', { processed: result?.processed, sent: result?.sent });
+        break;
+
+      case 'getNotificationRecipients':
+        result = await notificationWorkflows.listRecipients();
+        break;
+
+      case 'saveNotificationRecipient':
+        result = await notificationWorkflows.saveRecipient(requestPayload);
+        await writeAuditLog(actor, 'saveNotificationRecipient', 'notification_recipients', result?.id, { label: result?.label, topics: result?.topics });
+        break;
+
+      case 'toggleNotificationRecipient':
+        result = await notificationWorkflows.setRecipientEnabled(requestPayload);
+        await writeAuditLog(actor, 'toggleNotificationRecipient', 'notification_recipients', result?.id, { enabled: result?.enabled });
+        break;
+
+      case 'runLoanDueReminders':
+        result = await notificationWorkflows.sendLoanDueReminders();
+        await writeAuditLog(actor, 'runLoanDueReminders', 'loan_transactions', '', { checked: result?.checked, processed: result?.processed });
+        break;
+
       default:
         return res.status(400).json({ status: 'error', message: 'Invalid action' });
     }
 
     return res.status(200).json({ status: 'success', data: result, version: '2.0-enterprise' });
   } catch (err) {
-    console.error('API Error:', err);
+    if (!Number.isInteger(err.statusCode) || err.statusCode >= 500) console.error('API Error:', err);
     // ส่งเฉพาะ error message ที่เป็น Thai (business logic) กลับไป frontend
     // ป้องกัน Supabase internals / schema info หลุดออกไป
     const isSafeMessage = !/supabase|postgres|connection|ECONN|ETIMED|permission denied|relation|column|syntax/i.test(err.message);
     const clientMessage = isSafeMessage ? err.message : 'เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่อีกครั้ง';
-    return res.status(500).json({ status: 'error', message: clientMessage });
+    const statusCode = Number.isInteger(err.statusCode) ? err.statusCode : 500;
+    return res.status(statusCode).json({ status: 'error', message: clientMessage });
   }
 }
 
 // ------------------------- Enterprise Helper Functions -------------------------
+
+async function authenticateRequest(payload) {
+  const providedAdminToken = String(payload?.adminToken || '').trim();
+  const adminUsername = providedAdminToken && verifyAdminToken(providedAdminToken)
+    ? extractUsernameFromToken(providedAdminToken)
+    : null;
+  if (adminUsername) return { isAdmin: true, adminUsername, lineUser: null };
+  if (providedAdminToken) throw createHttpError(403, 'เซสชัน Admin หมดอายุ กรุณาเข้าสู่ระบบใหม่');
+
+  const lineAccessToken = String(payload?.lineAccessToken || '').trim();
+  if (!lineAccessToken) return { isAdmin: false, adminUsername: null, lineUser: null };
+
+  const lineUser = await verifyLineAccessToken(lineAccessToken);
+  return { isAdmin: false, adminUsername: null, lineUser };
+}
+
+async function verifyLineAccessToken(accessToken) {
+  const cacheKey = crypto.createHash('sha256').update(accessToken).digest('hex');
+  const cached = lineIdentityCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.profile;
+
+  const verifyResponse = await fetch(
+    `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`,
+    { method: 'GET', headers: { Accept: 'application/json' } }
+  );
+  const verifyData = await readJsonResponse(verifyResponse);
+  if (!verifyResponse.ok || String(verifyData?.client_id || '') !== String(LINE_LOGIN_CHANNEL_ID)) {
+    throw createHttpError(401, 'เซสชัน LINE ไม่ถูกต้องหรือหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+  }
+
+  const profileResponse = await fetch('https://api.line.me/v2/profile', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+  });
+  const profile = await readJsonResponse(profileResponse);
+  if (!profileResponse.ok || !LINE_USER_ID_PATTERN.test(String(profile?.userId || ''))) {
+    throw createHttpError(401, 'ไม่สามารถยืนยันตัวตน LINE ได้ กรุณาเข้าสู่ระบบใหม่');
+  }
+
+  const safeProfile = {
+    userId: profile.userId,
+    displayName: String(profile.displayName || 'ผู้ใช้ LINE').trim().slice(0, 150),
+  };
+  const ttlMs = Math.max(10_000, Math.min(Number(verifyData.expires_in || 60) * 1000, 60_000));
+  lineIdentityCache.set(cacheKey, { profile: safeProfile, expiresAt: Date.now() + ttlMs });
+  if (lineIdentityCache.size > 250) {
+    const now = Date.now();
+    for (const [key, value] of lineIdentityCache) if (value.expiresAt <= now) lineIdentityCache.delete(key);
+  }
+  return safeProfile;
+}
+
+function createHttpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+async function sendLinePush(userId, messages, eventKey) {
+  const [notificationType, entityId] = String(eventKey || '').split(':');
+  const entityType = notificationType?.startsWith('issue')
+    ? 'issue_vouchers'
+    : notificationType?.startsWith('loan')
+      ? 'loan_transactions'
+      : notificationType?.startsWith('stock')
+        ? 'ppe_items'
+        : null;
+  return notificationService.send({
+    recipient: userId,
+    messages,
+    eventKey,
+    notificationType,
+    entityType,
+    entityId: entityType === 'ppe_items' ? null : entityId,
+  });
+}
+
+function textMessage(text) {
+  return { type: 'text', text: String(text || '').slice(0, 5000) };
+}
+
+async function checkLineIntegrationStatus() {
+  const recipientState = await notificationWorkflows.listRecipients();
+  if (!LINE_CHANNEL_ACCESS_TOKEN) return {
+    configured: false,
+    valid: false,
+    adminRecipientConfigured: recipientState.recipients.some(recipient => recipient.enabled),
+    adminRecipientCount: recipientState.recipients.filter(recipient => recipient.enabled).length,
+  };
+  const [botResponse, quotaResponse, usageResponse] = await Promise.all([
+    fetch('https://api.line.me/v2/bot/info', { headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` } }),
+    fetch('https://api.line.me/v2/bot/message/quota', { headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` } }),
+    fetch('https://api.line.me/v2/bot/message/quota/consumption', { headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` } }),
+  ]);
+  if (!botResponse.ok) return { configured: true, valid: false, status: botResponse.status };
+  const [bot, quota, usage] = await Promise.all([
+    readJsonResponse(botResponse), readJsonResponse(quotaResponse), readJsonResponse(usageResponse),
+  ]);
+  let notificationLog = { available: true, counts: {} };
+  try {
+    const recent = await notificationService.list({ limit: 200 });
+    notificationLog.counts = recent.reduce((counts, row) => {
+      counts[row.status] = (counts[row.status] || 0) + 1;
+      return counts;
+    }, {});
+    notificationLog.recent = recent.slice(0, 10);
+  } catch (error) {
+    notificationLog = { available: false, counts: {}, error: 'notification_log_unavailable' };
+  }
+  return {
+    configured: true,
+    valid: true,
+    bot: { displayName: bot.displayName || '', basicId: bot.basicId || '' },
+    quota: quotaResponse.ok ? { type: quota.type, value: quota.value ?? null, used: usage.totalUsage ?? null } : null,
+    adminRecipientConfigured: recipientState.recipients.some(recipient => recipient.enabled),
+    adminRecipientCount: recipientState.recipients.filter(recipient => recipient.enabled).length,
+    notificationLog,
+  };
+}
+
+async function getItemSummary(items) {
+  const normalized = Array.isArray(items) ? items : [];
+  const ids = [...new Set(normalized.map(item => Number(item.itemId)).filter(Number.isInteger))];
+  const { data } = ids.length
+    ? await supabase.from('ppe_items').select('id, name, unit').in('id', ids)
+    : { data: [] };
+  const byId = new Map((data || []).map(item => [Number(item.id), item]));
+  return normalized.map(item => {
+    const stored = byId.get(Number(item.itemId));
+    return `• ${stored?.name || `อุปกรณ์ #${item.itemId}`} x ${Number(item.quantity) || 0} ${stored?.unit || 'หน่วย'}`;
+  }).join('\n');
+}
+
+async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includeReceiveLink = false) {
+  if (!voucher?.userid) return { sent: false, reason: 'no_recipient' };
+  const summary = await getItemSummary(items);
+  const note = String(voucher.adminNotes || '').trim();
+  const targetUrl = includeReceiveLink
+    ? notificationWorkflows.buildLiffLink('allHistory', { mode: 'confirmReceive', voucherId: voucher.id })
+    : notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id });
+  const linkLabel = includeReceiveLink ? 'ยืนยันรับของ' : 'ดูรายละเอียด';
+  const text = `${statusLabel}\n\nใบเบิก #${voucher.id}\nผู้เบิก: ${voucher.user || '-'}\nแผนก: ${voucher.department || '-'}${note ? `\nหมายเหตุ: ${note}` : ''}${summary ? `\n\n${summary}` : ''}${targetUrl ? `\n\n${linkLabel}: ${targetUrl}` : ''}`;
+  return sendLinePush(voucher.userid, [textMessage(text)], eventKey);
+}
 
 // Audit Log: บันทึกทุก action — fire-and-forget ไม่ throw ไม่กระทบ main flow
 async function writeAuditLog(actor, action, entityType, entityId, details = {}) {
@@ -235,9 +448,7 @@ async function handleLoginWithLockout(username, password, ip) {
 
 // Auto Stock Alert: แจ้ง LINE admin เมื่อ stock ต่ำกว่า reorder point
 async function checkAndAlertLowStock(updatedItems) {
-  const ADMIN_LINE_USER_ID = process.env.ADMIN_LINE_USER_ID;
-  const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!ADMIN_LINE_USER_ID || !LINE_TOKEN || !updatedItems?.length) return;
+  if (!updatedItems?.length) return { sent: false, status: 'skipped', reason: 'no_updated_items' };
 
   const ids = updatedItems.map(i => Number(i.id));
   const { data: items } = await supabase
@@ -249,24 +460,22 @@ async function checkAndAlertLowStock(updatedItems) {
   const lowItems = (items || []).filter(
     i => Number(i.reorderPoint) > 0 && Number(i.stock) <= Number(i.reorderPoint)
   );
-  if (!lowItems.length) return;
+  if (!lowItems.length) return { sent: false, status: 'skipped', reason: 'stock_not_low' };
 
   const lines = lowItems.map(i =>
     `• ${i.name}: เหลือ ${i.stock} ชิ้น (จุดสั่งซื้อ: ${i.reorderPoint})`
   ).join('\n');
 
-  try {
-    await fetch('https://api.line.me/v2/bot/message/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LINE_TOKEN}` },
-      body: JSON.stringify({
-        to: ADMIN_LINE_USER_ID,
-        messages: [{ type: 'text', text: `⚠️ แจ้งเตือนสต็อกต่ำ\n\n${lines}\n\nกรุณาสั่งซื้อเพิ่มเติม` }],
-      }),
-    });
-  } catch (e) {
-    console.error('[stock-alert] LINE push failed:', e.message);
-  }
+  const eventKey = `stock-low:${lowItems.map(item => `${item.id}-${item.stock}`).join(',')}`;
+  const stockUrl = notificationWorkflows.buildLiffLink('manage');
+  return notificationWorkflows.sendToAdmins({
+    topic: 'stock',
+    messages: [textMessage(`⚠️ แจ้งเตือนสต็อกต่ำ\n\n${lines}\n\nกรุณาสั่งซื้อเพิ่มเติม${stockUrl ? `\n\nเปิดหน้าจัดการ: ${stockUrl}` : ''}`)],
+    eventKey,
+    notificationType: 'stock-low',
+    entityType: 'ppe_items',
+    metadata: { itemIds: lowItems.map(item => item.id) },
+  });
 }
 
 // ------------------------- utils: อ่าน raw body -------------------------
@@ -285,19 +494,28 @@ function getRawBody(req) {
   });
 }
 
-// ------------------------- ฟังก์ชันหลักแปลงจาก Code.gs -------------------------
-
-// ... (ฟังก์ชัน getInitialData และอื่นๆ ให้คงเดิมไว้) ...
-// เพื่อความกระชับ ผมจะใส่เฉพาะฟังก์ชัน saveFeedback ที่เพิ่มมาใหม่นะครับ
-// คุณสามารถ Copy ฟังก์ชัน saveFeedback นี้ไปวางต่อท้ายไฟล์ หรือวางก่อน getInitialData ก็ได้ครับ
-
-// ⭐⭐⭐ ฟังก์ชันบันทึก Feedback ลง Supabase ⭐⭐⭐
-async function saveFeedback(payload) {
-  const { transactionId, itemId, itemName, type, rating, comment, user } = payload;
-
-  if (!rating) {
-    throw new Error('Rating is required');
+// บันทึก Feedback ลง Supabase หลังตรวจสิทธิ์และความเป็นเจ้าของรายการ
+async function saveFeedback(payload, auth) {
+  const transactionId = Number(payload?.transactionId);
+  const itemId = Number(payload?.itemId);
+  const rating = Number(payload?.rating);
+  const type = String(payload?.type || 'issue').trim().slice(0, 40);
+  const comment = String(payload?.comment || '').trim().slice(0, 1000);
+  if (!Number.isInteger(transactionId) || transactionId <= 0 || !Number.isInteger(itemId) || itemId <= 0) {
+    throw new Error('ข้อมูลรายการประเมินไม่ถูกต้อง');
   }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('คะแนนต้องอยู่ระหว่าง 1 ถึง 5');
+
+  let voucherQuery = supabase.from('issue_vouchers').select('id, userid, itemsJson').eq('id', transactionId);
+  if (!auth.isAdmin) voucherQuery = voucherQuery.eq('userid', auth.lineUser.userId);
+  const { data: voucher, error: voucherError } = await voucherQuery.maybeSingle();
+  if (voucherError) throw voucherError;
+  if (!voucher) throw createHttpError(403, 'คุณไม่มีสิทธิ์ประเมินรายการนี้');
+  const voucherItems = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
+  if (!voucherItems.some(item => Number(item.itemId) === itemId)) throw new Error('ไม่พบอุปกรณ์นี้ในใบเบิก');
+
+  const { data: storedItem } = await supabase.from('ppe_items').select('name').eq('id', itemId).maybeSingle();
+  const user = auth.isAdmin ? `Admin (${auth.adminUsername})` : auth.lineUser.displayName;
 
   // Insert ลงตาราง feedback
   const { data, error } = await supabase
@@ -306,10 +524,10 @@ async function saveFeedback(payload) {
       {
         transaction_id: transactionId,
         item_id: itemId,
-        item_name: itemName,
+        item_name: storedItem?.name || `อุปกรณ์ #${itemId}`,
         feedback_type: type,
-        rating: parseInt(rating),
-        comment: comment,
+        rating,
+        comment,
         user_name: user
       }
     ])
@@ -325,37 +543,57 @@ async function saveFeedback(payload) {
 
 // ------------------------- ฟังก์ชันเดิมของคุณ (ไม่ต้องแก้) -------------------------
 
-async function getInitialData() {
+async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
+  const ppeItemsQuery = auth.isAdmin
+    ? supabase.from('ppe_items').select('*').is('deleted_at', null)
+    : supabase.from('ppe_items').select('id, code, name, category, unit, stock, reorderPoint, onLoanQuantity, image_url').is('deleted_at', null);
   const [
     ppeItemsRes,
-    issueVouchersRes,
-    receiveTransactionsRes,
-    loanTransactionsRes,
     categoriesRes,
     departmentsRes,
-    feedbackRes,
     matrixRes,
     docsRes // ⭐ เพิ่มตัวรับ
   ] = await Promise.all([
-    supabase.from('ppe_items').select('*').is('deleted_at', null),
-    supabase.from('issue_vouchers').select('*'),
-    supabase.from('receive_transactions').select('*'),
-    supabase.from('loan_transactions').select('*'),
+    ppeItemsQuery,
     supabase.from('categories').select('*'),
     supabase.from('departments').select('*').order('name'),
-    supabase.from('feedback').select('*').order('created_at', { ascending: false }),
     supabase.from('ppe_matrix').select('*'),
     supabase.from('ppe_documents').select('*').order('created_at', { ascending: false }) // ⭐ ดึงเอกสาร
   ]);
 
   const ppeItems = ppeItemsRes.data || [];
-  const issueVouchers = issueVouchersRes.data || [];
-  const receiveTransactions = receiveTransactionsRes.data || [];
-  const loanTransactions = loanTransactionsRes.data || [];
   const categories = categoriesRes.data || [];
-  const feedback = feedbackRes.data || [];
   const ppeMatrix = matrixRes.data || []; // ⭐ 3. ดึง data
   const ppeDocuments = docsRes.data || []; // ⭐ ดึง data
+
+  let issueVouchers = [];
+  let receiveTransactions = [];
+  let loanTransactions = [];
+  let feedback = [];
+  if (auth.isAdmin) {
+    const [issues, receives, loans, feedbacks] = await Promise.all([
+      supabase.from('issue_vouchers').select('*'),
+      supabase.from('receive_transactions').select('*'),
+      supabase.from('loan_transactions').select('*'),
+      supabase.from('feedback').select('*').order('created_at', { ascending: false }),
+    ]);
+    issueVouchers = issues.data || [];
+    receiveTransactions = receives.data || [];
+    loanTransactions = loans.data || [];
+    feedback = feedbacks.data || [];
+  } else if (auth.lineUser) {
+    const [issues, loans] = await Promise.all([
+      supabase.from('issue_vouchers').select('*').eq('userid', auth.lineUser.userId),
+      supabase.from('loan_transactions').select('*').eq('userid', auth.lineUser.userId),
+    ]);
+    issueVouchers = issues.data || [];
+    loanTransactions = loans.data || [];
+    const voucherIds = issueVouchers.map(voucher => String(voucher.id));
+    if (voucherIds.length) {
+      const feedbacks = await supabase.from('feedback').select('*').in('transaction_id', voucherIds).order('created_at', { ascending: false });
+      feedback = feedbacks.data || [];
+    }
+  }
 
   const totalStockValue = calculateTotalStockValue(ppeItems);
   const topIssuedItems = getTopIssuedItems(issueVouchers, ppeItems, 5);
@@ -531,19 +769,24 @@ async function savePpeItem(itemData) {
 }
 
 // ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
-async function addNewVoucher(voucherData) {
+async function addNewVoucher(voucherData, auth) {
+  const ownerUserId = auth.isAdmin
+    ? (LINE_USER_ID_PATTERN.test(String(voucherData.userId || '')) ? voucherData.userId : '')
+    : auth.lineUser.userId;
+  const requestedName = String(voucherData.user || '').trim();
+  const userName = requestedName || (auth.lineUser?.displayName || 'ผู้ใช้');
   const nextId = await getNextId('issue_vouchers', 'id');
   const { data, error } = await supabase
     .from('issue_vouchers')
     .insert({
       id: nextId,
       timestamp: new Date().toISOString(),
-      user: voucherData.user,
+      user: userName,
       department: voucherData.department, // แผนก
       
       // *** เปลี่ยนเป็นตัวพิมพ์เล็กให้ตรงกับ Supabase ***
       employeeid: voucherData.employeeId || '', 
-      userid: voucherData.userId || '',         
+      userid: ownerUserId,
       
       status: 'pending',
       adminNotes: '',
@@ -555,7 +798,21 @@ async function addNewVoucher(voucherData) {
       console.error("🔥 [addNewVoucher] Error:", error);
       throw error;
   }
-  return data;
+  const summary = await getItemSummary(voucherData.items);
+  const userUrl = notificationWorkflows.buildLiffLink('allHistory', { voucherId: data.id });
+  const adminUrl = notificationWorkflows.buildLiffLink('pending', { voucherId: data.id });
+  const [userNotification, adminNotification] = await Promise.all([
+    sendLinePush(ownerUserId, [textMessage(`ส่งคำขอเบิกเรียบร้อยแล้ว\n\nใบเบิก #${data.id}\nสถานะ: รออนุมัติ${summary ? `\n\n${summary}` : ''}${userUrl ? `\n\nติดตามสถานะ: ${userUrl}` : ''}`)], `issue-created-user:${data.id}`),
+    notificationWorkflows.sendToAdmins({
+      topic: 'issue',
+      messages: [textMessage(`มีใบเบิกใหม่\n\nใบเบิก #${data.id}\nผู้เบิก: ${userName}\nแผนก: ${voucherData.department || '-'}${summary ? `\n\n${summary}` : ''}${adminUrl ? `\n\nตรวจสอบคำขอ: ${adminUrl}` : ''}`)],
+      eventKey: `issue-created-admin:${data.id}`,
+      notificationType: 'issue-created-admin',
+      entityType: 'issue_vouchers',
+      entityId: data.id,
+    }),
+  ]);
+  return { ...data, notification: { user: userNotification, admin: adminNotification } };
 }
 
 async function claimPendingVoucher(voucherId) {
@@ -614,9 +871,17 @@ async function approveVoucher(approvalData) {
     throw error;
   }
 
-  checkAndAlertLowStock(updatedStockItems).catch((e) => console.error('Stock alert error:', e));
-
-  return { updatedVoucherId: voucherId, status: 'approved', updatedStockItems };
+  const [notification, stockNotification] = await Promise.all([
+    notifyVoucherStatus(
+      { ...voucher, adminNotes: adminNote || 'อนุมัติโดย Admin' },
+      'อนุมัติใบเบิกเรียบร้อยแล้ว ✅',
+      itemsToUpdate,
+      `issue-approved:${voucherId}`,
+      true
+    ),
+    checkAndAlertLowStock(updatedStockItems),
+  ]);
+  return { updatedVoucherId: voucherId, status: 'approved', updatedStockItems, notification, stockNotification };
 }
 
 async function approvePartialVoucher(approvalData) {
@@ -679,9 +944,17 @@ async function approvePartialVoucher(approvalData) {
     throw error;
   }
 
-  checkAndAlertLowStock(updatedStockItems).catch((e) => console.error('Stock alert error:', e));
-
-  return { updatedVoucherId: voucherId, status: newStatus, updatedStockItems };
+  const [notification, stockNotification] = await Promise.all([
+    notifyVoucherStatus(
+      { ...voucher, adminNotes: finalNote },
+      newStatus === 'approved' ? 'อนุมัติใบเบิกเรียบร้อยแล้ว ✅' : 'อนุมัติใบเบิกบางส่วน ⚠️',
+      itemsToUpdateInStock,
+      `issue-partial:${voucherId}:${newStatus}`,
+      true
+    ),
+    checkAndAlertLowStock(updatedStockItems),
+  ]);
+  return { updatedVoucherId: voucherId, status: newStatus, updatedStockItems, notification, stockNotification };
 }
 
 async function rejectVoucher(approvalData) {
@@ -694,11 +967,13 @@ async function rejectVoucher(approvalData) {
     .update({ status: 'rejected', adminNotes: adminNote })
     .eq('id', voucherId)
     .eq('status', 'pending')
-    .select('id')
+    .select('*')
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว กรุณารีเฟรชข้อมูล');
-  return { updatedVoucherId: voucherId, status: 'rejected' };
+  const items = Array.isArray(data.itemsJson) ? data.itemsJson : JSON.parse(data.itemsJson || '[]');
+  const notification = await notifyVoucherStatus(data, 'ใบเบิกไม่ได้รับการอนุมัติ ❌', items, `issue-rejected:${voucherId}`);
+  return { updatedVoucherId: voucherId, status: 'rejected', notification };
 }
 
 async function addReceiveTransactionAndUpdateStock(tx) {
@@ -759,9 +1034,9 @@ async function addReceiveTransactionAndUpdateStock(tx) {
 }
 
 // ในไฟล์ ppe.js ค้นหาฟังก์ชัน borrowItem แล้วแก้เป็นแบบนี้
-async function borrowItem(borrowData) {
+async function borrowItem(borrowData, auth) {
   const itemId = Number(borrowData?.itemId);
-  const borrowerName = String(borrowData?.borrowerName || '').trim();
+  const borrowerName = String(borrowData?.borrowerName || auth.lineUser?.displayName || '').trim();
   const employeeId = String(borrowData?.employeeId || '').trim();
   const department = String(borrowData?.department || '').trim();
   const dueDate = String(borrowData?.dueDate || '');
@@ -779,6 +1054,9 @@ async function borrowItem(borrowData) {
   }
   if (dueDate < today) throw new Error('กำหนดคืนต้องไม่เป็นวันที่ย้อนหลัง');
 
+  const ownerUserId = auth.isAdmin
+    ? (LINE_USER_ID_PATTERN.test(String(borrowData.userId || '')) ? borrowData.userId : '')
+    : auth.lineUser.userId;
   const nextId = await getNextId('loan_transactions', 'loanId');
   const updatedItem = await updateLoanableStock(itemId, 'borrow');
 
@@ -791,7 +1069,7 @@ async function borrowItem(borrowData) {
       
       // ✅ แก้ตรงนี้: ฝั่งซ้ายคือชื่อคอลัมน์ใน DB (ตัวเล็ก) = ฝั่งขวาคือค่าจาก Frontend (CamelCase)
       employeeid: employeeId,
-      userid: borrowData.userId || '', 
+      userid: ownerUserId,
       
       department,
       
@@ -815,7 +1093,21 @@ async function borrowItem(borrowData) {
       throw error;
   }
 
-  return { newLoan: data, updatedItem };
+  const dueText = new Date(`${dueDate}T00:00:00`).toLocaleDateString('th-TH', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' });
+  const loanUrl = notificationWorkflows.buildLiffLink('loan', { loanId: data.loanId });
+  const message = `บันทึกการยืมอุปกรณ์แล้ว\n\nรายการ: ${updatedItem.name || `อุปกรณ์ #${itemId}`}\nผู้ยืม: ${borrowerName}\nแผนก: ${department}\nกำหนดคืน: ${dueText}${loanUrl ? `\n\nเปิดรายการยืม: ${loanUrl}` : ''}`;
+  const [userNotification, adminNotification] = await Promise.all([
+    sendLinePush(ownerUserId, [textMessage(message)], `loan-created-user:${data.loanId}`),
+    notificationWorkflows.sendToAdmins({
+      topic: 'loan',
+      messages: [textMessage(message)],
+      eventKey: `loan-created-admin:${data.loanId}`,
+      notificationType: 'loan-created-admin',
+      entityType: 'loan_transactions',
+      entityId: data.loanId,
+    }),
+  ]);
+  return { newLoan: data, updatedItem, notification: { user: userNotification, admin: adminNotification } };
 }
 
 async function returnItem(loanId) {
@@ -849,7 +1141,12 @@ async function returnItem(loanId) {
     throw upErr;
   }
 
-  return { returnedLoanId: normalizedLoanId, updatedItem };
+  const notification = await sendLinePush(
+    loan.userid,
+    [textMessage(`รับคืนอุปกรณ์เรียบร้อยแล้ว ✅\n\nรายการยืม #${normalizedLoanId}\nอุปกรณ์: ${updatedItem.name || `#${loan.itemId}`}\nเวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}${notificationWorkflows.buildLiffLink('allHistory', { loanId: normalizedLoanId }) ? `\n\nดูประวัติ: ${notificationWorkflows.buildLiffLink('allHistory', { loanId: normalizedLoanId })}` : ''}`)],
+    `loan-returned:${normalizedLoanId}`
+  );
+  return { returnedLoanId: normalizedLoanId, updatedItem, notification };
 }
 
 // สร้าง HMAC session token อายุ 24 ชั่วโมง
@@ -1128,12 +1425,9 @@ function getStatusTextServer(status) {
   return map[status] || 'ไม่ทราบ';
 }
 
-async function confirmReceive(payload) {
-  const { voucherId, userId, userName } = payload;
-
-  if (!voucherId || !userId) {
-    throw new Error('ข้อมูลไม่ครบ');
-  }
+async function confirmReceive(payload, auth) {
+  const voucherId = Number(payload?.voucherId);
+  if (!Number.isInteger(voucherId) || voucherId <= 0) throw new Error('รหัสใบเบิกไม่ถูกต้อง');
 
   const { data: voucher, error: findErr } = await supabase
     .from('issue_vouchers')
@@ -1144,13 +1438,21 @@ async function confirmReceive(payload) {
   if (findErr) throw findErr;
   if (!voucher) throw new Error('ไม่พบใบเบิก');
 
+  if (!auth.isAdmin && String(voucher.userid || '') !== auth.lineUser.userId) {
+    throw createHttpError(403, 'คุณไม่มีสิทธิ์ยืนยันรับของสำหรับใบเบิกนี้');
+  }
+
   if (!['approved', 'partially_approved'].includes(voucher.status)) {
     throw new Error('ใบเบิกนี้ยังไม่ได้รับการอนุมัติ');
   }
 
   if (voucher.status_received === 'received') {
-    return { status: 'already_received' };
+    return { status: 'already_received', voucherId, receivedBy: voucher.received_by || '-' };
   }
+
+  const receivedBy = auth.isAdmin
+    ? `Admin (${auth.adminUsername}) รับแทน ${voucher.user || 'ผู้ใช้'}`
+    : auth.lineUser.displayName;
 
   // ✅ อัปเดตสถานะรับของ
   const { error: upErr } = await supabase
@@ -1158,40 +1460,22 @@ async function confirmReceive(payload) {
     .update({
       status_received: 'received',
       received_at: new Date().toISOString(),
-      received_by: userName || userId
+      received_by: receivedBy
     })
     .eq('id', voucherId);
 
   if (upErr) throw upErr;
 
-  // 🔔 STEP 5: แจ้ง Admin หลังรับของ (ตรงนี้แหละ)
-  try {
-    const ADMIN_LINE_USER_ID = process.env.ADMIN_LINE_USER_ID;
+  const notification = await notificationWorkflows.sendToAdmins({
+    topic: 'receipt',
+    messages: [textMessage(`ยืนยันรับของแล้ว 📦\n\nใบเบิก #${voucher.id}\nผู้รับ: ${receivedBy}\nเวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}${notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id }) ? `\n\nดูรายการ: ${notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id })}` : ''}`)],
+    eventKey: `issue-received-admin:${voucher.id}`,
+    notificationType: 'issue-received-admin',
+    entityType: 'issue_vouchers',
+    entityId: voucher.id,
+  });
 
-    if (ADMIN_LINE_USER_ID) {
-      await fetch('https://api.line.me/v2/bot/message/push', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
-        },
-        body: JSON.stringify({
-          to: ADMIN_LINE_USER_ID,
-          messages: [
-            {
-              type: 'text',
-              text: `📦 ยืนยันรับของแล้ว\n\nใบเบิก #${voucher.id}\nผู้รับ: ${userName || userId}\nเวลา: ${new Date().toLocaleString('th-TH')}`
-            }
-          ]
-        })
-      });
-    }
-  } catch (notifyErr) {
-    // ❗ ไม่ throw เพื่อไม่ให้ process หลักพัง
-    console.error('แจ้ง Admin ไม่สำเร็จ:', notifyErr);
-  }
-
-  return { status: 'received', voucherId };
+  return { status: 'received', voucherId, receivedBy, notification };
 }
 
 // ✅ ฟังก์ชันลบอุปกรณ์ (เวอร์ชัน Supabase)

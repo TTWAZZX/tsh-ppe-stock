@@ -27,6 +27,8 @@ const ACTION_LOADING_KEYS = {
   getInitialData:       { key: 'page.dashboard',    deduplicate: true  },
   getFeedbackList:      { key: 'widget.feedback',   deduplicate: true  },
   getMatrixData:        { key: 'widget.matrix',     deduplicate: true  },
+  getNotificationLogs:  { key: 'widget.notifications', deduplicate: true },
+  getNotificationRecipients: { key: 'widget.notificationRecipients', deduplicate: true },
 
   // ── Mutating (ใช้ overlay เพราะ user ต้องรอ) ─────────────────────────────
   addNewVoucher:        { key: 'action.addVoucher',       overlay: true },
@@ -48,6 +50,11 @@ const ACTION_LOADING_KEYS = {
   saveFeedback:         { key: 'action.feedback',         overlay: true },
   adminLogin:           { key: 'action.login',            overlay: true },
   updateStockLevels:    { key: 'action.stock',            overlay: true },
+  saveNotificationRecipient: { key: 'action.notificationRecipient', overlay: true },
+  toggleNotificationRecipient: { key: 'action.notificationRecipient', overlay: true },
+  retryNotification:    { key: 'action.notificationRetry', overlay: true },
+  retryDueNotifications:{ key: 'action.notificationRetry', overlay: true },
+  runLoanDueReminders:  { key: 'action.loanReminder',      overlay: true },
 };
 
 const DEFAULT_CONFIG = { key: 'action.generic', overlay: true };
@@ -72,7 +79,11 @@ async function apiCall(action, payload = null, options = {}) {
   // Build request body
   const body = {
     action,
-    payload: { ...(payload ?? {}), ...(window._adminToken ? { adminToken: window._adminToken } : {}) }
+    payload: {
+      ...(payload ?? {}),
+      ...(window._adminToken ? { adminToken: window._adminToken } : {}),
+      ...(window._lineAccessToken ? { lineAccessToken: window._lineAccessToken } : {}),
+    }
   };
 
   // Message for overlay
@@ -135,6 +146,11 @@ function _getDefaultMessage(action) {
     confirmReceive:   'กำลังยืนยันการรับ...',
     borrowItem:       'กำลังบันทึกการยืม...',
     returnItem:       'กำลังบันทึกการคืน...',
+    saveNotificationRecipient: 'กำลังบันทึกผู้รับแจ้งเตือน...',
+    toggleNotificationRecipient: 'กำลังแก้ไขผู้รับแจ้งเตือน...',
+    retryNotification: 'กำลังลองส่งข้อความอีกครั้ง...',
+    retryDueNotifications: 'กำลังประมวลผลข้อความค้าง...',
+    runLoanDueReminders: 'กำลังตรวจสอบกำหนดคืน...',
     deletePpeItem:    'กำลังลบรายการ...',
     uploadDocument:   'กำลังอัปโหลดเอกสาร...',
     saveFeedback:     'กำลังส่งความคิดเห็น...',

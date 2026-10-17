@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:notifications": "node --no-warnings scripts/run-notification-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.0",

@@ -18,5 +18,11 @@
         "Cache-Control": "public, max-age=0, must-revalidate"
       }
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/notifications/retry",
+      "schedule": "0 1 * * *"
+    }
   ]
 }
