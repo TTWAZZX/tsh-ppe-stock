@@ -2534,7 +2534,7 @@
         } catch (error) {
             if (error.name === 'AbortError') return null; // cancelled — ไม่ต้อง toast
             console.error(`API call failed for action "${action}":`, error);
-            onFailure(error);
+            if (!error.authenticationRedirected) onFailure(error);
             throw error;
         }
     }
@@ -2693,6 +2693,53 @@
     let liffProfile = null;
     const LIFF_ID = "2007053300-JTSerFbF"; // **ต้องใส่ LIFF ID ของคุณ**
     const IS_LOCAL_DEVELOPMENT = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const LINE_REAUTH_KEY = 'ppe_line_reauth_attempted_at';
+    let lineReauthInProgress = false;
+
+    window.handleLineSessionExpired = async function(message = '') {
+        if (isAdmin || IS_LOCAL_DEVELOPMENT || lineReauthInProgress) return false;
+
+        const lastAttempt = Number(sessionStorage.getItem(LINE_REAUTH_KEY) || 0);
+        if (lastAttempt && Date.now() - lastAttempt < 60_000) {
+            showToast('ไม่สามารถต่ออายุเซสชัน LINE ได้ กรุณาปิดหน้านี้แล้วเปิดผ่าน LINE ใหม่', 'error');
+            return false;
+        }
+
+        lineReauthInProgress = true;
+        sessionStorage.setItem(LINE_REAUTH_KEY, String(Date.now()));
+        window._lineAccessToken = null;
+        liffProfile = null;
+        LoadingManager.cancelAll();
+        showToast(message || 'เซสชัน LINE หมดอายุ กำลังเข้าสู่ระบบใหม่…', 'warning');
+
+        try {
+            if (liff.isLoggedIn()) liff.logout();
+            liff.login({ redirectUri: window.location.href });
+            return true;
+        } catch (error) {
+            console.error('Unable to restart LINE Login:', error);
+            const moduleName = normalizeModuleName(window.location.hash) || _activePage || 'dashboard';
+            window.location.assign(`https://liff.line.me/${LIFF_ID}?module=${encodeURIComponent(moduleName)}`);
+            return true;
+        }
+    };
+
+    window.handleAdminSessionExpired = function() {
+        if (!isAdmin && !window._adminToken) return false;
+        isAdmin = false;
+        adminSessionToken = null;
+        window._adminToken = null;
+        localStorage.removeItem('ppe_admin_session');
+        localStorage.removeItem('ppe_admin_name');
+        localStorage.removeItem('ppe_admin_token');
+        sessionStorage.removeItem('ppe_admin_session');
+        sessionStorage.removeItem('ppe_admin_token');
+        LoadingManager.cancelAll();
+        showToast('เซสชัน Admin หมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warning');
+        showLoginModal();
+        return true;
+    };
+
     function getLocalDevelopmentProfile() {
         const requestedName = new URLSearchParams(window.location.search).get('localUser') || 'Local Tester';
         const safeName = requestedName
@@ -2769,6 +2816,8 @@
             LoadingManager.updateSplash('กำลังโหลดข้อมูล…', 80);
             const data = await callServerFunction('getInitialData');
             onDataLoaded(data);
+            sessionStorage.removeItem(LINE_REAUTH_KEY);
+            lineReauthInProgress = false;
 
         } catch (err) {
             console.error('LIFF/App Error:', err);

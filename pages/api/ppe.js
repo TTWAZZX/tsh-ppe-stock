@@ -374,26 +374,25 @@ async function checkLineIntegrationStatus() {
   };
 }
 
-async function getItemSummary(items) {
+async function getItemDetails(items) {
   const normalized = Array.isArray(items) ? items : [];
   const ids = [...new Set(normalized.map(item => Number(item.itemId)).filter(Number.isInteger))];
   const { data } = ids.length
-    ? await supabase.from('ppe_items').select('id, name, unit').in('id', ids)
+    ? await supabase.from('ppe_items').select('id, name, unit, image_url').in('id', ids)
     : { data: [] };
   const byId = new Map((data || []).map(item => [Number(item.id), item]));
   return normalized.map(item => {
     const stored = byId.get(Number(item.itemId));
-    return `• ${stored?.name || `อุปกรณ์ #${item.itemId}`} x ${Number(item.quantity) || 0} ${stored?.unit || 'หน่วย'}`;
-  }).join('\n');
-}
-
-function itemSummaryLines(summary) {
-  return String(summary || '').split('\n').map(line => line.trim()).filter(Boolean);
+    return {
+      text: `${stored?.name || `อุปกรณ์ #${item.itemId}`} x ${Number(item.quantity) || 0} ${stored?.unit || 'หน่วย'}`,
+      imageUrl: stored?.image_url || '',
+    };
+  });
 }
 
 async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includeReceiveLink = false) {
   if (!voucher?.userid) return { sent: false, reason: 'no_recipient' };
-  const summary = await getItemSummary(items);
+  const itemDetails = await getItemDetails(items);
   const note = String(voucher.adminNotes || '').trim();
   const targetUrl = includeReceiveLink
     ? notificationWorkflows.buildLiffLink('allHistory', { mode: 'confirmReceive', voucherId: voucher.id })
@@ -413,7 +412,7 @@ async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includ
       { label: 'ผู้เบิก', value: voucher.user || '-' },
       { label: 'แผนก', value: voucher.department || '-' },
     ],
-    items: itemSummaryLines(summary),
+    items: itemDetails,
     theme,
     actionLabel: linkLabel,
     actionUrl: targetUrl,
@@ -473,7 +472,7 @@ async function checkAndAlertLowStock(updatedItems) {
   const ids = updatedItems.map(i => Number(i.id));
   const { data: items } = await supabase
     .from('ppe_items')
-    .select('id, name, stock, reorderPoint')
+    .select('id, name, stock, reorderPoint, image_url')
     .in('id', ids)
     .is('deleted_at', null);
 
@@ -482,9 +481,10 @@ async function checkAndAlertLowStock(updatedItems) {
   );
   if (!lowItems.length) return { sent: false, status: 'skipped', reason: 'stock_not_low' };
 
-  const lines = lowItems.map(i =>
-    `${i.name}: เหลือ ${i.stock} ชิ้น (จุดสั่งซื้อ ${i.reorderPoint})`
-  );
+  const lines = lowItems.map(i => ({
+    text: `${i.name}: เหลือ ${i.stock} ชิ้น (จุดสั่งซื้อ ${i.reorderPoint})`,
+    imageUrl: i.image_url || '',
+  }));
 
   const eventKey = `stock-low:${lowItems.map(item => `${item.id}-${item.stock}`).join(',')}`;
   const stockUrl = notificationWorkflows.buildLiffLink('manage');
@@ -828,7 +828,7 @@ async function addNewVoucher(voucherData, auth) {
       console.error("🔥 [addNewVoucher] Error:", error);
       throw error;
   }
-  const summary = await getItemSummary(voucherData.items);
+  const itemDetails = await getItemDetails(voucherData.items);
   const userUrl = notificationWorkflows.buildLiffLink('allHistory', { voucherId: data.id });
   const adminUrl = notificationWorkflows.buildLiffLink('pending', { voucherId: data.id });
   const [userNotification, adminNotification] = await Promise.all([
@@ -841,7 +841,7 @@ async function addNewVoucher(voucherData, auth) {
         { label: 'ผู้เบิก', value: userName },
         { label: 'แผนก', value: voucherData.department || '-' },
       ],
-      items: itemSummaryLines(summary),
+      items: itemDetails,
       theme: 'pending',
       actionLabel: 'ติดตามสถานะ',
       actionUrl: userUrl,
@@ -857,7 +857,7 @@ async function addNewVoucher(voucherData, auth) {
           { label: 'ผู้เบิก', value: userName },
           { label: 'แผนก', value: voucherData.department || '-' },
         ],
-        items: itemSummaryLines(summary),
+        items: itemDetails,
         theme: 'pending',
         actionLabel: 'ตรวจสอบคำขอ',
         actionUrl: adminUrl,
@@ -1166,6 +1166,7 @@ async function borrowItem(borrowData, auth) {
     theme: 'info',
     actionLabel: 'เปิดรายการยืม',
     actionUrl: loanUrl,
+    heroImageUrl: updatedItem.image_url,
     altText: `บันทึกรายการยืม #${data.loanId} แล้ว กำหนดคืน ${dueText}`,
   });
   const adminMessage = createPpeFlexMessage({
@@ -1181,6 +1182,7 @@ async function borrowItem(borrowData, auth) {
     theme: 'info',
     actionLabel: 'ตรวจสอบรายการ',
     actionUrl: loanUrl,
+    heroImageUrl: updatedItem.image_url,
     altText: `มีรายการยืมใหม่ #${data.loanId} โดย ${borrowerName}`,
   });
   const [userNotification, adminNotification] = await Promise.all([
@@ -1241,6 +1243,7 @@ async function returnItem(loanId) {
       theme: 'success',
       actionLabel: 'ดูประวัติ',
       actionUrl: notificationWorkflows.buildLiffLink('allHistory', { loanId: normalizedLoanId }),
+      heroImageUrl: updatedItem.image_url,
       altText: `รับคืนอุปกรณ์รายการยืม #${normalizedLoanId} เรียบร้อยแล้ว`,
     })],
     `loan-returned:${normalizedLoanId}`
@@ -1409,7 +1412,15 @@ async function updateLoanableStock(itemId, direction) {
     .eq('id', itemId);
   if (upErr) throw upErr;
 
-  return { id: itemId, stock, onLoanQuantity: onLoan };
+  return {
+    id: itemId,
+    code: item.code || '',
+    name: item.name || '',
+    unit: item.unit || '',
+    image_url: item.image_url || '',
+    stock,
+    onLoanQuantity: onLoan,
+  };
 }
 
 // ----- dashboard helpers -----
@@ -1565,6 +1576,10 @@ async function confirmReceive(payload, auth) {
 
   if (upErr) throw upErr;
 
+  const receivedItems = Array.isArray(voucher.itemsJson)
+    ? voucher.itemsJson
+    : JSON.parse(voucher.itemsJson || '[]');
+  const receivedItemDetails = await getItemDetails(receivedItems);
   const notification = await notificationWorkflows.sendToAdmins({
     topic: 'receipt',
     messages: [createPpeFlexMessage({
@@ -1575,6 +1590,7 @@ async function confirmReceive(payload, auth) {
         { label: 'ผู้รับ', value: receivedBy },
         { label: 'เวลารับ', value: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) },
       ],
+      items: receivedItemDetails,
       theme: 'success',
       actionLabel: 'ดูรายการ',
       actionUrl: notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id }),

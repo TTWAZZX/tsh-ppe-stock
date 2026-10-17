@@ -132,6 +132,20 @@ async function _doFetch(body, signal) {
   if (!response.ok) {
     const error = new Error(result.message || `API Error: ${response.status}`);
     error.statusCode = response.status;
+    if (response.status === 401 && typeof window.handleLineSessionExpired === 'function') {
+      try {
+        error.authenticationRedirected = Boolean(await window.handleLineSessionExpired(error.message));
+      } catch (reauthError) {
+        console.error('LINE re-authentication failed:', reauthError);
+      }
+    }
+    if (response.status === 403 && typeof window.handleAdminSessionExpired === 'function') {
+      try {
+        error.authenticationRedirected = Boolean(window.handleAdminSessionExpired(error.message));
+      } catch (reauthError) {
+        console.error('Admin re-authentication failed:', reauthError);
+      }
+    }
     throw error;
   }
 

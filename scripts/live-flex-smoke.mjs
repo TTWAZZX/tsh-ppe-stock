@@ -21,6 +21,16 @@ const service = createLineNotificationService({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 });
 const recipient = process.env.ADMIN_LINE_USER_ID;
+const { data: imageItems, error: imageError } = await supabase
+  .from('ppe_items')
+  .select('id,name,code,unit,image_url')
+  .is('deleted_at', null)
+  .not('image_url', 'is', null)
+  .limit(2);
+if (imageError) throw imageError;
+if (!imageItems?.length) throw new Error('ไม่พบอุปกรณ์ที่มีรูปภาพสำหรับ Live Flex test');
+const primaryItem = imageItems[0];
+const secondaryItem = imageItems[1] || imageItems[0];
 const runId = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
 const liffId = process.env.LIFF_ID || '2007053300-JTSerFbF';
 const link = (moduleName, params = {}) => {
@@ -33,15 +43,19 @@ const commonIssue = {
     { label: 'ผู้เบิก', value: 'Admin Flex Tester' },
     { label: 'แผนก', value: 'SAFETY HEALTH & ENVIRONMENT SEC.' },
   ],
-  items: ['Ear plugs (PU Foam) x 2 คู่', 'Safety Full body harness x 1 ชุด'],
+  items: [
+    { text: `${primaryItem.name} x 2 ${primaryItem.unit || 'หน่วย'}`, imageUrl: primaryItem.image_url },
+    { text: `${secondaryItem.name} x 1 ${secondaryItem.unit || 'หน่วย'}`, imageUrl: secondaryItem.image_url },
+  ],
 };
 const commonLoan = {
   fields: [
-    { label: 'อุปกรณ์', value: 'Safety Full body harness' },
+    { label: 'อุปกรณ์', value: primaryItem.name },
     { label: 'ผู้ยืม', value: 'Admin Flex Tester' },
     { label: 'แผนก', value: 'SAFETY HEALTH & ENVIRONMENT SEC.' },
     { label: 'กำหนดคืน', value: '18 ต.ค. 2569' },
   ],
+  heroImageUrl: primaryItem.image_url,
 };
 
 const cases = [
@@ -50,7 +64,7 @@ const cases = [
   { key: 'issue-approved', title: 'ใบเบิก #TEST', status: 'อนุมัติใบเบิกเรียบร้อยแล้ว', theme: 'success', url: link('allHistory', { mode: 'confirmReceive', voucherId: 'TEST' }), label: 'ยืนยันรับของ', ...commonIssue },
   { key: 'issue-partial', title: 'ใบเบิก #TEST', status: 'อนุมัติใบเบิกบางส่วน', summary: 'โปรดตรวจสอบจำนวนที่ได้รับอนุมัติ', theme: 'partial', url: link('allHistory', { mode: 'confirmReceive', voucherId: 'TEST' }), label: 'ดูรายละเอียด', ...commonIssue },
   { key: 'issue-rejected', title: 'ใบเบิก #TEST', status: 'ใบเบิกไม่ได้รับการอนุมัติ', summary: 'เหตุผล: สต็อกไม่เพียงพอ', theme: 'danger', url: link('allHistory', { voucherId: 'TEST' }), label: 'ดูรายละเอียด', ...commonIssue },
-  { key: 'issue-received-admin', title: 'ใบเบิก #TEST', status: 'ผู้ใช้ยืนยันรับของแล้ว', theme: 'success', url: link('allHistory', { voucherId: 'TEST' }), label: 'ดูรายการ', fields: [{ label: 'ผู้รับ', value: 'Admin Flex Tester' }, { label: 'เวลา', value: '17 ต.ค. 2569 16:30' }] },
+  { key: 'issue-received-admin', title: 'ใบเบิก #TEST', status: 'ผู้ใช้ยืนยันรับของแล้ว', theme: 'success', url: link('allHistory', { voucherId: 'TEST' }), label: 'ดูรายการ', fields: [{ label: 'ผู้รับ', value: 'Admin Flex Tester' }, { label: 'เวลา', value: '17 ต.ค. 2569 16:30' }], items: commonIssue.items },
   { key: 'loan-created-user', title: 'รายการยืม #TEST', status: 'บันทึกการยืมเรียบร้อยแล้ว', theme: 'info', url: link('loan', { loanId: 'TEST' }), label: 'เปิดรายการยืม', ...commonLoan },
   { key: 'loan-created-admin', title: 'มีรายการยืมใหม่ #TEST', status: 'บันทึกรายการยืมใหม่', theme: 'info', url: link('loan', { loanId: 'TEST' }), label: 'ตรวจสอบรายการ', ...commonLoan },
   { key: 'loan-returned', title: 'รายการยืม #TEST', status: 'รับคืนอุปกรณ์เรียบร้อยแล้ว', theme: 'success', url: link('allHistory', { loanId: 'TEST' }), label: 'ดูประวัติ', ...commonLoan },
@@ -60,7 +74,7 @@ const cases = [
   { key: 'loan-reminder-due-today-admin', title: 'ติดตามรายการยืม #TEST', status: 'ครบกำหนดคืนวันนี้', theme: 'warning', url: link('loan', { loanId: 'TEST' }), label: 'ติดตามรายการ', ...commonLoan },
   { key: 'loan-reminder-overdue-user', title: 'รายการยืม #TEST', status: 'เกินกำหนดคืนแล้ว', summary: 'กรุณาคืนอุปกรณ์โดยเร็วที่สุด', theme: 'danger', url: link('loan', { loanId: 'TEST' }), label: 'เปิดรายการยืม', ...commonLoan },
   { key: 'loan-reminder-overdue-admin', title: 'ติดตามรายการยืม #TEST', status: 'เกินกำหนดคืนแล้ว', summary: 'รายการนี้ต้องติดตามการคืนอุปกรณ์', theme: 'danger', url: link('loan', { loanId: 'TEST' }), label: 'ติดตามรายการ', ...commonLoan },
-  { key: 'stock-low', title: 'อุปกรณ์ถึงจุดสั่งซื้อ', status: 'พบสต็อกต่ำ 2 รายการ', summary: 'กรุณาตรวจสอบและวางแผนสั่งซื้อเพิ่มเติม', theme: 'danger', url: link('manage'), label: 'จัดการอุปกรณ์', items: ['Safety Full body harness: เหลือ 2 ชุด (จุดสั่งซื้อ 2)', 'ชุดกระบังหน้าเลนส์เข้ม: เหลือ 1 ชุด (จุดสั่งซื้อ 2)'] },
+  { key: 'stock-low', title: 'อุปกรณ์ถึงจุดสั่งซื้อ', status: 'พบสต็อกต่ำ 2 รายการ', summary: 'กรุณาตรวจสอบและวางแผนสั่งซื้อเพิ่มเติม', theme: 'danger', url: link('manage'), label: 'จัดการอุปกรณ์', items: commonIssue.items },
 ];
 
 const results = [];
@@ -75,6 +89,7 @@ for (const [index, sample] of cases.entries()) {
     theme: sample.theme,
     actionLabel: sample.label,
     actionUrl: sample.url,
+    heroImageUrl: sample.heroImageUrl || '',
     altText: `[FLEX TEST ${index + 1}/${cases.length}] ${sample.status}`,
   });
   const result = await service.send({

@@ -24,7 +24,7 @@ function fixture(fallbackAdminUserId = '') {
       { loanId: 10, itemId: 5, borrowerName: 'Tester', department: 'SHE', dueDate: '2026-10-17', userid: USER_ID, status: 'on_loan' },
       { loanId: 11, itemId: 5, borrowerName: 'Tester', department: 'SHE', dueDate: '2026-10-20', userid: USER_ID, status: 'on_loan' },
     ],
-    ppe_items: [{ id: 5, name: 'Safety Harness', code: 'PPE005' }],
+    ppe_items: [{ id: 5, name: 'Safety Harness', code: 'PPE005', image_url: 'https://example.com/harness.png' }],
   };
   const sent = [];
   const supabase = { from: table => new ReadQuery(tables[table] || []) };
@@ -64,6 +64,7 @@ test('sends due reminders to borrower and configured admin with idempotent event
   assert.match(sent[0].eventKey, /^loan-reminder-due-today-user:10:2026-10-17$/);
   assert.equal(sent[0].messages[0].type, 'flex');
   assert.match(JSON.stringify(sent[0].messages[0]), /module=loan&loanId=10/);
+  assert.equal(sent[0].messages[0].contents.hero.url, 'https://example.com/harness.png');
 });
 
 test('respects recipient topic preferences instead of falling back to the env recipient', async () => {

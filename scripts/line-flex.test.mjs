@@ -8,6 +8,7 @@ test('creates a valid PPE Flex bubble with a deep-link button', () => {
     status: 'รออนุมัติ',
     fields: [{ label: 'ผู้เบิก', value: 'Local Tester' }],
     items: ['ถุงมือ x 2 คู่'],
+    heroImageUrl: 'https://example.com/ppe.png',
     theme: 'pending',
     actionLabel: 'ตรวจสอบคำขอ',
     actionUrl: 'https://liff.line.me/test-liff?module=pending&voucherId=118',
@@ -15,6 +16,8 @@ test('creates a valid PPE Flex bubble with a deep-link button', () => {
 
   assert.equal(message.type, 'flex');
   assert.equal(message.contents.type, 'bubble');
+  assert.equal(message.contents.hero.type, 'image');
+  assert.equal(message.contents.hero.url, 'https://example.com/ppe.png');
   assert.ok(message.altText.length > 0 && message.altText.length <= 1500);
   assert.equal(message.contents.footer.contents[0].action.type, 'uri');
   assert.match(message.contents.footer.contents[0].action.uri, /module=pending/);
@@ -44,4 +47,18 @@ test('limits visible equipment rows to keep Flex payload compact', () => {
   const serialized = JSON.stringify(message);
   assert.match(serialized, /และอีก 3 รายการ/);
   assert.doesNotMatch(serialized, /อุปกรณ์ 7/);
+});
+
+test('renders equipment thumbnails only for safe HTTPS image URLs', () => {
+  const message = createPpeFlexMessage({
+    title: 'ใบเบิกใหม่',
+    status: 'รออนุมัติ',
+    items: [
+      { text: 'หมวกนิรภัย x 1 ใบ', imageUrl: 'https://example.com/helmet.png' },
+      { text: 'ถุงมือ x 2 คู่', imageUrl: 'http://example.com/gloves.png' },
+    ],
+  });
+  const serialized = JSON.stringify(message);
+  assert.match(serialized, /https:\/\/example.com\/helmet.png/);
+  assert.doesNotMatch(serialized, /http:\/\/example.com\/gloves.png/);
 });
