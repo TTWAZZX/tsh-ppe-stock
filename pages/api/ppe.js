@@ -390,8 +390,7 @@ async function getItemDetails(items) {
   });
 }
 
-async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includeReceiveLink = false) {
-  if (!voucher?.userid) return { sent: false, reason: 'no_recipient' };
+async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includeReceiveLink = false, notifyAdmin = false) {
   const itemDetails = await getItemDetails(items);
   const note = String(voucher.adminNotes || '').trim();
   const targetUrl = includeReceiveLink
@@ -403,7 +402,7 @@ async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includ
     : eventKey.startsWith('issue-partial')
       ? 'partial'
       : 'success';
-  const message = createPpeFlexMessage({
+  const userMessage = createPpeFlexMessage({
     eyebrow: 'PPE STOCK • ใบเบิก',
     title: `ใบเบิก #${voucher.id}`,
     status: statusLabel,
@@ -418,7 +417,37 @@ async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includ
     actionUrl: targetUrl,
     altText: `${statusLabel} — ใบเบิก #${voucher.id}`,
   });
-  return sendLinePush(voucher.userid, [message], eventKey);
+  const userPromise = voucher?.userid
+    ? sendLinePush(voucher.userid, [userMessage], eventKey)
+    : Promise.resolve({ sent: false, accepted: false, status: 'skipped', reason: 'no_recipient' });
+  const adminUrl = notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id });
+  const adminPromise = notifyAdmin
+    ? notificationWorkflows.sendToAdmins({
+        topic: 'issue',
+        messages: [createPpeFlexMessage({
+          eyebrow: 'PPE STOCK • ADMIN',
+          title: `ดำเนินการใบเบิก #${voucher.id}`,
+          status: statusLabel,
+          summary: note ? `หมายเหตุ: ${note}` : 'ระบบส่งผลการอนุมัติให้ผู้ใช้แล้ว',
+          fields: [
+            { label: 'ผู้เบิก', value: voucher.user || '-' },
+            { label: 'แผนก', value: voucher.department || '-' },
+          ],
+          items: itemDetails,
+          theme,
+          actionLabel: 'ดูรายการ',
+          actionUrl: adminUrl,
+          altText: `Admin: ${statusLabel} — ใบเบิก #${voucher.id}`,
+        })],
+        eventKey: `${eventKey}:admin`,
+        notificationType: `${String(eventKey).split(':')[0]}-admin`,
+        entityType: 'issue_vouchers',
+        entityId: voucher.id,
+        metadata: { statusLabel },
+      })
+    : Promise.resolve({ recipientCount: 0, accepted: 0, sent: 0, results: [] });
+  const [userResult, adminResult] = await Promise.all([userPromise, adminPromise]);
+  return { ...userResult, admin: adminResult };
 }
 
 // Audit Log: บันทึกทุก action — fire-and-forget ไม่ throw ไม่กระทบ main flow
@@ -934,6 +963,7 @@ async function approveVoucher(approvalData) {
       'อนุมัติใบเบิกเรียบร้อยแล้ว ✅',
       itemsToUpdate,
       `issue-approved:${voucherId}`,
+      true,
       true
     ),
     checkAndAlertLowStock(updatedStockItems),
@@ -1007,6 +1037,7 @@ async function approvePartialVoucher(approvalData) {
       newStatus === 'approved' ? 'อนุมัติใบเบิกเรียบร้อยแล้ว ✅' : 'อนุมัติใบเบิกบางส่วน ⚠️',
       itemsToUpdateInStock,
       `issue-partial:${voucherId}:${newStatus}`,
+      true,
       true
     ),
     checkAndAlertLowStock(updatedStockItems),
