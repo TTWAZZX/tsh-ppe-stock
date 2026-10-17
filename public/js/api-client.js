@@ -41,14 +41,16 @@ const ACTION_LOADING_KEYS = {
   deletePpeItem:        { key: 'action.deleteItem',       overlay: true },
   savePpeItem:          { key: 'action.saveItem',         overlay: true },
   saveCategory:         { key: 'action.saveCategory',     overlay: true },
+  deleteCategory:       { key: 'action.deleteCategory',   overlay: true },
   saveDepartment:       { key: 'action.saveDepartment',   overlay: true },
   saveMatrixRule:       { key: 'action.saveMatrix',       overlay: true },
   deleteMatrixRule:     { key: 'action.deleteMatrix',     overlay: true },
-  uploadDocument:       { key: 'action.uploadDoc',        overlay: true },
+  uploadDocument:       { key: 'action.uploadDoc',        overlay: true, timeoutMs: 90000 },
   deleteDocument:       { key: 'action.deleteDoc',        overlay: true },
   deleteVoucher:        { key: 'action.deleteVoucher',    overlay: true },
   saveFeedback:         { key: 'action.feedback',         overlay: true },
   adminLogin:           { key: 'action.login',            overlay: true },
+  checkAdminCredentials:{ key: 'action.login',            overlay: true },
   updateStockLevels:    { key: 'action.stock',            overlay: true },
   saveNotificationRecipient: { key: 'action.notificationRecipient', overlay: true },
   toggleNotificationRecipient: { key: 'action.notificationRecipient', overlay: true },
@@ -58,6 +60,8 @@ const ACTION_LOADING_KEYS = {
 };
 
 const DEFAULT_CONFIG = { key: 'action.generic', overlay: true };
+const DEFAULT_READ_TIMEOUT_MS = 30000;
+const DEFAULT_ACTION_TIMEOUT_MS = 45000;
 
 // ─── Main API Call Function ──────────────────────────────────────────────────
 
@@ -70,11 +74,21 @@ const DEFAULT_CONFIG = { key: 'action.generic', overlay: true };
  * @param {object} [options]
  * @param {string} [options.loadingMessage] - Custom overlay message
  * @param {boolean} [options.silent] - Skip loading UI entirely
+ * @param {number} [options.timeoutMs] - Request timeout override; use 0 to disable
  * @returns {Promise<any>} - result.data from server
  */
 async function apiCall(action, payload = null, options = {}) {
   const config = ACTION_LOADING_KEYS[action] ?? DEFAULT_CONFIG;
   const key     = config.key;
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    const offlineError = new Error('ขณะนี้ออฟไลน์ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+    offlineError.name = 'OfflineError';
+    offlineError.code = 'OFFLINE';
+    offlineError.retryable = true;
+    window.dispatchEvent(new CustomEvent('ppe:offline-request', { detail: { action } }));
+    throw offlineError;
+  }
 
   // Build request body
   const body = {
@@ -88,14 +102,17 @@ async function apiCall(action, payload = null, options = {}) {
 
   // Message for overlay
   const message = options.loadingMessage ?? _getDefaultMessage(action);
+  const timeoutMs = options.timeoutMs ?? config.timeoutMs ?? (
+    key.startsWith('action.') ? DEFAULT_ACTION_TIMEOUT_MS : DEFAULT_READ_TIMEOUT_MS
+  );
 
   if (options.silent) {
-    return _doFetch(body, null);
+    return _doFetch(body, null, timeoutMs);
   }
 
   return LoadingManager.wrap(
     key,
-    async (signal) => _doFetch(body, signal),
+    async (signal) => _doFetch(body, signal, timeoutMs),
     {
       deduplicate: config.deduplicate ?? false,
       message,
@@ -117,41 +134,78 @@ async function apiRefresh(action, payload = null) {
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
-async function _doFetch(body, signal) {
-  const response = await fetch('/api/ppe', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-    signal,  // AbortController support
-  });
+async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
+  const requestController = new AbortController();
+  let timedOut = false;
+  let timeoutId = null;
+  const abortFromParent = () => requestController.abort(signal?.reason);
 
-  if (signal?.aborted) return null;
+  if (signal?.aborted) abortFromParent();
+  else signal?.addEventListener('abort', abortFromParent, { once: true });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    const error = new Error(result.message || `API Error: ${response.status}`);
-    error.statusCode = response.status;
-    error.code = result.code || '';
-    error.details = result.details || null;
-    if (response.status === 401 && typeof window.handleLineSessionExpired === 'function') {
-      try {
-        error.authenticationRedirected = Boolean(await window.handleLineSessionExpired(error.message));
-      } catch (reauthError) {
-        console.error('LINE re-authentication failed:', reauthError);
-      }
-    }
-    if (response.status === 403 && typeof window.handleAdminSessionExpired === 'function') {
-      try {
-        error.authenticationRedirected = Boolean(window.handleAdminSessionExpired(error.message));
-      } catch (reauthError) {
-        console.error('Admin re-authentication failed:', reauthError);
-      }
-    }
-    throw error;
+  if (Number(timeoutMs) > 0) {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      requestController.abort();
+    }, Number(timeoutMs));
   }
 
-  return result.data;
+  try {
+    const response = await fetch('/api/ppe', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+      signal:  requestController.signal,
+    });
+
+    if (signal?.aborted) return null;
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(result.message || `API Error: ${response.status}`);
+      error.statusCode = response.status;
+      error.code = result.code || '';
+      error.details = result.details || null;
+      if (response.status === 401 && typeof window.handleLineSessionExpired === 'function') {
+        try {
+          error.authenticationRedirected = Boolean(await window.handleLineSessionExpired(error.message));
+        } catch (reauthError) {
+          console.error('LINE re-authentication failed:', reauthError);
+        }
+      }
+      if (response.status === 403 && typeof window.handleAdminSessionExpired === 'function') {
+        try {
+          error.authenticationRedirected = Boolean(window.handleAdminSessionExpired(error.message));
+        } catch (reauthError) {
+          console.error('Admin re-authentication failed:', reauthError);
+        }
+      }
+      throw error;
+    }
+
+    return result.data;
+  } catch (error) {
+    if (timedOut) {
+      const timeoutError = new Error('การเชื่อมต่อใช้เวลานานเกินไป กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      timeoutError.name = 'TimeoutError';
+      timeoutError.code = 'REQUEST_TIMEOUT';
+      timeoutError.retryable = true;
+      timeoutError.timeoutMs = Number(timeoutMs);
+      throw timeoutError;
+    }
+    if (error instanceof TypeError && typeof navigator !== 'undefined' && navigator.onLine === false) {
+      const offlineError = new Error('ขณะนี้ออฟไลน์ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      offlineError.name = 'OfflineError';
+      offlineError.code = 'OFFLINE';
+      offlineError.retryable = true;
+      throw offlineError;
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', abortFromParent);
+  }
 }
 
 function _getDefaultMessage(action) {
@@ -162,6 +216,12 @@ function _getDefaultMessage(action) {
     confirmReceive:   'กำลังยืนยันการรับ...',
     borrowItem:       'กำลังบันทึกการยืม...',
     returnItem:       'กำลังบันทึกการคืน...',
+    saveCategory:     'กำลังบันทึกหมวดหมู่...',
+    deleteCategory:   'กำลังลบหมวดหมู่...',
+    deleteVoucher:    'กำลังลบใบเบิก...',
+    saveMatrixRule:    'กำลังบันทึกมาตรฐาน PPE...',
+    deleteMatrixRule:  'กำลังลบมาตรฐาน PPE...',
+    deleteDocument:    'กำลังลบเอกสาร...',
     saveNotificationRecipient: 'กำลังบันทึกผู้รับแจ้งเตือน...',
     toggleNotificationRecipient: 'กำลังแก้ไขผู้รับแจ้งเตือน...',
     retryNotification: 'กำลังลองส่งข้อความอีกครั้ง...',
@@ -171,6 +231,7 @@ function _getDefaultMessage(action) {
     uploadDocument:   'กำลังอัปโหลดเอกสาร...',
     saveFeedback:     'กำลังส่งความคิดเห็น...',
     adminLogin:       'กำลังเข้าสู่ระบบ...',
+    checkAdminCredentials: 'กำลังเข้าสู่ระบบ...',
   };
   return messages[action] ?? 'กำลังดำเนินการ...';
 }

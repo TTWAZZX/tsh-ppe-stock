@@ -374,9 +374,25 @@
                 transition-duration: 0.01ms !important;
             }
         }
+        :focus-visible {
+            outline: 3px solid #14b8a6;
+            outline-offset: 2px;
+        }
+        .skip-link {
+            position: fixed;
+            top: 0.75rem;
+            left: 0.75rem;
+            z-index: 300;
+            transform: translateY(-180%);
+            transition: transform 0.15s ease;
+        }
+        .skip-link:focus { transform: translateY(0); }
     </style>
 </head>
 <body class="antialiased">
+
+<a href="#mainContent" class="skip-link rounded-lg bg-gray-900 px-4 py-2 font-semibold text-white shadow-xl">ข้ามไปยังเนื้อหาหลัก</a>
+<div id="appStatusAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- ✅ Splash Screen — แสดงทันทีที่เปิดแอป ก่อน LIFF/data โหลด -->
 <div id="splashScreen" class="fixed inset-0 z-[200] flex flex-col items-center justify-center select-none"
@@ -423,6 +439,16 @@
 <!-- loadingOverlay is defined further below (single instance) -->
 
 <div id="toastContainer" class="fixed top-5 right-5 z-[90] space-y-3"></div>
+<div id="networkStatusBanner" class="fixed left-1/2 top-3 z-[190] hidden w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 rounded-xl border px-4 py-3 shadow-xl" role="status" aria-live="polite" aria-atomic="true">
+    <div class="flex items-center gap-3">
+        <span id="networkStatusIcon" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"></span>
+        <div class="min-w-0 flex-1">
+            <p id="networkStatusTitle" class="font-bold"></p>
+            <p id="networkStatusMessage" class="text-xs"></p>
+        </div>
+        <button id="networkRetryButton" type="button" onclick="retryOnlineSync()" class="hidden min-h-10 shrink-0 rounded-lg border px-3 text-sm font-bold">ลองใหม่</button>
+    </div>
+</div>
 
 <div class="app-shell flex bg-gray-50">
     <aside id="adminSidebar" class="hidden md:flex md:flex-col w-64 bg-white border-r border-gray-200">
@@ -501,7 +527,7 @@
             </div>
         </header>
 
-        <main class="app-main flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 sm:pt-4 page-container relative">
+        <main id="mainContent" tabindex="-1" class="app-main flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 sm:pt-4 page-container relative">
                 <div id="dashboardPage" class="page">
                     <div class="module-shell dashboard-fluid max-w-7xl mx-auto space-y-6">
                     
@@ -518,7 +544,7 @@
                                         <span class="text-[10px] sm:text-xs text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap" id="currentDateDisplay">
                                             ...
                                         </span>
-                                        <button onclick="refreshDashboardData(this)" class="bg-white border border-teal-200 text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg shadow-sm transition-all active:scale-90 flex items-center justify-center w-8 h-8" title="อัปเดตข้อมูล">
+                                        <button type="button" data-refresh-control onclick="refreshDashboardData(this)" class="bg-white border border-teal-200 text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg shadow-sm transition-all active:scale-90 flex items-center justify-center w-8 h-8 disabled:opacity-60 disabled:cursor-wait" title="อัปเดตข้อมูล" aria-label="อัปเดตข้อมูลแดชบอร์ด">
                                             <i class="fa-solid fa-rotate text-sm"></i>
                                         </button>
                                     </div>
@@ -576,6 +602,41 @@
                                     </div>
                                 </div>
 
+                                <section class="mb-6" aria-labelledby="urgentActionsTitle">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
+                                        <div>
+                                            <h3 id="urgentActionsTitle" class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                                <i class="fa-solid fa-bolt text-red-500"></i> งานเร่งด่วน
+                                            </h3>
+                                            <p class="text-[11px] text-gray-400 mt-0.5">รายการที่ควรจัดการก่อนเพื่อไม่ให้งานค้าง</p>
+                                        </div>
+                                        <span id="urgentActionTotal" class="inline-flex items-center rounded-full bg-red-50 border border-red-100 px-2.5 py-1 text-xs font-bold text-red-600" aria-live="polite">0 รายการ</span>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="adminUrgentActions">
+                                        <button type="button" onclick="showPage('pending')" class="min-h-28 text-left rounded-2xl border border-orange-200 bg-orange-50/70 p-4 shadow-sm hover:bg-orange-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-orange-400 transition-all">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="w-10 h-10 rounded-xl bg-white text-orange-500 flex items-center justify-center border border-orange-100"><i class="fa-solid fa-hourglass-half"></i></div>
+                                                <span class="text-[10px] font-bold text-orange-700 bg-white border border-orange-100 px-2 py-1 rounded-full">เกิน 24 ชม.</span>
+                                            </div>
+                                            <div class="mt-3 flex items-end justify-between gap-3"><div><p class="text-2xl font-bold text-gray-900" id="urgentPendingCount">0</p><p class="text-xs font-semibold text-gray-600">ใบเบิกรออนุมัตินาน</p></div><i class="fa-solid fa-arrow-right text-orange-400"></i></div>
+                                        </button>
+                                        <button type="button" onclick="showPage('loan')" class="min-h-28 text-left rounded-2xl border border-red-200 bg-red-50/70 p-4 shadow-sm hover:bg-red-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-400 transition-all">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="w-10 h-10 rounded-xl bg-white text-red-500 flex items-center justify-center border border-red-100"><i class="fa-solid fa-calendar-xmark"></i></div>
+                                                <span id="urgentOverdueOldest" class="text-[10px] font-bold text-red-700 bg-white border border-red-100 px-2 py-1 rounded-full">ตรงเวลา</span>
+                                            </div>
+                                            <div class="mt-3 flex items-end justify-between gap-3"><div><p class="text-2xl font-bold text-gray-900" id="urgentOverdueCount">0</p><p class="text-xs font-semibold text-gray-600">รายการยืมเกินกำหนด</p></div><i class="fa-solid fa-arrow-right text-red-400"></i></div>
+                                        </button>
+                                        <button type="button" onclick="openFailedNotifications()" class="min-h-28 text-left rounded-2xl border border-rose-200 bg-rose-50/70 p-4 shadow-sm hover:bg-rose-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="w-10 h-10 rounded-xl bg-white text-rose-500 flex items-center justify-center border border-rose-100"><i class="fa-solid fa-comment-slash"></i></div>
+                                                <span id="urgentLineState" class="text-[10px] font-bold text-rose-700 bg-white border border-rose-100 px-2 py-1 rounded-full">ตรวจสอบแล้ว</span>
+                                            </div>
+                                            <div class="mt-3 flex items-end justify-between gap-3"><div><p class="text-2xl font-bold text-gray-900" id="urgentLineFailureCount">0</p><p class="text-xs font-semibold text-gray-600">LINE รอส่งซ้ำ/ไม่สำเร็จ</p></div><i class="fa-solid fa-arrow-right text-rose-400"></i></div>
+                                        </button>
+                                    </div>
+                                </section>
+
                                 <h3 class="text-sm font-bold text-gray-800 mb-3 ml-1 flex items-center gap-2">
                                     <i class="fa-solid fa-rocket text-teal-500"></i> เมนูด่วน
                                 </h3>
@@ -619,6 +680,30 @@
                                             <p class="text-[10px] text-gray-400">ดูสรุปผล</p>
                                         </div>
                                     </button>
+                                </div>
+
+                                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+                                    <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden min-w-0" aria-labelledby="overdueLoansTitle">
+                                        <div class="p-5 border-b border-gray-100 flex items-start justify-between gap-3">
+                                            <div>
+                                                <h3 id="overdueLoansTitle" class="text-sm font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-calendar-xmark text-red-500"></i> รายการยืมเกินกำหนด</h3>
+                                                <p class="text-[11px] text-gray-400 mt-1">เรียงจากรายการที่เกินกำหนดนานที่สุด</p>
+                                            </div>
+                                            <button type="button" onclick="showPage('loan')" class="min-h-9 px-3 rounded-lg text-xs font-bold text-teal-700 hover:bg-teal-50 whitespace-nowrap">ดูทั้งหมด <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                                        </div>
+                                        <div id="overdueLoansList" class="divide-y divide-gray-100" aria-live="polite"></div>
+                                    </section>
+
+                                    <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden min-w-0" aria-labelledby="recentActivityTitle">
+                                        <div class="p-5 border-b border-gray-100 flex items-start justify-between gap-3">
+                                            <div>
+                                                <h3 id="recentActivityTitle" class="text-sm font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-blue-500"></i> ความเคลื่อนไหวล่าสุด</h3>
+                                                <p class="text-[11px] text-gray-400 mt-1">ใบเบิก การยืม-คืน และการรับเข้าล่าสุด</p>
+                                            </div>
+                                            <button type="button" onclick="showPage('allHistory')" class="min-h-9 px-3 rounded-lg text-xs font-bold text-teal-700 hover:bg-teal-50 whitespace-nowrap">ดูประวัติ <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                                        </div>
+                                        <div id="recentActivityFeed" class="divide-y divide-gray-100" aria-live="polite"></div>
+                                    </section>
                                 </div>
 
                                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-20">
@@ -1101,8 +1186,8 @@
                                 <span id="historyRoleBadge" class="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700">
                                     <i class="fa-solid fa-user"></i><span>ข้อมูลของฉัน</span>
                                 </span>
-                                <button type="button" onclick="exportHistoryCsv()" class="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-teal-400 hover:text-teal-700 transition-colors">
-                                    <i class="fa-solid fa-download"></i> ดาวน์โหลด CSV
+                                <button id="historyExportButton" type="button" onclick="exportHistoryCsv()" class="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-teal-400 hover:text-teal-700 transition-colors disabled:opacity-60 disabled:cursor-wait">
+                                    <span id="historyExportContent"><i class="fa-solid fa-download"></i> ดาวน์โหลด CSV</span>
                                 </button>
                             </div>
                         </div>
@@ -1202,7 +1287,7 @@
                             </div>
                             <div class="flex items-center gap-2">
                                 <span id="pendingLastUpdated" class="text-xs text-gray-400">ยังไม่ได้อัปเดต</span>
-                                <button id="pendingRefreshBtn" type="button" onclick="refreshPendingPage()" class="min-h-10 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-700 hover:border-teal-300 text-sm font-semibold"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
+                                <button id="pendingRefreshBtn" data-refresh-control type="button" onclick="refreshPendingPage()" class="min-h-10 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-700 hover:border-teal-300 text-sm font-semibold disabled:opacity-60 disabled:cursor-wait"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
                                 <span id="pendingCountBadge" class="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-2 rounded-full border border-yellow-200 whitespace-nowrap">0 รายการ</span>
                             </div>
                             </div>
@@ -1264,7 +1349,7 @@
                             </div>
                             <div class="flex items-center gap-2 text-xs text-gray-500">
                                 <span id="manageLastUpdated">ยังไม่ได้รีเฟรช</span>
-                                <button id="manageRefreshBtn" type="button" onclick="refreshManagePage()" class="min-h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-700 hover:border-teal-300 font-semibold"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
+                                <button id="manageRefreshBtn" data-refresh-control type="button" onclick="refreshManagePage()" class="min-h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-700 hover:border-teal-300 font-semibold disabled:opacity-60 disabled:cursor-wait"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
                             </div>
                         </div>
                         <div id="manageSummaryCards" class="grid grid-cols-2 xl:grid-cols-4 gap-3"></div>
@@ -1407,7 +1492,7 @@
                             </div>
                             <div class="flex items-center gap-2 text-xs text-gray-500">
                                 <span id="receiveLastUpdated">ยังไม่ได้รีเฟรช</span>
-                                <button id="receiveRefreshBtn" type="button" onclick="refreshReceivePage()" class="min-h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-700 hover:border-teal-300 font-semibold"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
+                                <button id="receiveRefreshBtn" data-refresh-control type="button" onclick="refreshReceivePage()" class="min-h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-700 hover:border-teal-300 font-semibold disabled:opacity-60 disabled:cursor-wait"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
                             </div>
                         </div>
                         <div id="receiveSummaryCards" class="grid grid-cols-2 xl:grid-cols-4 gap-3"></div>
@@ -1554,14 +1639,15 @@
                                 <p class="text-sm text-gray-500 mt-1">วิเคราะห์การเบิกจ่ายตามช่วงเวลา แผนก และสถานะ</p>
                             </div>
                             <div class="flex gap-2 w-full md:w-auto">
-                                <button onclick="printReport()" class="flex-1 md:flex-none min-h-11 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm flex items-center justify-center gap-2 text-sm font-medium transition-colors">
-                                    <i class="fa-solid fa-file-pdf"></i> PDF / Print
+                                <button id="reportPrintButton" type="button" onclick="printReport()" class="flex-1 md:flex-none min-h-11 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm flex items-center justify-center gap-2 text-sm font-medium transition-colors disabled:bg-red-400 disabled:cursor-wait">
+                                    <span id="reportPrintContent"><i class="fa-solid fa-file-pdf"></i> PDF / Print</span>
                                 </button>
-                                <button onclick="exportReportToCSV()" class="flex-1 md:flex-none min-h-11 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm flex items-center justify-center gap-2 text-sm font-medium transition-colors">
-                                    <i class="fa-solid fa-file-excel"></i> Excel
+                                <button id="reportExportButton" type="button" onclick="exportReportToCSV()" class="flex-1 md:flex-none min-h-11 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm flex items-center justify-center gap-2 text-sm font-medium transition-colors disabled:bg-green-400 disabled:cursor-wait">
+                                    <span id="reportExportContent"><i class="fa-solid fa-file-excel"></i> Excel</span>
                                 </button>
                             </div>
                         </div>
+                        <p id="reportExportStatus" class="sr-only" role="status" aria-live="polite"></p>
 
                         <div class="flex flex-wrap gap-2 mb-3">
                             <button type="button" onclick="setReportDatePreset('month')" class="min-h-9 px-3 rounded-full border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:border-teal-300 hover:text-teal-700">เดือนนี้</button>
@@ -1719,11 +1805,11 @@
                                 <p class="text-sm text-gray-500 mt-1">ติดตามผลส่งข้อความ ตั้งค่าผู้รับ Admin และสั่งประมวลผลข้อความที่ต้องส่งซ้ำ</p>
                             </div>
                             <div class="grid grid-cols-2 sm:flex gap-2 w-full lg:w-auto">
-                                <button type="button" onclick="runLoanDueReminders()" class="min-h-11 px-4 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 font-semibold text-sm hover:bg-orange-100">
-                                    <i class="fa-solid fa-calendar-check mr-1"></i> เตือนกำหนดคืน
+                                <button id="loanReminderButton" type="button" onclick="runLoanDueReminders()" class="min-h-11 px-4 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 font-semibold text-sm hover:bg-orange-100 disabled:opacity-60 disabled:cursor-wait">
+                                    <span id="loanReminderContent"><i class="fa-solid fa-calendar-check mr-1"></i> เตือนกำหนดคืน</span>
                                 </button>
-                                <button type="button" onclick="retryDueNotifications()" class="min-h-11 px-4 rounded-lg bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700 shadow-sm">
-                                    <i class="fa-solid fa-rotate mr-1"></i> ส่งข้อความค้าง
+                                <button id="retryDueNotificationsButton" type="button" onclick="retryDueNotifications()" class="min-h-11 px-4 rounded-lg bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700 shadow-sm disabled:bg-teal-400 disabled:cursor-wait">
+                                    <span id="retryDueNotificationsContent"><i class="fa-solid fa-rotate mr-1"></i> ส่งข้อความค้าง</span>
                                 </button>
                             </div>
                         </div>
@@ -1764,8 +1850,8 @@
                                     </div>
                                 </fieldset>
                                 <div class="grid grid-cols-3 gap-2 pt-2">
-                                    <button type="button" onclick="resetNotificationRecipientForm()" class="min-h-11 rounded-lg border border-gray-300 bg-white text-gray-600 font-semibold">ล้าง</button>
-                                    <button type="submit" class="col-span-2 min-h-11 rounded-lg bg-teal-600 text-white font-bold hover:bg-teal-700"><i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกผู้รับ</button>
+                                    <button id="notificationRecipientResetButton" type="button" onclick="resetNotificationRecipientForm()" class="min-h-11 rounded-lg border border-gray-300 bg-white text-gray-600 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">ล้าง</button>
+                                    <button id="notificationRecipientSubmitButton" type="submit" class="col-span-2 min-h-11 rounded-lg bg-teal-600 text-white font-bold hover:bg-teal-700 disabled:bg-teal-400 disabled:cursor-wait"><span id="notificationRecipientSubmitContent"><i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกผู้รับ</span></button>
                                 </div>
                             </form>
                             <div id="notificationRecipientList" class="divide-y divide-gray-100"></div>
@@ -1777,11 +1863,11 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
                                     <div class="relative"><i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input id="notificationSearch" type="search" oninput="renderNotificationLogs()" placeholder="ค้นหาประเภท เลขอ้างอิง..." class="w-full md:w-64 min-h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm"></div>
                                     <select id="notificationStatusFilter" onchange="renderNotificationLogs()" class="min-h-11 px-3 border border-gray-300 rounded-lg bg-white text-sm">
-                                        <option value="">ทุกสถานะ</option><option value="sent">ส่งสำเร็จ</option><option value="retry_scheduled">รอส่งซ้ำ</option><option value="failed">ไม่สำเร็จ</option><option value="skipped">ข้าม</option><option value="duplicate">ส่งแล้ว/ซ้ำ</option>
+                                        <option value="">ทุกสถานะ</option><option value="attention">ต้องตรวจสอบ</option><option value="sent">ส่งสำเร็จ</option><option value="retry_scheduled">รอส่งซ้ำ</option><option value="failed">ไม่สำเร็จ</option><option value="skipped">ข้าม</option><option value="duplicate">ส่งแล้ว/ซ้ำ</option>
                                     </select>
                                 </div>
                             </div>
-                            <div id="notificationLogList" class="divide-y divide-gray-100 max-h-[680px] overflow-y-auto"></div>
+                            <div id="notificationLogList" class="divide-y divide-gray-100 max-h-[680px] overflow-y-auto" aria-live="polite" aria-busy="false"></div>
                         </section>
                     </div>
                 </div>
@@ -1802,7 +1888,7 @@
                                 </h2>
                                 <p class="text-blue-100 text-sm mt-1">เอกสารมาตรฐานความปลอดภัยและข้อกำหนดล่าสุด</p>
                             </div>
-                            <button id="btnUploadDoc" onclick="openUploadModal()" class="hidden bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-all font-bold text-sm">
+                            <button id="btnUploadDoc" type="button" onclick="openUploadModal()" class="hidden bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-all font-bold text-sm disabled:opacity-50 disabled:cursor-wait">
                                 <i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลดประกาศ
                             </button>
                         </div>
@@ -1814,7 +1900,7 @@
                                 <input id="matrixDocumentSearch" type="search" oninput="renderDocumentsList()" placeholder="ค้นหาเอกสาร..." class="w-full rounded-lg border border-white/20 bg-white/10 py-2 pl-9 pr-3 text-sm text-white placeholder:text-blue-200 outline-none focus:border-white/50 focus:bg-white/15">
                             </div>
                         </div>
-                        <div id="documentListContainer" class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div id="documentListContainer" class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-3 mt-3" aria-live="polite" aria-busy="false">
                             <div class="min-w-[200px] h-24 bg-white/10 rounded-lg animate-pulse"></div>
                         </div>
                     </div>
@@ -1909,7 +1995,7 @@
                                     <i class="fa-solid fa-file-pdf" style="font-size:20px; color:#ef4444;"></i>
                                 </div>
                                 <div style="flex:1; min-width:0;">
-                                    <p style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 2px;">PDF Document</p>
+                                    <p id="pdfViewerStatus" style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 2px;">PDF Document</p>
                                     <h3 id="pdfViewerTitleDesktop" style="font-size:14px; font-weight:600; color:#1f2937; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></h3>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
@@ -1935,8 +2021,8 @@
 
                             <!-- iframe -->
                             <div style="flex:1; background:#f9fafb; overflow:hidden;">
-                                <iframe id="pdfFrame" src="" style="width:100%; height:100%; border:none; display:block;"
-                                        onload="document.getElementById('pdfLoadingBarFill').style.width='100%'"></iframe>
+                                <iframe id="pdfFrame" src="" title="ตัวอย่างเอกสาร PDF" style="width:100%; height:100%; border:none; display:block;"
+                                        onload="handlePdfFrameLoaded()"></iframe>
                             </div>
                         </div>
                     </div>
@@ -1993,11 +2079,11 @@
                 </div> 
             </div>
 
-            <div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+<div id="matrixRuleModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="matrixRuleModalTitle">
                 <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
                     <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white">
-                        <h3 class="font-bold text-lg"><i class="fa-solid fa-shield-halved mr-2"></i>กำหนดมาตรฐาน PPE</h3>
-                        <button onclick="document.getElementById('matrixRuleModal').classList.add('hidden')" class="text-white/80 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+                        <h3 id="matrixRuleModalTitle" class="font-bold text-lg"><i class="fa-solid fa-shield-halved mr-2"></i>กำหนดมาตรฐาน PPE</h3>
+                        <button id="matrixRuleCloseButton" type="button" onclick="closeMatrixModal()" class="text-white/80 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed" aria-label="ปิดหน้าต่างมาตรฐาน PPE"><i class="fa-solid fa-times text-xl"></i></button>
                     </div>
                     
                     <form id="matrixRuleForm" class="p-5 space-y-5 overflow-y-auto bg-gray-50" onsubmit="saveMatrixRule(event)">
@@ -2032,7 +2118,7 @@
                                     <input type="text" id="matrixItemInput" placeholder="ค้นหา หรือพิมพ์ชื่ออุปกรณ์..." class="w-full pl-9 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500" list="stockItemsList">
                                     <datalist id="stockItemsList"></datalist>
                                 </div>
-                                <button type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm active:scale-95 transition-all">
+                                <button id="matrixAddItemButton" type="button" onclick="addMatrixItem()" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm active:scale-95 transition-all disabled:bg-teal-400 disabled:cursor-wait disabled:active:scale-100">
                                     <i class="fa-solid fa-plus mr-1"></i> เพิ่ม
                                 </button>
                             </div>
@@ -2043,8 +2129,8 @@
                         </div>
 
                         <div class="pt-2 sticky bottom-0 bg-gray-50 pb-2">
-                            <button type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg shadow-teal-200 transition-all active:scale-95 text-lg">
-                                <i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล
+                            <button id="matrixRuleSubmitButton" type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg shadow-teal-200 transition-all active:scale-95 text-lg disabled:bg-teal-400 disabled:cursor-wait disabled:active:scale-100">
+                                <span id="matrixRuleSubmitContent"><i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล</span>
                             </button>
                         </div>
                     </form>
@@ -2150,7 +2236,7 @@
 <div id="loginModal" class="fixed inset-0 bg-black/50 modal-backdrop flex items-center justify-center z-50 hidden">
     <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-sm m-4 relative">
         <h3 class="text-xl font-semibold mb-6 text-gray-800">เข้าสู่ระบบ Admin</h3>
-        <button onclick="hideLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        <button id="loginCloseButton" type="button" onclick="hideLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl disabled:opacity-40 disabled:cursor-not-allowed" aria-label="ปิดหน้าต่างเข้าสู่ระบบ">&times;</button>
         
         <form id="loginForm" class="space-y-4">
             <div>
@@ -2170,7 +2256,9 @@
                 </label>
             </div>
 
-            <button type="submit" class="w-full bg-teal-600 text-white py-2.5 rounded-lg hover:bg-teal-700 transition-colors font-medium">เข้าสู่ระบบ</button>
+            <button id="loginSubmitButton" type="submit" class="w-full bg-teal-600 text-white py-2.5 rounded-lg hover:bg-teal-700 transition-colors font-medium disabled:bg-teal-400 disabled:cursor-wait">
+                <span id="loginSubmitContent">เข้าสู่ระบบ</span>
+            </button>
         </form>
     </div>
 </div>
@@ -2238,13 +2326,15 @@
 
 <div id="categoryManagementModal" class="fixed inset-0 bg-black/50 modal-backdrop flex items-center justify-center z-50 hidden">
     <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md m-4 relative">
-        <button onclick="hideCategoryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        <button id="categoryCloseButton" type="button" onclick="hideCategoryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl disabled:opacity-40 disabled:cursor-not-allowed" aria-label="ปิดหน้าต่างจัดการหมวดหมู่">&times;</button>
         <h3 class="text-xl font-semibold mb-6 text-gray-800">จัดการหมวดหมู่</h3>
         
         <form id="categoryForm" class="mb-6 flex items-center gap-3">
             <input type="hidden" id="editCategoryId">
             <input type="text" id="categoryNameInput" placeholder="ชื่อหมวดหมู่ใหม่..." required class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <button type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">บันทึก</button>
+            <button id="categorySubmitButton" type="submit" class="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:bg-teal-400 disabled:cursor-wait">
+                <span id="categorySubmitContent">บันทึก</span>
+            </button>
         </form>
 
         <div id="categoryListContainer" class="space-y-2 max-h-64 overflow-y-auto pr-2 border-t pt-4">
@@ -2300,7 +2390,7 @@
 <!-- 🔒 Loading Overlay -->
 <!-- Fix: added 'flex' class (required for items-center/justify-center to work) -->
 <!-- Fix: added id="overlayTitle" and id="overlaySubtext" for dynamic message updates -->
-<div id="loadingOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60">
+<div id="loadingOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60" role="status" aria-live="polite" aria-busy="false" aria-atomic="true">
   <div class="bg-white rounded-xl p-6 flex flex-col items-center gap-4 w-72">
     <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
     <div class="text-center">
@@ -2481,11 +2571,11 @@
 </div>
 
 <!-- Upload Document Modal -->
-<div id="uploadDocModal" class="fixed inset-0 z-[90] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+<div id="uploadDocModal" class="fixed inset-0 z-[90] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="uploadDocModalTitle">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
         <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white">
-            <h3 class="font-bold text-lg"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>อัปโหลดเอกสาร</h3>
-            <button onclick="document.getElementById('uploadDocModal').classList.add('hidden')" class="text-white/80 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+            <h3 id="uploadDocModalTitle" class="font-bold text-lg"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>อัปโหลดเอกสาร</h3>
+            <button id="uploadDocCloseButton" type="button" onclick="closeUploadModal()" class="text-white/80 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed" aria-label="ปิดหน้าต่างอัปโหลดเอกสาร"><i class="fa-solid fa-times text-xl"></i></button>
         </div>
         <form id="uploadDocForm" class="p-5 space-y-4" onsubmit="handleUploadDoc(event)">
             <div>
@@ -2497,8 +2587,9 @@
                 <input type="file" id="docFile" accept=".pdf" required class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
                 <p class="text-[10px] text-gray-400 mt-1">รองรับเฉพาะไฟล์ PDF ขนาดไม่เกิน 4 MB</p>
             </div>
-            <button type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg transition-all active:scale-95">
-                <i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลด
+            <p id="docUploadStatus" class="hidden text-xs text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2" aria-live="polite"></p>
+            <button id="uploadDocSubmitButton" type="submit" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 shadow-lg transition-all active:scale-95 disabled:bg-teal-400 disabled:cursor-wait disabled:active:scale-100">
+                <span id="uploadDocSubmitContent"><i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลด</span>
             </button>
         </form>
     </div>
@@ -2552,6 +2643,11 @@
     window._lineAccessToken = null; // ส่งให้ server ตรวจตัวตนกับ LINE; ไม่ใช้ userId จาก browser เป็นหลักฐาน
     // _apiCallInProgress ถูกแทนที่ด้วย LoadingManager แล้ว — ลบออกได้
     let _activePage = 'dashboard';  // จำหน้าปัจจุบัน
+    let refreshDataPromise = null;
+    let networkBannerTimer = null;
+    let isHistoryExporting = false;
+    let reportExportAction = '';
+    let lastDialogTrigger = null;
     const MODULE_STATE_KEY = 'ppe_active_module';
     const HISTORY_TAB_STATE_KEY = 'ppe_active_history_tab';
     let _deepLinkHandled = false;
@@ -2568,6 +2664,81 @@
         report: { adminOnly: true },
         notifications: { adminOnly: true }
     });
+
+    function setLiveStatus(message = '') {
+        const announcer = document.getElementById('appStatusAnnouncer');
+        if (!announcer) return;
+        announcer.textContent = '';
+        requestAnimationFrame(() => { announcer.textContent = message; });
+    }
+
+    function updateNetworkStatus(forceVisible = false) {
+        const banner = document.getElementById('networkStatusBanner');
+        const icon = document.getElementById('networkStatusIcon');
+        const title = document.getElementById('networkStatusTitle');
+        const message = document.getElementById('networkStatusMessage');
+        const retry = document.getElementById('networkRetryButton');
+        if (!banner || !icon || !title || !message || !retry) return;
+        if (networkBannerTimer) clearTimeout(networkBannerTimer);
+
+        const online = navigator.onLine !== false;
+        banner.className = `fixed left-1/2 top-3 z-[190] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 rounded-xl border px-4 py-3 shadow-xl ${online ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`;
+        icon.className = `flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${online ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`;
+        icon.innerHTML = `<i class="fa-solid ${online ? 'fa-wifi' : 'fa-triangle-exclamation'}"></i>`;
+        title.textContent = online ? 'กลับมาออนไลน์แล้ว' : 'ขณะนี้ออฟไลน์';
+        message.textContent = online ? 'สามารถรีเฟรชและบันทึกข้อมูลได้ตามปกติ' : 'ยังดูข้อมูลที่เปิดไว้และ Export ได้ แต่การบันทึกต้องรออินเทอร์เน็ต';
+        retry.classList.toggle('hidden', online);
+        banner.classList.remove('hidden');
+        setLiveStatus(`${title.textContent} ${message.textContent}`);
+
+        if (online && !forceVisible) {
+            networkBannerTimer = setTimeout(() => banner.classList.add('hidden'), 3500);
+        }
+    }
+
+    function setupConnectivityStatus() {
+        if (navigator.onLine === false) updateNetworkStatus(true);
+        window.addEventListener('offline', () => updateNetworkStatus(true));
+        window.addEventListener('online', () => updateNetworkStatus(false));
+        window.addEventListener('ppe:offline-request', () => updateNetworkStatus(true));
+    }
+
+    function rememberDialogTrigger() {
+        lastDialogTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+
+    function restoreDialogTrigger() {
+        const target = lastDialogTrigger;
+        lastDialogTrigger = null;
+        if (target?.isConnected) setTimeout(() => target.focus(), 0);
+    }
+
+    function setupGlobalAccessibility() {
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            const uploadModal = document.getElementById('uploadDocModal');
+            if (uploadModal && !uploadModal.classList.contains('hidden')) {
+                event.preventDefault();
+                closeUploadModal();
+                return;
+            }
+            const matrixModal = document.getElementById('matrixRuleModal');
+            if (matrixModal && !matrixModal.classList.contains('hidden')) {
+                event.preventDefault();
+                closeMatrixModal();
+            }
+        });
+    }
+
+    async function retryOnlineSync() {
+        if (navigator.onLine === false) {
+            updateNetworkStatus(true);
+            showToast('ยังไม่พบการเชื่อมต่ออินเทอร์เน็ต', 'warning');
+            return;
+        }
+        updateNetworkStatus(false);
+        await refreshData(_activePage, { announce: true });
+    }
     let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], dashboardMetrics: {} };
     let categoryChartInstance = null;
     let topIssuedItemsChartInstance = null;
@@ -2623,6 +2794,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        setupConnectivityStatus();
+        setupGlobalAccessibility();
         initializeApp(true);
         setupEventListeners();
         resetIssueForm(false);
@@ -3545,32 +3718,70 @@
         return `"${text.replaceAll('"', '""')}"`;
     }
 
-    function exportHistoryCsv() {
-        const active = getActiveHistoryTab();
-        const rows = active === 'loan'
-            ? getFilteredLoanHistory().map(loan => {
-                const item = currentData.ppeItems.find(entry => Number(entry.id) === Number(loan.itemId));
-                return [loan.loanId, item?.code || '', item?.name || '', loan.borrowerName || '', loan.employeeid || loan.employeeId || '', loan.department || '', loan.borrowDate || '', loan.dueDate || '', loan.returnDate || '', getStatusInfo(loan.status).text];
-            })
-            : getFilteredIssueHistory().map(voucher => {
-                const items = getVoucherItems(voucher);
-                const names = items.map(entry => currentData.ppeItems.find(item => Number(item.id) === Number(entry.itemId))?.name || `ID ${entry.itemId}`).join(', ');
-                return [voucher.id, voucher.user || '', voucher.employeeid || voucher.employeeId || '', voucher.department || '', names, voucher.timestamp || '', getStatusInfo(voucher.status).text, voucher.status_received === 'received' ? 'รับแล้ว' : ''];
-            });
-        if (!rows.length) return showToast('ไม่มีข้อมูลสำหรับดาวน์โหลด', 'error');
-        const headers = active === 'loan'
-            ? ['เลขที่', 'รหัสอุปกรณ์', 'อุปกรณ์', 'ผู้ยืม', 'รหัสพนักงาน', 'แผนก', 'วันที่ยืม', 'กำหนดคืน', 'วันที่คืน', 'สถานะ']
-            : ['เลขที่ใบเบิก', 'ผู้เบิก', 'รหัสพนักงาน', 'แผนก', 'อุปกรณ์', 'วันที่', 'สถานะ', 'การรับของ'];
-        const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
-        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    function waitForUiPaint() {
+        return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    function downloadCsvFile(content, fileName) {
+        const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `ppe-${active}-history-${formatLocalDateInput(new Date())}.csv`;
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         link.remove();
-        URL.revokeObjectURL(url);
-        showToast('ดาวน์โหลดไฟล์ CSV เรียบร้อยแล้ว', 'success');
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function syncHistoryExportState() {
+        const button = document.getElementById('historyExportButton');
+        const content = document.getElementById('historyExportContent');
+        if (button) {
+            button.disabled = isHistoryExporting;
+            button.setAttribute('aria-busy', String(isHistoryExporting));
+        }
+        if (content) content.innerHTML = isHistoryExporting
+            ? '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังสร้างไฟล์…'
+            : '<i class="fa-solid fa-download"></i> ดาวน์โหลด CSV';
+    }
+
+    async function exportHistoryCsv() {
+        if (isHistoryExporting) return;
+        isHistoryExporting = true;
+        syncHistoryExportState();
+        setLiveStatus('กำลังสร้างไฟล์ประวัติ CSV');
+        await waitForUiPaint();
+        try {
+            const active = getActiveHistoryTab();
+            const rows = active === 'loan'
+                ? getFilteredLoanHistory().map(loan => {
+                    const item = currentData.ppeItems.find(entry => Number(entry.id) === Number(loan.itemId));
+                    return [loan.loanId, item?.code || '', item?.name || '', loan.borrowerName || '', loan.employeeid || loan.employeeId || '', loan.department || '', loan.borrowDate || '', loan.dueDate || '', loan.returnDate || '', getStatusInfo(loan.status).text];
+                })
+                : getFilteredIssueHistory().map(voucher => {
+                    const items = getVoucherItems(voucher);
+                    const names = items.map(entry => currentData.ppeItems.find(item => Number(item.id) === Number(entry.itemId))?.name || `ID ${entry.itemId}`).join(', ');
+                    return [voucher.id, voucher.user || '', voucher.employeeid || voucher.employeeId || '', voucher.department || '', names, voucher.timestamp || '', getStatusInfo(voucher.status).text, voucher.status_received === 'received' ? 'รับแล้ว' : ''];
+                });
+            if (!rows.length) {
+                setLiveStatus('ไม่มีข้อมูลประวัติสำหรับดาวน์โหลด');
+                return showToast('ไม่มีข้อมูลสำหรับดาวน์โหลด', 'warning');
+            }
+            const headers = active === 'loan'
+                ? ['เลขที่', 'รหัสอุปกรณ์', 'อุปกรณ์', 'ผู้ยืม', 'รหัสพนักงาน', 'แผนก', 'วันที่ยืม', 'กำหนดคืน', 'วันที่คืน', 'สถานะ']
+                : ['เลขที่ใบเบิก', 'ผู้เบิก', 'รหัสพนักงาน', 'แผนก', 'อุปกรณ์', 'วันที่', 'สถานะ', 'การรับของ'];
+            const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
+            downloadCsvFile(csv, `ppe-${active}-history-${formatLocalDateInput(new Date())}.csv`);
+            setLiveStatus('สร้างและดาวน์โหลดไฟล์ประวัติ CSV แล้ว');
+            showToast('ดาวน์โหลดไฟล์ CSV เรียบร้อยแล้ว', 'success');
+        } catch (error) {
+            console.error('History export failed:', error);
+            setLiveStatus('สร้างไฟล์ประวัติไม่สำเร็จ');
+            showToast('สร้างไฟล์ CSV ไม่สำเร็จ', 'error');
+        } finally {
+            isHistoryExporting = false;
+            syncHistoryExportState();
+        }
     }
     function createEmptyState(message, iconClass) {
         return `<div class="text-center py-12 px-6"><div class="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center"><i class="${iconClass} text-3xl text-gray-400"></i></div><p class="mt-4 text-gray-500">${message}</p></div>`;
@@ -3583,43 +3794,65 @@
     // ===========================================
     // Authentication
     // ===========================================
-    function handleLogin(e) {
+    let isAdminLoginSubmitting = false;
+
+    function setAdminLoginBusy(isBusy) {
+        isAdminLoginSubmitting = isBusy;
+        const form = document.getElementById('loginForm');
+        const content = document.getElementById('loginSubmitContent');
+        if (form) form.setAttribute('aria-busy', String(isBusy));
+        form?.querySelectorAll('input, button').forEach(element => { element.disabled = isBusy; });
+        const closeButton = document.getElementById('loginCloseButton');
+        if (closeButton) closeButton.disabled = isBusy;
+        if (content) content.innerHTML = isBusy
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>กำลังเข้าสู่ระบบ…'
+            : 'เข้าสู่ระบบ';
+    }
+
+    async function handleLogin(e) {
         e.preventDefault();
+        if (isAdminLoginSubmitting) return;
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
         const remember = document.getElementById('rememberMe').checked;
 
-        callServerFunction('checkAdminCredentials', { username, password })
-            .then(async token => {
-                if (token) {
-                    isAdmin = true;
-                    adminSessionToken = token;
-                    hideLoginModal();
+        setAdminLoginBusy(true);
+        try {
+            const token = await callServerFunction(
+                'checkAdminCredentials',
+                { username, password },
+                { suppressFailure: true }
+            );
+            if (token) {
+                isAdmin = true;
+                adminSessionToken = token;
+                hideLoginModal();
 
-                    if (remember) {
-                        localStorage.setItem('ppe_admin_session', 'true');
-                        localStorage.setItem('ppe_admin_token', token);
-                        localStorage.setItem('ppe_admin_name', username);
-                        sessionStorage.removeItem('ppe_admin_session');
-                        sessionStorage.removeItem('ppe_admin_token');
-                    } else {
-                        sessionStorage.setItem('ppe_admin_session', 'true');
-                        sessionStorage.setItem('ppe_admin_token', token);
-                        localStorage.removeItem('ppe_admin_session');
-                        localStorage.removeItem('ppe_admin_token');
-                        localStorage.removeItem('ppe_admin_name');
-                    }
-
-                    const requestedModule = getRestorableModule();
-                    await refreshData(canAccessModule(requestedModule) ? requestedModule : (canAccessModule(_activePage) ? _activePage : 'dashboard'));
-                    showToast('เข้าสู่ระบบ Admin สำเร็จ');
+                if (remember) {
+                    localStorage.setItem('ppe_admin_session', 'true');
+                    localStorage.setItem('ppe_admin_token', token);
+                    localStorage.setItem('ppe_admin_name', username);
+                    sessionStorage.removeItem('ppe_admin_session');
+                    sessionStorage.removeItem('ppe_admin_token');
                 } else {
-                    showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+                    sessionStorage.setItem('ppe_admin_session', 'true');
+                    sessionStorage.setItem('ppe_admin_token', token);
+                    localStorage.removeItem('ppe_admin_session');
+                    localStorage.removeItem('ppe_admin_token');
+                    localStorage.removeItem('ppe_admin_name');
                 }
-            })
-            .catch(() => {
-                showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
-            });
+
+                const requestedModule = getRestorableModule();
+                await refreshData(canAccessModule(requestedModule) ? requestedModule : (canAccessModule(_activePage) ? _activePage : 'dashboard'));
+                showToast('เข้าสู่ระบบ Admin สำเร็จ');
+            } else {
+                showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+            }
+        } catch (error) {
+            showToast(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+        } finally {
+            setAdminLoginBusy(false);
+        }
     }
 
     async function logout() {
@@ -3721,12 +3954,54 @@
         if(document.getElementById('totalStockValue')) document.getElementById('totalStockValue').textContent = `฿${(dashboardMetrics.totalStockValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         
         // เรียกฟังก์ชันลูก (ต้องแก้ให้ปลอดภัยด้วย)
+        updateUrgentActions();
         updateLowStockList();
         updateOverdueLoansList();
         updateCategoryChart();
         updateTopIssuedItemsChart();
         updateRecentActivityFeed();
         updateAdminStockAlerts();
+    }
+
+    function getDashboardOverdueLoans() {
+        return (currentData.loanTransactions || [])
+            .filter(loan => loan.status === 'on_loan' && getLoanDueState(loan).type === 'overdue')
+            .sort((a, b) => getLoanDueState(b).days - getLoanDueState(a).days);
+    }
+
+    function getAgedPendingVouchers(hours = 24) {
+        const cutoff = Date.now() - (hours * 60 * 60 * 1000);
+        return (currentData.issueVouchers || []).filter(voucher => {
+            if (voucher.status !== 'pending') return false;
+            const createdAt = new Date(voucher.timestamp || voucher.created_at || 0).getTime();
+            return Number.isFinite(createdAt) && createdAt > 0 && createdAt <= cutoff;
+        });
+    }
+
+    function updateUrgentActions() {
+        const agedPending = getAgedPendingVouchers(24);
+        const overdueLoans = getDashboardOverdueLoans();
+        const lineSummary = currentData.dashboardMetrics?.notificationFailures || { count: 0, recent: [], available: false };
+        const lineFailureCount = Number(lineSummary.count || 0);
+        const total = agedPending.length + overdueLoans.length + lineFailureCount;
+        const setText = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value;
+        };
+
+        setText('urgentPendingCount', agedPending.length.toLocaleString('th-TH'));
+        setText('urgentOverdueCount', overdueLoans.length.toLocaleString('th-TH'));
+        setText('urgentLineFailureCount', lineFailureCount.toLocaleString('th-TH'));
+        setText('urgentActionTotal', `${total.toLocaleString('th-TH')} รายการ`);
+        setText('urgentOverdueOldest', overdueLoans.length ? `นานสุด ${getLoanDueState(overdueLoans[0]).days} วัน` : 'ตรงเวลา');
+        setText('urgentLineState', lineSummary.available === false ? 'ตรวจสอบไม่ได้' : (lineFailureCount ? 'ต้องตรวจสอบ' : 'ปกติ'));
+    }
+
+    function openFailedNotifications() {
+        showPage('notifications');
+        const statusFilter = document.getElementById('notificationStatusFilter');
+        if (statusFilter) statusFilter.value = 'attention';
+        if (typeof renderNotificationLogs === 'function') renderNotificationLogs();
     }
 
     function updateAdminStockAlerts() {
@@ -3797,16 +4072,61 @@
         const container = document.getElementById('overdueLoansList');
         if (!container) return; // ดัก Error
 
-        const overdue = currentData.loanTransactions.filter(l => l.status === 'on_loan' && new Date(l.dueDate) < new Date());
+        const overdue = getDashboardOverdueLoans();
         if (overdue.length === 0) {
-            container.innerHTML = createEmptyState('ไม่มีรายการเกินกำหนด', 'fa-solid fa-check-circle');
+            container.innerHTML = `<div class="min-h-60 flex flex-col items-center justify-center text-center p-6">
+                <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mb-3"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                <p class="text-sm font-bold text-emerald-800">ไม่มีรายการเกินกำหนด</p>
+                <p class="text-xs text-emerald-600 mt-1">รายการยืมทั้งหมดอยู่ในกำหนดคืน</p>
+            </div>`;
             return;
         }
-        container.innerHTML = overdue.map(l => `
-            <div class="flex justify-between items-center p-2 border-b last:border-0 bg-red-50">
-                <span class="text-sm text-gray-700">${l.borrowerName}</span>
-                <span class="text-xs text-red-600 font-bold">เกินกำหนด</span>
-            </div>`).join('');
+        container.innerHTML = overdue.slice(0, 5).map(loan => {
+            const item = (currentData.ppeItems || []).find(candidate => String(candidate.id) === String(loan.itemId));
+            const dueState = getLoanDueState(loan);
+            const dueDate = loan.dueDate ? new Date(`${loan.dueDate}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '-';
+            return `<button type="button" onclick="showPage('loan')" class="w-full text-left p-4 hover:bg-red-50/60 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-300 transition-colors">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-box-open"></i></div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <p class="text-sm font-bold text-gray-800 truncate">${escapeLoanText(item?.name || `อุปกรณ์ #${loan.itemId || '-'}`)}</p>
+                            <span class="shrink-0 text-[10px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-1 rounded-full">${escapeLoanText(dueState.label)}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1 truncate">${escapeLoanText(loan.borrowerName || '-')} · ${escapeLoanText(loan.department || '-')}</p>
+                        <p class="text-[11px] text-gray-400 mt-1">กำหนดคืน ${dueDate}</p>
+                    </div>
+                </div>
+            </button>`;
+        }).join('') + (overdue.length > 5 ? `<div class="px-4 py-3 text-center text-xs text-red-600 bg-red-50/40">ยังมีอีก ${(overdue.length - 5).toLocaleString('th-TH')} รายการ</div>` : '');
+    }
+
+    function openDashboardActivity(type, id) {
+        if (type === 'issue_voucher') {
+            showPage('allHistory');
+            setTimeout(() => {
+                if (typeof showVoucherDetails === 'function') showVoucherDetails(id);
+            }, 0);
+            return;
+        }
+        if (type === 'loan_transaction' || type === 'return_transaction') {
+            showPage('loan');
+            return;
+        }
+        if (type === 'receive_transaction') {
+            showPage('report');
+            return;
+        }
+        showPage('allHistory');
+    }
+
+    function getDashboardActivityMeta(type) {
+        return {
+            issue_voucher: { icon: 'fa-file-export', iconClass: 'bg-teal-50 text-teal-600', label: 'ใบเบิก' },
+            loan_transaction: { icon: 'fa-hand-holding', iconClass: 'bg-blue-50 text-blue-600', label: 'ยืมอุปกรณ์' },
+            return_transaction: { icon: 'fa-rotate-left', iconClass: 'bg-violet-50 text-violet-600', label: 'คืนอุปกรณ์' },
+            receive_transaction: { icon: 'fa-truck-ramp-box', iconClass: 'bg-emerald-50 text-emerald-600', label: 'รับเข้าสต็อก' },
+        }[type] || { icon: 'fa-circle-info', iconClass: 'bg-gray-50 text-gray-500', label: 'กิจกรรม' };
     }
 
     function updateRecentActivityFeed() {
@@ -3818,12 +4138,18 @@
             container.innerHTML = createEmptyState('ไม่มีกิจกรรมล่าสุด', 'fa-solid fa-bell-slash');
             return;
         }
-        container.innerHTML = activities.map(activity => {
-            const timestamp = new Date(activity.timestamp).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-            return `
-                <div class="flex items-start space-x-3 p-3 border-b border-gray-100 last:border-b-0">
-                    <div class="flex-1"><p class="text-sm font-medium text-gray-700">${activity.description}</p><p class="text-xs text-gray-400">${timestamp}</p></div>
-                </div>`;
+        container.innerHTML = activities.slice(0, 6).map(activity => {
+            const parsedTimestamp = new Date(activity.timestamp);
+            const timestamp = Number.isNaN(parsedTimestamp.getTime()) ? '-' : parsedTimestamp.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+            const meta = getDashboardActivityMeta(activity.type);
+            return `<button type="button" onclick='openDashboardActivity(${JSON.stringify(activity.type || '')}, ${JSON.stringify(activity.id || '')})' class="w-full text-left flex items-start gap-3 p-4 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-300 transition-colors">
+                <div class="w-10 h-10 rounded-xl ${meta.iconClass} flex items-center justify-center shrink-0"><i class="fa-solid ${meta.icon}"></i></div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-gray-400">${meta.label}</span><span class="text-[10px] text-gray-400">${timestamp}</span></div>
+                    <p class="text-sm font-semibold text-gray-700 mt-1 line-clamp-2">${escapeLoanText(activity.description || '-')}</p>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-300 mt-3"></i>
+            </button>`;
         }).join('');
     }
     function updateCategoryChart() {
@@ -4100,6 +4426,8 @@
         }
     }
 
+    const deletingVoucherIds = new Set();
+
     // ฟังก์ชันวาดประวัติการเบิก + Logic ซ่อนปุ่มรีวิวถ้าไม่ใช่เจ้าของ
     function updateHistoryTable(filter = '') {
         const container = document.getElementById('issueHistoryTab');
@@ -4143,14 +4471,16 @@
             const isOwner = isRecordOwnedByCurrentUser(v, 'user');
             const feedbackState = getVoucherFeedbackState(v);
             const isReceived = v.status_received === 'received';
+            const isDeletingVoucher = deletingVoucherIds.has(String(v.id));
             const safeItemName = escapeLoanText(ppeItem.name || 'อุปกรณ์');
             const safeUser = escapeLoanText(v.user || '-');
             const safeDepartment = escapeLoanText(v.department || '-');
             
             const reviewBtn = (isOwner && isReceived) ? `
-                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openRatingSelector('${v.id}'); return false;"
+                <button type="button" onclick="openRatingSelector('${v.id}')"
                         class="min-h-8 px-2.5 rounded-full ${feedbackState.complete ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'} flex items-center gap-1.5 justify-center hover:brightness-95 transition-colors border shadow-sm text-xs font-bold"
-                        title="${feedbackState.complete ? `ให้คะแนนแล้ว ${feedbackState.average} ดาว` : `รอให้คะแนน ${feedbackState.ratedCount}/${feedbackState.total} รายการ`}">
+                        title="${feedbackState.complete ? `ให้คะแนนแล้ว ${feedbackState.average} ดาว` : `รอให้คะแนน ${feedbackState.ratedCount}/${feedbackState.total} รายการ`}"
+                        data-history-action="review" data-voucher-id="${v.id}">
                     <i class="${feedbackState.complete ? 'fa-solid' : 'fa-regular'} fa-star"></i>
                     <span>${feedbackState.complete ? `${feedbackState.average} ดาว` : `รอประเมิน ${feedbackState.ratedCount}/${feedbackState.total}`}</span>
                 </button>
@@ -4158,33 +4488,32 @@
             // ^^^ ถ้าไม่ใช่เจ้าของ ให้เป็นค่าว่าง (ไม่แสดงปุ่ม)
 
             return `
-            <div onclick="showVoucherDetails(${v.id})" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                
-                <div class="flex items-center gap-4 min-w-[180px]">
-                    <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
-                        <i class="fa-solid fa-file-lines"></i>
-                    </div>
-                    <div>
-                        <div class="font-bold text-gray-800 text-sm">${safeItemName}${itemCount > 1 ? ` <span class="text-xs text-gray-400 font-normal">+${itemCount - 1} รายการ</span>` : ''}</div>
-                        <div class="text-xs text-gray-400">ใบเบิก #${v.id} · <i class="fa-regular fa-clock mr-0.5"></i>${dateStr}</div>
-                    </div>
-                </div>
+            <article class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                <button type="button" onclick="showVoucherDetails(${v.id})" class="min-w-0 flex-1 text-left rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 flex flex-col md:flex-row items-start md:items-center gap-4" aria-label="ดูรายละเอียดใบเบิก #${v.id}" data-history-action="details" data-voucher-id="${v.id}">
+                    <span class="flex items-center gap-4 min-w-[180px]">
+                        <span class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm shrink-0">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </span>
+                        <span>
+                            <span class="block font-bold text-gray-800 text-sm">${safeItemName}${itemCount > 1 ? ` <span class="text-xs text-gray-400 font-normal">+${itemCount - 1} รายการ</span>` : ''}</span>
+                            <span class="block text-xs text-gray-400">ใบเบิก #${v.id} · <i class="fa-regular fa-clock mr-0.5"></i>${dateStr}</span>
+                        </span>
+                    </span>
 
-                <div class="flex-1">
-                    <div class="flex flex-col md:flex-row md:items-center gap-1 md:gap-6">
-                        <div class="text-sm text-gray-700 font-medium">
-                            <i class="fa-solid fa-user text-gray-400 mr-2 w-4"></i>${safeUser}
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            <i class="fa-solid fa-building text-gray-400 mr-2 w-4"></i>${safeDepartment}
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            <i class="fa-solid fa-box-open text-gray-400 mr-2 w-4"></i>${itemCount} รายการ
-                        </div>
-                    </div>
-                </div>
+                    <span class="min-w-0 flex-1">
+                        <span class="flex flex-col md:flex-row md:items-center gap-1 md:gap-6">
+                            <span class="text-sm text-gray-700 font-medium">
+                                <i class="fa-solid fa-user text-gray-400 mr-2 w-4"></i>${safeUser}
+                            </span>
+                            <span class="text-xs text-gray-500">
+                                <i class="fa-solid fa-building text-gray-400 mr-2 w-4"></i>${safeDepartment}
+                            </span>
+                            <span class="text-xs text-gray-500">
+                                <i class="fa-solid fa-box-open text-gray-400 mr-2 w-4"></i>${itemCount} รายการ
+                            </span>
+                        </span>
+                    </span>
 
-                <div class="flex items-center justify-between w-full md:w-auto gap-4 mt-2 md:mt-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100">
                     <div class="flex flex-col gap-1">
                         <span class="px-3 py-1 text-xs font-bold rounded-full ${status.color}">
                             ${status.text}
@@ -4200,39 +4529,48 @@
                                    </span>`
                             : ''}
                     </div>
+                </button>
 
-                    <div class="flex items-center gap-2">
+                <div class="flex items-center justify-end gap-2 w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-gray-100" data-history-actions>
                         ${reviewBtn}
-                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); showVoucherSlip(${v.id}); return false;" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเบิก">
+                        <button type="button" onclick="showVoucherSlip(${v.id})" class="w-9 h-9 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 transition-colors" title="ดูใบเบิก" aria-label="ดูใบเบิก #${v.id}" data-history-action="slip" data-voucher-id="${v.id}">
                             <i class="fa-solid fa-receipt"></i>
                         </button>
                         ${isAdmin ? `
-                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); deleteVoucherById(${v.id}); return false;" class="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-100 transition-colors" title="ลบใบเบิก">
-                            <i class="fa-solid fa-trash text-xs"></i>
+                        <button type="button" onclick="deleteVoucherById(${v.id})" ${isDeletingVoucher ? 'disabled aria-busy="true"' : ''} class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-wait" title="${isDeletingVoucher ? 'กำลังลบใบเบิก' : 'ลบใบเบิก'}" aria-label="${isDeletingVoucher ? 'กำลังลบใบเบิก' : `ลบใบเบิก #${v.id}`}" data-history-action="delete" data-voucher-id="${v.id}" data-delete-voucher-id="${v.id}">
+                            <i class="fa-solid ${isDeletingVoucher ? 'fa-circle-notch fa-spin' : 'fa-trash'} text-xs"></i>
+                            <span class="sr-only">${isDeletingVoucher ? 'กำลังลบใบเบิก' : 'ลบใบเบิก'}</span>
                         </button>` : ''}
-                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                        <button type="button" onclick="showVoucherDetails(${v.id})" class="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors" title="ดูรายละเอียด" aria-label="ดูรายละเอียดใบเบิก #${v.id}" data-history-action="details" data-voucher-id="${v.id}">
                             <i class="fa-solid fa-chevron-right"></i>
-                        </div>
-                    </div>
+                        </button>
                 </div>
 
-            </div>`;
+            </article>`;
         }).join('');
     }
     
     async function deleteVoucherById(voucherId) {
-        const confirmed = await showConfirmationModal(
-            'ลบใบเบิก',
-            `ยืนยันการลบใบเบิก #${voucherId}?\nการลบจะไม่สามารถกู้คืนได้`
-        );
-        if (!confirmed) return;
+        const pendingKey = String(voucherId);
+        if (deletingVoucherIds.has(pendingKey)) return;
+        deletingVoucherIds.add(pendingKey);
 
         try {
-            await callServerFunction('deleteVoucher', { voucherId });
+            const confirmed = await showConfirmationModal(
+                'ลบใบเบิก',
+                `ยืนยันการลบใบเบิก #${voucherId}?\nการลบจะไม่สามารถกู้คืนได้`
+            );
+            if (!confirmed) return;
+
+            updateHistoryTable();
+            await callServerFunction('deleteVoucher', { voucherId }, { suppressFailure: true });
             showToast('ลบใบเบิกเรียบร้อยแล้ว', 'success');
             await refreshData('allHistory');
         } catch (err) {
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+        } finally {
+            deletingVoucherIds.delete(pendingKey);
+            updateHistoryTable();
         }
     }
 
@@ -4274,19 +4612,10 @@
 
     async function refreshPendingPage() {
         const button = document.getElementById('pendingRefreshBtn');
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>กำลังโหลด';
-        }
-        try {
-            await refreshData('pending');
+        const refreshed = await refreshData('pending', { announce: true, button });
+        if (refreshed) {
             const updated = document.getElementById('pendingLastUpdated');
             if (updated) updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
-        } finally {
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i>รีเฟรช';
-            }
         }
     }
 
@@ -4395,13 +4724,10 @@
 
     async function refreshManagePage() {
         const button = document.getElementById('manageRefreshBtn');
-        if (button) button.disabled = true;
-        try {
-            await refreshData('manage');
+        const refreshed = await refreshData('manage', { announce: true, button });
+        if (refreshed) {
             const updated = document.getElementById('manageLastUpdated');
             if (updated) updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
-        } finally {
-            if (button) button.disabled = false;
         }
     }
 
@@ -4593,6 +4919,8 @@
         updateOnLoanTable();
     }
 
+    const returningLoanIds = new Set();
+
     // รายการร่วมกัน: ผู้ใช้เห็นเฉพาะของตนเอง ส่วน Admin เห็นทั้งหมดและรับคืนได้
     function updateOnLoanTable() {
         const container = document.getElementById('onLoanListContainer');
@@ -4644,6 +4972,7 @@
             const safeDepartment = escapeLoanText(loan.department || '-');
             const safeEmployeeId = escapeLoanText(loan.employeeid || loan.employeeId || '-');
             const dueDateText = loan.dueDate ? new Date(`${loan.dueDate}T00:00:00`).toLocaleDateString('th-TH') : '-';
+            const isReturning = returningLoanIds.has(String(loan.loanId));
             
             const imgHtml = (item && item.image_url) 
                 ? `<img src="${escapeLoanText(item.image_url)}" alt="${safeItemName}" class="w-16 h-16 rounded-lg object-contain bg-gray-50 p-1 border border-gray-100">`
@@ -4652,10 +4981,10 @@
             // 👇👇 เช็คตรงนี้: ถ้าเป็น Admin ถึงจะสร้างปุ่มรับคืน 👇👇
             const returnButton = isAdmin ? `
                 <div class="w-full sm:w-auto mt-3 sm:mt-0 flex justify-end">
-                    <button onclick="handleReturnItem(${loan.loanId}); event.stopPropagation();" 
-                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white active:scale-90">
-                        <i class="fa-solid fa-arrow-rotate-left"></i>
-                        รับคืน
+                    <button type="button" onclick="handleReturnItem(${loan.loanId}); event.stopPropagation();" ${isReturning ? 'disabled aria-busy="true"' : ''}
+                        class="w-full sm:w-auto px-4 py-2.5 bg-white border border-teal-600 text-teal-600 hover:bg-teal-50 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm group-hover:bg-teal-600 group-hover:text-white active:scale-90 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100">
+                        <i class="fa-solid ${isReturning ? 'fa-circle-notch fa-spin' : 'fa-arrow-rotate-left'}"></i>
+                        ${isReturning ? 'กำลังรับคืน…' : 'รับคืน'}
                     </button>
                 </div>` : ''; 
             // 👆👆 จบส่วนเช็ค
@@ -5093,13 +5422,10 @@
 
     async function refreshReceivePage() {
         const button = document.getElementById('receiveRefreshBtn');
-        if (button) button.disabled = true;
-        try {
-            await refreshData('receive');
+        const refreshed = await refreshData('receive', { announce: true, button });
+        if (refreshed) {
             const updated = document.getElementById('receiveLastUpdated');
             if (updated) updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
-        } finally {
-            if (button) button.disabled = false;
         }
     }
 
@@ -5485,7 +5811,7 @@
                             </div>
                             <div class="flex flex-col items-center gap-2 lg:hidden">
                                 ${profileImgHtml}
-                                <button onclick="refreshDashboardData(this)" class="text-teal-200 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
+                                <button type="button" data-refresh-control onclick="refreshDashboardData(this)" class="text-teal-200 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 disabled:opacity-60 disabled:cursor-wait" aria-label="อัปเดตข้อมูลแดชบอร์ด">
                                     <i class="fa-solid fa-arrows-rotate text-xs"></i>
                                 </button>
                             </div>
@@ -5497,7 +5823,7 @@
                                 <p class="text-xs text-teal-200">พนักงานทั่วไป</p>
                              </div>
                              ${profileImgHtml}
-                             <button onclick="refreshDashboardData(this)" class="ml-2 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-colors" title="รีเฟรชข้อมูล">
+                             <button type="button" data-refresh-control onclick="refreshDashboardData(this)" class="ml-2 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-wait" title="รีเฟรชข้อมูล" aria-label="อัปเดตข้อมูลแดชบอร์ด">
                                 <i class="fa-solid fa-arrows-rotate"></i>
                             </button>
                         </div>
@@ -5773,10 +6099,27 @@
     // ===========================================
 
     // --- Category Management ---
+    let isSavingCategory = false;
+    const deletingCategoryIds = new Set();
+
+    function syncCategoryActionState() {
+        const isBusy = isSavingCategory || deletingCategoryIds.size > 0;
+        const form = document.getElementById('categoryForm');
+        const submitContent = document.getElementById('categorySubmitContent');
+        const closeButton = document.getElementById('categoryCloseButton');
+        if (form) form.setAttribute('aria-busy', String(isSavingCategory));
+        form?.querySelectorAll('input, button').forEach(element => { element.disabled = isBusy; });
+        if (closeButton) closeButton.disabled = isBusy;
+        if (submitContent) submitContent.innerHTML = isSavingCategory
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>กำลังบันทึก…'
+            : 'บันทึก';
+    }
+
     function showCategoryModal() {
         if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
         document.getElementById('categoryManagementModal').classList.remove('hidden');
         resetCategoryForm();
+        syncCategoryActionState();
         renderCategoryList();
     }
     function hideCategoryModal() {
@@ -5789,19 +6132,28 @@
             container.innerHTML = createEmptyState('ยังไม่มีหมวดหมู่', 'fa-solid fa-tags');
             return;
         }
-        container.innerHTML = sortedCategories.map(cat => `
-            <div class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-50">
-                <span class="text-gray-800">${cat.name}</span>
+        const isAnyActionBusy = isSavingCategory || deletingCategoryIds.size > 0;
+        container.innerHTML = sortedCategories.map(cat => {
+            const isDeleting = deletingCategoryIds.has(String(cat.id));
+            return `
+            <div class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-50 ${isDeleting ? 'bg-red-50' : ''}">
+                <span class="text-gray-800">${escapeLoanText(cat.name)}</span>
                 <div class="space-x-2">
-                    <button onclick="editCategory(${cat.id}, '${cat.name}')" class="text-gray-500 hover:text-teal-600"><i class="fas fa-edit"></i></button>
-                    <button onclick="handleDeleteCategory(${cat.id})" class="text-gray-500 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                    <button type="button" onclick="editCategory(${cat.id})" ${isAnyActionBusy ? 'disabled' : ''} class="text-gray-500 hover:text-teal-600 disabled:opacity-40 disabled:cursor-not-allowed" aria-label="แก้ไขหมวดหมู่ ${escapeLoanText(cat.name)}"><i class="fas fa-edit"></i></button>
+                    <button type="button" onclick="handleDeleteCategory(${cat.id})" ${isAnyActionBusy ? 'disabled' : ''} aria-busy="${isDeleting}" class="min-w-5 text-gray-500 hover:text-red-600 disabled:opacity-60 disabled:cursor-wait" aria-label="ลบหมวดหมู่ ${escapeLoanText(cat.name)}">
+                        <i class="fas ${isDeleting ? 'fa-circle-notch fa-spin text-red-500' : 'fa-trash'}"></i>
+                    </button>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
-    function editCategory(id, name) {
+    function editCategory(id) {
+        if (isSavingCategory || deletingCategoryIds.size > 0) return;
+        const category = currentData.categories.find(cat => String(cat.id) === String(id));
+        if (!category) return showToast('ไม่พบหมวดหมู่ที่ต้องการแก้ไข', 'error');
         document.getElementById('editCategoryId').value = id;
-        document.getElementById('categoryNameInput').value = name;
+        document.getElementById('categoryNameInput').value = category.name;
         document.getElementById('categoryNameInput').focus();
     }
     function resetCategoryForm() {
@@ -6739,49 +7091,83 @@
         }
     }
 
-    function handleSaveCategory(e) {
+    async function handleSaveCategory(e) {
         e.preventDefault();
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
-        callServerFunction('saveCategory', {
-            id: document.getElementById('editCategoryId').value || null,
-            name: document.getElementById('categoryNameInput').value,
-        }).then(async () => {
-            showToast('บันทึกหมวดหมู่สำเร็จ');
+        if (isSavingCategory || deletingCategoryIds.size > 0) return;
+
+        const name = document.getElementById('categoryNameInput').value.trim();
+        if (!name) return showToast('กรุณาระบุชื่อหมวดหมู่', 'warning');
+
+        isSavingCategory = true;
+        syncCategoryActionState();
+        renderCategoryList();
+        try {
+            await callServerFunction('saveCategory', {
+                id: document.getElementById('editCategoryId').value || null,
+                name,
+            }, { suppressFailure: true });
+            showToast('บันทึกหมวดหมู่สำเร็จ', 'success');
             resetCategoryForm();
             await refreshData('manage');
-        });
+        } catch (error) {
+            showToast('บันทึกหมวดหมู่ไม่สำเร็จ: ' + error.message, 'error');
+        } finally {
+            isSavingCategory = false;
+            syncCategoryActionState();
+            renderCategoryList();
+        }
     }
 
     async function handleDeleteCategory(categoryId) {
         if (!isAdmin) return showToast('คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้', 'error');
+        const pendingKey = String(categoryId);
+        if (isSavingCategory || deletingCategoryIds.has(pendingKey) || deletingCategoryIds.size > 0) return;
         const confirmed = await showConfirmationModal('ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่นี้?');
-        if (confirmed) {
-            callServerFunction('deleteCategory', { categoryId }).then(async () => {
-                showToast('ลบหมวดหมู่สำเร็จ');
-                await refreshData('manage');
-            });
+        if (!confirmed) return;
+
+        deletingCategoryIds.add(pendingKey);
+        syncCategoryActionState();
+        renderCategoryList();
+        try {
+            await callServerFunction('deleteCategory', { categoryId }, { suppressFailure: true });
+            showToast('ลบหมวดหมู่สำเร็จ', 'success');
+            await refreshData('manage');
+        } catch (error) {
+            showToast('ลบหมวดหมู่ไม่สำเร็จ: ' + error.message, 'error');
+        } finally {
+            deletingCategoryIds.delete(pendingKey);
+            syncCategoryActionState();
+            renderCategoryList();
         }
     }
 
     async function handleReturnItem(loanId) {
         if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้นที่บันทึกรับคืนได้', 'error');
+        const pendingKey = String(loanId);
+        if (returningLoanIds.has(pendingKey)) return;
         const loan = currentData.loanTransactions.find(l => l.loanId == loanId);
         if (!loan || loan.status !== 'on_loan') return showToast('ไม่พบรายการยืมที่ยังไม่คืน', 'error');
         const item = currentData.ppeItems.find(p => p.id == loan.itemId);
         const itemName = item ? item.name : 'อุปกรณ์';
-        const confirmed = await showConfirmationModal(
-            'ยืนยันการรับคืน',
-            `อุปกรณ์: ${itemName}\nผู้ยืม: ${loan.borrowerName || '-'}\n\nตรวจสอบสภาพและยืนยันรับคืนรายการนี้หรือไม่?`
-        );
-        
-        if (confirmed) {
-            try {
-                await callServerFunction('returnItem', { loanId });
-                await refreshData('loan');
-                showToast(`รับคืน ${itemName} สำเร็จ`, 'success');
-            } catch (error) {
-                showToast('บันทึกรับคืนไม่สำเร็จ: ' + error.message, 'error');
-            }
+
+        returningLoanIds.add(pendingKey);
+        try {
+            const confirmed = await showConfirmationModal(
+                'ยืนยันการรับคืน',
+                `อุปกรณ์: ${itemName}\nผู้ยืม: ${loan.borrowerName || '-'}\n\nตรวจสอบสภาพและยืนยันรับคืนรายการนี้หรือไม่?`
+            );
+            if (!confirmed) return;
+
+            updateOnLoanTable();
+            await callServerFunction('returnItem', { loanId }, { suppressFailure: true });
+            await refreshData('loan');
+            showToast(`รับคืน ${itemName} สำเร็จ`, 'success');
+        } catch (error) {
+            showToast('บันทึกรับคืนไม่สำเร็จ: ' + error.message, 'error');
+        } finally {
+            returningLoanIds.delete(pendingKey);
+            updateOnLoanTable();
         }
     }
 
@@ -7074,31 +7460,54 @@
         updateLoanFormState();
     }
 
-    // 🔄 ฟังก์ชันโหลดข้อมูลใหม่ (Refresh)
-    // refreshData — light weight sync (ไม่ re-init LIFF, ไม่กลับหน้าแรก)
-    async function refreshData(targetPage) {
-        try {
-            const data = await callServerFunction('getInitialData');
-            onDataLoaded(data);
-            if (targetPage) showPage(targetPage);
-            else showPage(_activePage); // คงอยู่หน้าเดิม
-        } catch(e) {
-            console.error('refreshData error:', e);
+    // 🔄 Shared refresh state — คงหน้าเดิม, กันกดซ้ำ และประกาศสถานะให้ screen reader
+    function syncRefreshControls(isBusy, extraButton = null) {
+        const controls = new Set([...document.querySelectorAll('[data-refresh-control]')]);
+        if (extraButton) controls.add(extraButton);
+        controls.forEach(button => {
+            button.disabled = isBusy;
+            button.setAttribute('aria-busy', String(isBusy));
+            const icon = button.querySelector('i');
+            if (icon) icon.classList.toggle('fa-spin', isBusy);
+        });
+    }
+
+    async function refreshData(targetPage, options = {}) {
+        const { announce = false, button = null } = options;
+        if (navigator.onLine === false) {
+            updateNetworkStatus(true);
+            if (announce) showToast('ยังอัปเดตไม่ได้ เนื่องจากอุปกรณ์ออฟไลน์', 'warning');
+            return false;
         }
+        if (refreshDataPromise) return refreshDataPromise;
+
+        syncRefreshControls(true, button);
+        setLiveStatus('กำลังอัปเดตข้อมูล');
+        refreshDataPromise = (async () => {
+            try {
+                const data = await callServerFunction('getInitialData', null, { suppressFailure: true });
+                onDataLoaded(data);
+                showPage(canAccessModule(_activePage) ? _activePage : (targetPage || 'dashboard'), { restoring: true });
+                setLiveStatus('อัปเดตข้อมูลล่าสุดแล้ว');
+                if (announce) showToast('อัปเดตข้อมูลล่าสุดแล้ว', 'success');
+                return true;
+            } catch (error) {
+                console.error('refreshData error:', error);
+                if (!error.authenticationRedirected) {
+                    setLiveStatus(error.message || 'อัปเดตข้อมูลไม่สำเร็จ');
+                    if (announce) showToast(error.message || 'อัปเดตข้อมูลไม่สำเร็จ', 'error');
+                }
+                return false;
+            } finally {
+                refreshDataPromise = null;
+                syncRefreshControls(false, button);
+            }
+        })();
+        return refreshDataPromise;
     }
 
     async function refreshDashboardData(btn) {
-        if(btn) { const icon = btn.querySelector('i'); if(icon) icon.classList.add('fa-spin'); }
-        try {
-            const data = await callServerFunction('getInitialData');
-            onDataLoaded(data);
-            showPage(_activePage);
-            showToast('อัปเดตข้อมูลแล้ว');
-        } catch(e) {
-            showToast('อัปเดตไม่สำเร็จ', 'error');
-        } finally {
-            if(btn) { const icon = btn.querySelector('i'); if(icon) icon.classList.remove('fa-spin'); }
-        }
+        await refreshData(_activePage, { announce: true, button: btn });
     }
 
     // 🔁 ฟังก์ชันเบิกซ้ำ (Reorder)
@@ -7434,48 +7843,87 @@
         }
     }
 
+    function syncReportExportState() {
+        const busy = Boolean(reportExportAction);
+        const csvButton = document.getElementById('reportExportButton');
+        const printButton = document.getElementById('reportPrintButton');
+        const csvContent = document.getElementById('reportExportContent');
+        const printContent = document.getElementById('reportPrintContent');
+        const status = document.getElementById('reportExportStatus');
+        if (csvButton) {
+            csvButton.disabled = busy;
+            csvButton.setAttribute('aria-busy', String(reportExportAction === 'csv'));
+        }
+        if (printButton) {
+            printButton.disabled = busy;
+            printButton.setAttribute('aria-busy', String(reportExportAction === 'print'));
+        }
+        if (csvContent) csvContent.innerHTML = reportExportAction === 'csv'
+            ? '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังสร้าง…'
+            : '<i class="fa-solid fa-file-excel"></i> Excel';
+        if (printContent) printContent.innerHTML = reportExportAction === 'print'
+            ? '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังเตรียม…'
+            : '<i class="fa-solid fa-file-pdf"></i> PDF / Print';
+        if (status) status.textContent = reportExportAction === 'csv'
+            ? 'กำลังสร้างไฟล์รายงาน CSV'
+            : reportExportAction === 'print' ? 'กำลังเตรียมเอกสารสำหรับพิมพ์' : '';
+    }
+
     // ฟังก์ชัน Export Excel (CSV)
-    function exportReportToCSV() {
-        if (!currentReportData || currentReportData.length === 0) return showToast('ไม่มีข้อมูลให้ Export', 'error');
-
-        const csvCell = value => {
-            let text = String(value ?? '');
-            if (/^[=+\-@]/.test(text)) text = `'${text}`;
-            return `"${text.replace(/"/g, '""')}"`;
-        };
-        let csvContent = "Date,Time,Voucher ID,User,Department,Item Code,Item Name,Quantity,Status\n";
-
-        currentReportData.forEach(row => {
-            const d = new Date(row.date);
-            const dateStr = d.toLocaleDateString('th-TH');
-            const timeStr = d.toLocaleTimeString('th-TH');
-            csvContent += [dateStr, timeStr, row.voucherId, row.user, row.department, row.itemCode, row.itemName, row.quantity, row.status].map(csvCell).join(',') + '\n';
-        });
-
-        // BOM \uFEFF เพื่อให้ Excel อ่านไทยออก
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `PPE_Report_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+    async function exportReportToCSV() {
+        if (reportExportAction) return;
+        if (!currentReportData || currentReportData.length === 0) return showToast('ไม่มีข้อมูลให้ Export', 'warning');
+        reportExportAction = 'csv';
+        syncReportExportState();
+        setLiveStatus('กำลังสร้างไฟล์รายงาน CSV');
+        await waitForUiPaint();
+        try {
+            const rows = currentReportData.map(row => {
+                const d = new Date(row.date);
+                return [d.toLocaleDateString('th-TH'), d.toLocaleTimeString('th-TH'), row.voucherId, row.user, row.department, row.itemCode, row.itemName, row.quantity, row.status];
+            });
+            const headers = ['Date', 'Time', 'Voucher ID', 'User', 'Department', 'Item Code', 'Item Name', 'Quantity', 'Status'];
+            const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
+            downloadCsvFile(csvContent, `PPE_Report_${formatLocalDateInput(new Date())}.csv`);
+            setLiveStatus('สร้างและดาวน์โหลดไฟล์รายงาน CSV แล้ว');
+            showToast('ดาวน์โหลดรายงานเรียบร้อยแล้ว', 'success');
+        } catch (error) {
+            console.error('Report export failed:', error);
+            setLiveStatus('สร้างไฟล์รายงานไม่สำเร็จ');
+            showToast('สร้างไฟล์รายงานไม่สำเร็จ', 'error');
+        } finally {
+            reportExportAction = '';
+            syncReportExportState();
+        }
     }
 
     // ฟังก์ชัน Print / PDF
-    function printReport() {
-        // อัปเดตหัวกระดาษสำหรับ Print
-        const s = document.getElementById('reportStartDate').value;
-        const e = document.getElementById('reportEndDate').value;
-        const d1 = s ? new Date(s).toLocaleDateString('th-TH') : 'เริ่มต้น';
-        const d2 = e ? new Date(e).toLocaleDateString('th-TH') : 'ปัจจุบัน';
-        
-        document.getElementById('printDateRange').innerText = `ข้อมูลตั้งแต่วันที่ ${d1} ถึง ${d2}`;
-        renderReportTable(true);
-        window.addEventListener('afterprint', () => renderReportTable(), { once: true });
-        window.print();
+    async function printReport() {
+        if (reportExportAction) return;
+        if (!currentReportData || currentReportData.length === 0) return showToast('ไม่มีข้อมูลสำหรับพิมพ์', 'warning');
+        reportExportAction = 'print';
+        syncReportExportState();
+        setLiveStatus('กำลังเตรียมเอกสารสำหรับพิมพ์');
+        await waitForUiPaint();
+        try {
+            const s = document.getElementById('reportStartDate').value;
+            const e = document.getElementById('reportEndDate').value;
+            const d1 = s ? new Date(s).toLocaleDateString('th-TH') : 'เริ่มต้น';
+            const d2 = e ? new Date(e).toLocaleDateString('th-TH') : 'ปัจจุบัน';
+            document.getElementById('printDateRange').innerText = `ข้อมูลตั้งแต่วันที่ ${d1} ถึง ${d2}`;
+            renderReportTable(true);
+            window.addEventListener('afterprint', () => renderReportTable(), { once: true });
+            window.print();
+            setLiveStatus('เปิดหน้าต่างพิมพ์รายงานแล้ว');
+        } catch (error) {
+            console.error('Report print failed:', error);
+            renderReportTable();
+            setLiveStatus('เตรียมเอกสารสำหรับพิมพ์ไม่สำเร็จ');
+            showToast('เตรียมเอกสารสำหรับพิมพ์ไม่สำเร็จ', 'error');
+        } finally {
+            reportExportAction = '';
+            syncReportExportState();
+        }
     }
 
     // --- 🌟 Logic ระบบ Feedback (Supabase Version) ---
@@ -7884,6 +8332,71 @@
 
     let tempMatrixItems = []; // เก็บ Array ของอุปกรณ์พร้อมรายละเอียด
     let matrixRenderTimer = null;
+    let isSavingMatrixRule = false;
+    let isUploadingDocument = false;
+    let documentUploadPhase = '';
+    let pdfViewerLoadTimeoutId = null;
+    const deletingMatrixRuleIds = new Set();
+    const deletingDocumentIds = new Set();
+
+    function syncMatrixRuleFormState() {
+        const form = document.getElementById('matrixRuleForm');
+        if (form) form.setAttribute('aria-busy', String(isSavingMatrixRule));
+        form?.querySelectorAll('input, textarea, button').forEach(element => { element.disabled = isSavingMatrixRule; });
+        const closeButton = document.getElementById('matrixRuleCloseButton');
+        if (closeButton) closeButton.disabled = isSavingMatrixRule;
+        const content = document.getElementById('matrixRuleSubmitContent');
+        if (content) content.innerHTML = isSavingMatrixRule
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> กำลังบันทึก…'
+            : '<i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล';
+    }
+
+    function syncDocumentUploadState() {
+        const form = document.getElementById('uploadDocForm');
+        if (form) form.setAttribute('aria-busy', String(isUploadingDocument));
+        form?.querySelectorAll('input, button').forEach(element => { element.disabled = isUploadingDocument; });
+        const closeButton = document.getElementById('uploadDocCloseButton');
+        if (closeButton) closeButton.disabled = isUploadingDocument;
+        const content = document.getElementById('uploadDocSubmitContent');
+        const status = document.getElementById('docUploadStatus');
+        const statusText = documentUploadPhase === 'reading' ? 'กำลังอ่านและตรวจสอบไฟล์…' : 'กำลังอัปโหลดเอกสาร…';
+        if (content) content.innerHTML = isUploadingDocument
+            ? `<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> ${statusText}`
+            : '<i class="fa-solid fa-cloud-arrow-up mr-2"></i> อัปโหลด';
+        if (status) {
+            status.textContent = isUploadingDocument ? statusText + ' กรุณาอย่าปิดหน้าต่างนี้' : '';
+            status.classList.toggle('hidden', !isUploadingDocument);
+        }
+        const uploadButton = document.getElementById('btnUploadDoc');
+        if (uploadButton) uploadButton.disabled = isUploadingDocument || deletingDocumentIds.size > 0;
+    }
+
+    async function refreshMatrixDataAfterMutation() {
+        try {
+            const data = await callServerFunction('getInitialData', null, { silent: true, suppressFailure: true });
+            onDataLoaded(data);
+            initMatrixPage();
+            return true;
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast('ดำเนินการสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า', 'warning');
+            return false;
+        }
+    }
+
+    function readDocumentAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = String(reader.result || '');
+                const separatorIndex = result.indexOf(',');
+                if (separatorIndex < 0) return reject(new Error('ไม่สามารถอ่านไฟล์ PDF ได้'));
+                resolve(result.slice(separatorIndex + 1));
+            };
+            reader.onerror = () => reject(new Error('อ่านไฟล์ PDF ไม่สำเร็จ'));
+            reader.onabort = () => reject(new Error('การอ่านไฟล์ถูกยกเลิก'));
+            reader.readAsDataURL(file);
+        });
+    }
 
     function getMatrixRuleState(rule) {
         const requirements = Array.isArray(rule?.items_json) ? rule.items_json : [];
@@ -7987,6 +8500,8 @@
     // --- 2. Modal & Form Logic (Core Update) ---
 
     function openMatrixModal(ruleId = null) {
+        if (isSavingMatrixRule || deletingMatrixRuleIds.size > 0) return;
+        rememberDialogTrigger();
         const modal = document.getElementById('matrixRuleModal');
         const form = document.getElementById('matrixRuleForm');
         
@@ -8020,11 +8535,20 @@
         }
 
         renderTempMatrixItems(); // วาดรายการของใน Modal
+        syncMatrixRuleFormState();
         modal.classList.remove('hidden');
+        setTimeout(() => document.getElementById('matrixJob')?.focus(), 0);
+    }
+
+    function closeMatrixModal() {
+        if (isSavingMatrixRule) return;
+        document.getElementById('matrixRuleModal').classList.add('hidden');
+        restoreDialogTrigger();
     }
 
     // ➕ ฟังก์ชันเพิ่มของลงในรายการ (กดปุ่มเพิ่ม)
     function addMatrixItem() {
+        if (isSavingMatrixRule) return;
         const input = document.getElementById('matrixItemInput');
         const name = input.value.trim();
         if (!name) return;
@@ -8055,12 +8579,14 @@
     }
 
     function removeMatrixItem(index) {
+        if (isSavingMatrixRule) return;
         tempMatrixItems.splice(index, 1);
         renderTempMatrixItems();
     }
 
     // 🔄 ฟังก์ชันอัปเดตข้อมูลใน Array เมื่อ User พิมพ์ในช่อง Spec/Lifespan
     function updateItemDetail(index, field, value) {
+        if (isSavingMatrixRule) return;
         tempMatrixItems[index][field] = value;
     }
 
@@ -8110,6 +8636,10 @@
     // 💾 บันทึกข้อมูลลง DB
     async function saveMatrixRule(e) {
         e.preventDefault();
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        if (isSavingMatrixRule || deletingMatrixRuleIds.size > 0) return;
+        const form = e.currentTarget;
+        if (!form.reportValidity()) return;
         const jobFunction = document.getElementById('matrixJob').value.trim();
         const department = document.getElementById('matrixDept').value.trim();
         if (!jobFunction) return showToast('กรุณาระบุชื่องานหรือพื้นที่', 'error');
@@ -8119,8 +8649,6 @@
             return showToast('กรุณาเพิ่มอุปกรณ์อย่างน้อย 1 รายการ', 'error');
         }
 
-        showLoading();
-        
         const payload = {
             id: document.getElementById('matrixId').value || null,
             jobFunction,
@@ -8137,21 +8665,20 @@
             lifespan: ''
         };
 
+        isSavingMatrixRule = true;
+        syncMatrixRuleFormState();
         try {
-            await callServerFunction('saveMatrixRule', payload);
-            showToast('บันทึกข้อมูลเรียบร้อย');
+            await callServerFunction('saveMatrixRule', payload, { suppressFailure: true });
+            showToast('บันทึกมาตรฐาน PPE เรียบร้อย', 'success');
             document.getElementById('matrixRuleModal').classList.add('hidden');
-            
-            // Reload Data
-            const data = await callServerFunction('getInitialData');
-            onDataLoaded(data);
-            initMatrixPage(); 
-
+            restoreDialogTrigger();
+            await refreshMatrixDataAfterMutation();
         } catch (err) {
             console.error(err);
-            showToast('บันทึกไม่สำเร็จ', 'error');
+            if (!err.authenticationRedirected) showToast(err.message || 'บันทึกมาตรฐาน PPE ไม่สำเร็จ', 'error');
         } finally {
-            hideLoading();
+            isSavingMatrixRule = false;
+            syncMatrixRuleFormState();
         }
     }
     
@@ -8190,17 +8717,23 @@
     function editMatrixRule(id) { openMatrixModal(id); }
     // (deleteMatrixRule ใช้ตัวเดิมได้)
     async function deleteMatrixRule(id) {
-        if(!confirm('ต้องการลบกฎนี้ใช่หรือไม่?')) return;
-        showLoading();
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        const pendingKey = String(id);
+        if (isSavingMatrixRule || deletingMatrixRuleIds.has(pendingKey) || deletingMatrixRuleIds.size > 0) return;
+        const confirmed = await showConfirmationModal('ยืนยันการลบมาตรฐาน', 'ต้องการลบมาตรฐาน PPE นี้ใช่หรือไม่?');
+        if (!confirmed) return;
+        deletingMatrixRuleIds.add(pendingKey);
+        renderMatrixGrid();
         try {
-            await callServerFunction('deleteMatrixRule', { id });
-            showToast('ลบเรียบร้อย');
+            await callServerFunction('deleteMatrixRule', { id }, { suppressFailure: true });
+            showToast('ลบมาตรฐาน PPE เรียบร้อย', 'success');
             currentData.ppeMatrix = currentData.ppeMatrix.filter(m => m.id != id);
             initMatrixPage();
         } catch (err) {
-            showToast('ลบไม่สำเร็จ', 'error');
+            if (!err.authenticationRedirected) showToast(err.message || 'ลบมาตรฐาน PPE ไม่สำเร็จ', 'error');
         } finally {
-            hideLoading();
+            deletingMatrixRuleIds.delete(pendingKey);
+            renderMatrixGrid();
         }
     }
 
@@ -8277,14 +8810,17 @@
         function buildCard(rule) {
             const state = getMatrixRuleState(rule);
             const items = state.requirements;
+            const pendingKey = String(rule.id);
+            const isDeleting = deletingMatrixRuleIds.has(pendingKey);
+            const isMatrixBusy = isSavingMatrixRule || deletingMatrixRuleIds.size > 0;
             const stockBadge = state.needsAttention
                 ? `<span class="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded-full border border-red-200"><i class="fa-solid fa-triangle-exclamation"></i> ต้องดำเนินการ ${state.unavailable.length || state.total} รายการ</span>`
                 : `<span class="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200"><i class="fa-solid fa-circle-check"></i> พร้อมใช้งาน</span>`;
 
             const adminControls = isAdmin ? `
                 <div class="absolute top-3 right-3 flex gap-1 z-20" onclick="event.stopPropagation()">
-                    <button onclick="editMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-blue-600 rounded shadow-sm hover:bg-blue-50"><i class="fas fa-edit"></i></button>
-                    <button onclick="deleteMatrixRule(${rule.id})" class="p-1.5 bg-white/90 text-red-600 rounded shadow-sm hover:bg-red-50"><i class="fas fa-trash"></i></button>
+                    <button type="button" onclick="editMatrixRule(${rule.id})" ${isMatrixBusy ? 'disabled' : ''} class="p-1.5 bg-white/90 text-blue-600 rounded shadow-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed" aria-label="แก้ไขมาตรฐาน"><i class="fas fa-edit"></i></button>
+                    <button type="button" onclick="deleteMatrixRule(${rule.id})" ${isMatrixBusy ? 'disabled' : ''} aria-busy="${isDeleting}" class="p-1.5 bg-white/90 text-red-600 rounded shadow-sm hover:bg-red-50 disabled:opacity-60 disabled:cursor-wait" aria-label="${isDeleting ? 'กำลังลบมาตรฐาน' : 'ลบมาตรฐาน'}"><i class="fas ${isDeleting ? 'fa-circle-notch fa-spin' : 'fa-trash'}"></i></button>
                 </div>` : '';
 
             return `
@@ -8475,24 +9011,33 @@
     // 3. Document Logic (Announcements)
     function renderDocumentsList() {
         const container = document.getElementById('documentListContainer');
+        if (!container) return;
         const search = (document.getElementById('matrixDocumentSearch')?.value || '').trim().toLocaleLowerCase('th-TH');
         const allDocs = currentData.ppeDocuments || [];
         const docs = allDocs.filter(doc => !search || [doc.title, doc.uploaded_by].filter(Boolean).join(' ').toLocaleLowerCase('th-TH').includes(search));
+        const isDocumentBusy = isUploadingDocument || deletingDocumentIds.size > 0;
+        container.setAttribute('aria-busy', String(isDocumentBusy));
         const count = document.getElementById('matrixDocumentCount');
         if (count) count.textContent = `แสดง ${docs.length.toLocaleString('th-TH')} จาก ${allDocs.length.toLocaleString('th-TH')} เอกสาร`;
         
         // Show/Hide Admin Upload Button
-        if(isAdmin) document.getElementById('btnUploadDoc').classList.remove('hidden');
-        else document.getElementById('btnUploadDoc').classList.add('hidden');
+        const uploadButton = document.getElementById('btnUploadDoc');
+        if (uploadButton) {
+            uploadButton.classList.toggle('hidden', !isAdmin);
+            uploadButton.disabled = isDocumentBusy;
+        }
 
         if (docs.length === 0) {
             container.innerHTML = `<div class="md:col-span-2 text-white/70 text-sm p-5 border border-dashed border-white/20 rounded-xl text-center">${search ? 'ไม่พบเอกสารที่ค้นหา' : 'ยังไม่มีประกาศ'}</div>`;
             return;
         }
 
-        container.innerHTML = docs.map(doc => `
-            <article tabindex="0" class="bg-white/10 hover:bg-white/20 backdrop-blur border border-white/10 rounded-xl p-3 cursor-pointer transition-all flex flex-col justify-between group relative focus:outline-none focus:ring-2 focus:ring-white/70" onclick="openMatrixDocument(${Number(doc.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-                ${isAdmin ? `<button onclick="event.stopPropagation(); deleteDocumentReq(${Number(doc.id)})" class="absolute top-2 right-2 text-white/50 hover:text-red-300" aria-label="ลบเอกสาร"><i class="fa-solid fa-trash"></i></button>` : ''}
+        container.innerHTML = docs.map(doc => {
+            const pendingKey = String(doc.id);
+            const isDeleting = deletingDocumentIds.has(pendingKey);
+            return `
+            <article tabindex="${isDeleting ? '-1' : '0'}" aria-busy="${isDeleting}" class="bg-white/10 hover:bg-white/20 backdrop-blur border border-white/10 rounded-xl p-3 cursor-pointer transition-all flex flex-col justify-between group relative focus:outline-none focus:ring-2 focus:ring-white/70 ${isDeleting ? 'opacity-70 cursor-wait' : ''}" onclick="${isDeleting ? '' : `openMatrixDocument(${Number(doc.id)})`}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+                ${isAdmin ? `<button type="button" onclick="event.stopPropagation(); deleteDocumentReq(${Number(doc.id)})" ${isDocumentBusy ? 'disabled' : ''} aria-busy="${isDeleting}" class="absolute top-2 right-2 text-white/50 hover:text-red-300 disabled:opacity-60 disabled:cursor-wait" aria-label="${isDeleting ? 'กำลังลบเอกสาร' : 'ลบเอกสาร'}"><i class="fa-solid ${isDeleting ? 'fa-circle-notch fa-spin' : 'fa-trash'}"></i></button>` : ''}
                 <div class="flex items-center gap-3 mb-2">
                     <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xl shrink-0">
                         <i class="fa-solid fa-file-pdf"></i>
@@ -8504,11 +9049,28 @@
                     <span class="group-hover:translate-x-1 transition-transform">เปิดอ่าน <i class="fa-solid fa-chevron-right ml-1"></i></span>
                 </div>
             </article>
-        `).join('');
+        `;
+        }).join('');
     }
 
     function openUploadModal() {
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        if (isUploadingDocument || deletingDocumentIds.size > 0) return;
+        rememberDialogTrigger();
+        document.getElementById('uploadDocForm')?.reset();
+        documentUploadPhase = '';
+        syncDocumentUploadState();
         document.getElementById('uploadDocModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('docTitle')?.focus(), 0);
+    }
+
+    function closeUploadModal() {
+        if (isUploadingDocument) return;
+        document.getElementById('uploadDocModal').classList.add('hidden');
+        document.getElementById('uploadDocForm')?.reset();
+        documentUploadPhase = '';
+        syncDocumentUploadState();
+        restoreDialogTrigger();
     }
 
     function openMatrixDocument(id) {
@@ -8519,72 +9081,96 @@
 
     async function handleUploadDoc(e) {
         e.preventDefault();
-        showLoading();
-        const title = document.getElementById('docTitle').value;
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        if (isUploadingDocument || deletingDocumentIds.size > 0) return;
+        const form = e.currentTarget;
+        if (!form.reportValidity()) return;
+        const title = document.getElementById('docTitle').value.trim();
         const fileInput = document.getElementById('docFile');
         const file = fileInput.files[0];
 
         if (!file) {
-            hideLoading();
             return showToast('กรุณาเลือกไฟล์ PDF', 'warning');
         }
-        if (file.type && file.type !== 'application/pdf') {
-            hideLoading();
+        const isPdf = file.type === 'application/pdf' || file.name.toLocaleLowerCase().endsWith('.pdf');
+        if (!isPdf) {
             return showToast('รองรับเฉพาะไฟล์ PDF', 'error');
         }
-        // Limit size 4MB (Vercel constraint workaround)
         if (file.size > 4 * 1024 * 1024) {
-            hideLoading();
             return showToast('ไฟล์ใหญ่เกิน 4MB', 'error');
         }
 
-        const reader = new FileReader();
-        reader.onload = async function() {
-            const base64 = reader.result.split(',')[1];
-            try {
-                await callServerFunction('uploadDocument', {
-                    title: title,
-                    fileName: file.name,
-                    fileBase64: base64,
-                    user: (liffProfile?.displayName || 'Admin')
-                });
-                showToast('อัปโหลดสำเร็จ');
-                document.getElementById('uploadDocModal').classList.add('hidden');
-                
-                // Refresh
-                const data = await callServerFunction('getInitialData');
-                onDataLoaded(data);
-                initMatrixPage();
-            } catch (err) {
-                console.error(err);
-                showToast('อัปโหลดล้มเหลว', 'error');
-            } finally {
-                hideLoading();
-            }
-        };
-        reader.readAsDataURL(file);
+        isUploadingDocument = true;
+        documentUploadPhase = 'reading';
+        syncDocumentUploadState();
+        renderDocumentsList();
+        try {
+            const base64 = await readDocumentAsBase64(file);
+            documentUploadPhase = 'uploading';
+            syncDocumentUploadState();
+            await callServerFunction('uploadDocument', {
+                title,
+                fileName: file.name,
+                fileBase64: base64,
+                user: (liffProfile?.displayName || 'Admin')
+            }, { suppressFailure: true, timeoutMs: 90000 });
+            showToast('อัปโหลดเอกสารสำเร็จ', 'success');
+            document.getElementById('uploadDocModal').classList.add('hidden');
+            restoreDialogTrigger();
+            form.reset();
+            await refreshMatrixDataAfterMutation();
+        } catch (err) {
+            console.error(err);
+            if (!err.authenticationRedirected) showToast(err.message || 'อัปโหลดเอกสารไม่สำเร็จ', 'error');
+        } finally {
+            isUploadingDocument = false;
+            documentUploadPhase = '';
+            syncDocumentUploadState();
+            renderDocumentsList();
+        }
     }
 
     async function deleteDocumentReq(id) {
-        if(!confirm('ต้องการลบเอกสารนี้?')) return;
-        showLoading();
+        if (!isAdmin) return showToast('เฉพาะ Admin เท่านั้น', 'error');
+        const pendingKey = String(id);
+        if (isUploadingDocument || deletingDocumentIds.size > 0) return;
+        const confirmed = await showConfirmationModal('ยืนยันการลบเอกสาร', 'ต้องการลบเอกสารนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้');
+        if (!confirmed) return;
+        deletingDocumentIds.add(pendingKey);
+        syncDocumentUploadState();
+        renderDocumentsList();
         try {
             const doc = (currentData.ppeDocuments || []).find(item => Number(item.id) === Number(id));
-            await callServerFunction('deleteDocument', { id, fileUrl: doc?.file_url || '' });
-            showToast('ลบสำเร็จ');
-            const data = await callServerFunction('getInitialData');
-            onDataLoaded(data);
-            initMatrixPage();
+            await callServerFunction('deleteDocument', { id, fileUrl: doc?.file_url || '' }, { suppressFailure: true });
+            showToast('ลบเอกสารสำเร็จ', 'success');
+            currentData.ppeDocuments = (currentData.ppeDocuments || []).filter(item => Number(item.id) !== Number(id));
+            renderDocumentsList();
+            await refreshMatrixDataAfterMutation();
         } catch(e) {
-            showToast('ลบไม่สำเร็จ', 'error');
+            if (!e.authenticationRedirected) showToast(e.message || 'ลบเอกสารไม่สำเร็จ', 'error');
         } finally {
-            hideLoading();
+            deletingDocumentIds.delete(pendingKey);
+            syncDocumentUploadState();
+            renderDocumentsList();
         }
     }
 
     function closePdfViewer() {
+        if (pdfViewerLoadTimeoutId) clearTimeout(pdfViewerLoadTimeoutId);
+        pdfViewerLoadTimeoutId = null;
         document.getElementById('pdfViewerModal').classList.add('hidden');
         document.getElementById('pdfFrame').src = '';
+    }
+
+    function handlePdfFrameLoaded() {
+        const modal = document.getElementById('pdfViewerModal');
+        if (!modal || modal.classList.contains('hidden')) return;
+        if (pdfViewerLoadTimeoutId) clearTimeout(pdfViewerLoadTimeoutId);
+        pdfViewerLoadTimeoutId = null;
+        const barFill = document.getElementById('pdfLoadingBarFill');
+        if (barFill) barFill.style.width = '100%';
+        const status = document.getElementById('pdfViewerStatus');
+        if (status) status.textContent = 'เอกสารพร้อมใช้งาน';
     }
 
     function openPdf(url, title) {
@@ -8612,16 +9198,25 @@
             if (titleDesktop) titleDesktop.textContent = title;
             const openNewTab = document.getElementById('pdfOpenNewTab');
             if (openNewTab) openNewTab.href = safeUrl;
+            const status = document.getElementById('pdfViewerStatus');
+            if (status) status.textContent = 'กำลังโหลดเอกสาร…';
 
-            // Animate loading bar: 0% → 60% while iframe loads, then onload sets 100%
+            // Animate loading bar while iframe loads and provide a recoverable timeout state.
             const barFill = document.getElementById('pdfLoadingBarFill');
             if (barFill) barFill.style.width = '0%';
             setTimeout(() => { if (barFill) barFill.style.width = '60%'; }, 50);
+            if (pdfViewerLoadTimeoutId) clearTimeout(pdfViewerLoadTimeoutId);
+            pdfViewerLoadTimeoutId = setTimeout(() => {
+                if (barFill) barFill.style.width = '85%';
+                if (status) status.textContent = 'กำลังโหลดนานกว่าปกติ · เปิดในแท็บใหม่ได้';
+            }, 12000);
 
             const iframe = document.getElementById('pdfFrame');
             if (iframe) iframe.src = safeUrl + '#toolbar=0';
 
         } else {
+            if (pdfViewerLoadTimeoutId) clearTimeout(pdfViewerLoadTimeoutId);
+            pdfViewerLoadTimeoutId = null;
             // ─── Mobile ──────────────────────────────────────────────
             if (desktopCard)  desktopCard.style.display  = 'none';
             if (mobileSheet)  mobileSheet.style.display  = 'flex';
@@ -8638,6 +9233,55 @@
 
     let notificationLogs = [];
     let notificationRecipients = [];
+    let notificationCenterLoadPromise = null;
+    let notificationCenterLoadSequence = 0;
+    let isSavingNotificationRecipient = false;
+    let isRetryingDueNotifications = false;
+    let isRunningLoanDueReminders = false;
+    const pendingNotificationRecipientIds = new Set();
+    const retryingNotificationIds = new Set();
+
+    function setNotificationCenterLoading(isLoading) {
+        const logList = document.getElementById('notificationLogList');
+        const recipientList = document.getElementById('notificationRecipientList');
+        if (logList) logList.setAttribute('aria-busy', String(isLoading));
+        if (recipientList) recipientList.setAttribute('aria-busy', String(isLoading));
+        const resultCount = document.getElementById('notificationResultCount');
+        if (isLoading && resultCount) resultCount.textContent = notificationLogs.length ? 'กำลังอัปเดตสถานะข้อความ…' : 'กำลังโหลด…';
+    }
+
+    function syncNotificationRecipientFormState() {
+        const form = document.getElementById('notificationRecipientForm');
+        const isBusy = isSavingNotificationRecipient || pendingNotificationRecipientIds.size > 0;
+        if (form) form.setAttribute('aria-busy', String(isSavingNotificationRecipient));
+        form?.querySelectorAll('input, button').forEach(element => { element.disabled = isBusy; });
+        const content = document.getElementById('notificationRecipientSubmitContent');
+        if (content) content.innerHTML = isSavingNotificationRecipient
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> กำลังบันทึก…'
+            : '<i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกผู้รับ';
+    }
+
+    function syncNotificationToolbarState() {
+        const reminderButton = document.getElementById('loanReminderButton');
+        const retryButton = document.getElementById('retryDueNotificationsButton');
+        const reminderContent = document.getElementById('loanReminderContent');
+        const retryContent = document.getElementById('retryDueNotificationsContent');
+        const isBusy = isRunningLoanDueReminders || isRetryingDueNotifications;
+        if (reminderButton) {
+            reminderButton.disabled = isBusy;
+            reminderButton.setAttribute('aria-busy', String(isRunningLoanDueReminders));
+        }
+        if (retryButton) {
+            retryButton.disabled = isBusy;
+            retryButton.setAttribute('aria-busy', String(isRetryingDueNotifications));
+        }
+        if (reminderContent) reminderContent.innerHTML = isRunningLoanDueReminders
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> กำลังตรวจสอบ…'
+            : '<i class="fa-solid fa-calendar-check mr-1"></i> เตือนกำหนดคืน';
+        if (retryContent) retryContent.innerHTML = isRetryingDueNotifications
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> กำลังส่ง…'
+            : '<i class="fa-solid fa-rotate mr-1"></i> ส่งข้อความค้าง';
+    }
 
     function notificationStatusMeta(status) {
         return {
@@ -8651,24 +9295,43 @@
         }[status] || { label: status || '-', className: 'bg-gray-50 text-gray-600 border-gray-200', icon: 'fa-circle-info' };
     }
 
-    async function loadNotificationCenter() {
-        if (!isAdmin) return;
+    function loadNotificationCenter(force = false) {
+        if (!isAdmin) return Promise.resolve();
+        if (notificationCenterLoadPromise && !force) return notificationCenterLoadPromise;
+        const requestSequence = ++notificationCenterLoadSequence;
         const logList = document.getElementById('notificationLogList');
-        if (logList) logList.innerHTML = '<div class="p-10 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>กำลังโหลดสถานะข้อความ...</p></div>';
+        const recipientList = document.getElementById('notificationRecipientList');
+        if (!notificationLogs.length && logList) logList.innerHTML = '<div class="p-10 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>กำลังโหลดสถานะข้อความ...</p></div>';
+        if (!notificationRecipients.length && recipientList) recipientList.innerHTML = '<div class="p-8 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i><p class="text-sm">กำลังโหลดผู้รับแจ้งเตือน...</p></div>';
+        setNotificationCenterLoading(true);
         window._adminToken = adminSessionToken;
-        try {
-            const [logs, recipientState] = await Promise.all([
-                apiCall('getNotificationLogs', { limit: 200 }, { silent: true }),
-                apiCall('getNotificationRecipients', null, { silent: true }),
-            ]);
-            notificationLogs = Array.isArray(logs) ? logs : [];
-            notificationRecipients = Array.isArray(recipientState?.recipients) ? recipientState.recipients : [];
-            renderNotificationLogs();
-            renderNotificationRecipients();
-        } catch (error) {
-            if (logList) logList.innerHTML = createEmptyState('โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'fa-solid fa-triangle-exclamation');
-            showToast(error.message || 'โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'error');
-        }
+
+        const loadTask = (async () => {
+            try {
+                const [logs, recipientState] = await Promise.all([
+                    apiCall('getNotificationLogs', { limit: 200 }, { silent: true }),
+                    apiCall('getNotificationRecipients', null, { silent: true }),
+                ]);
+                if (requestSequence !== notificationCenterLoadSequence) return;
+                notificationLogs = Array.isArray(logs) ? logs : [];
+                notificationRecipients = Array.isArray(recipientState?.recipients) ? recipientState.recipients : [];
+                renderNotificationLogs();
+                renderNotificationRecipients();
+            } catch (error) {
+                if (requestSequence !== notificationCenterLoadSequence) return;
+                if (logList) logList.innerHTML = `${createEmptyState('โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'fa-solid fa-triangle-exclamation')}<div class="px-5 pb-6 text-center"><button type="button" onclick="loadNotificationCenter(true)" class="min-h-10 px-4 rounded-lg bg-teal-600 text-white text-sm font-bold"><i class="fa-solid fa-rotate mr-1"></i>ลองโหลดอีกครั้ง</button></div>`;
+                if (recipientList) recipientList.innerHTML = '<div class="p-5 text-center text-sm text-red-500">โหลดผู้รับแจ้งเตือนไม่สำเร็จ</div>';
+                if (!error.authenticationRedirected) showToast(error.message || 'โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'error');
+            } finally {
+                if (requestSequence === notificationCenterLoadSequence) setNotificationCenterLoading(false);
+            }
+        })();
+
+        notificationCenterLoadPromise = loadTask;
+        loadTask.finally(() => {
+            if (notificationCenterLoadPromise === loadTask) notificationCenterLoadPromise = null;
+        });
+        return loadTask;
     }
 
     function renderNotificationLogs() {
@@ -8676,7 +9339,12 @@
         if (!container) return;
         const search = String(document.getElementById('notificationSearch')?.value || '').trim().toLowerCase();
         const statusFilter = document.getElementById('notificationStatusFilter')?.value || '';
-        const rows = notificationLogs.filter(row => (!statusFilter || row.status === statusFilter) && `${row.notification_type || ''} ${row.entity_type || ''} ${row.entity_id || ''} ${row.event_key || ''} ${row.recipient || ''}`.toLowerCase().includes(search));
+        const rows = notificationLogs.filter(row => {
+            const statusMatches = !statusFilter
+                || row.status === statusFilter
+                || (statusFilter === 'attention' && ['failed', 'retry_scheduled'].includes(row.status));
+            return statusMatches && `${row.notification_type || ''} ${row.entity_type || ''} ${row.entity_id || ''} ${row.event_key || ''} ${row.recipient || ''}`.toLowerCase().includes(search);
+        });
         const countByStatus = notificationLogs.reduce((counts, row) => {
             counts[row.status] = (counts[row.status] || 0) + 1;
             return counts;
@@ -8696,6 +9364,7 @@
             const meta = notificationStatusMeta(row.status);
             const createdAt = row.created_at ? new Date(row.created_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
             const canRetry = ['failed', 'retry_scheduled', 'skipped'].includes(row.status);
+            const isRetrying = retryingNotificationIds.has(String(row.id));
             return `<article class="p-4 sm:p-5 hover:bg-gray-50 transition-colors">
                 <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div class="min-w-0">
@@ -8704,7 +9373,7 @@
                         <p class="text-[11px] text-gray-400 mt-1">${createdAt} · พยายาม ${Number(row.attempt_count || 0)}/${Number(row.max_attempts || 0)} ครั้ง${row.provider_http_status ? ` · HTTP ${Number(row.provider_http_status)}` : ''}</p>
                         ${row.last_error ? `<p class="mt-2 text-xs text-red-600 break-words"><i class="fa-solid fa-circle-exclamation mr-1"></i>${escapeLoanText(row.last_error)}</p>` : ''}
                     </div>
-                    ${canRetry ? `<button type="button" onclick="retryNotification(${Number(row.id)})" class="min-h-10 px-3 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 flex-shrink-0"><i class="fa-solid fa-rotate mr-1"></i>ลองส่งอีกครั้ง</button>` : ''}
+                    ${canRetry ? `<button type="button" onclick="retryNotification(${Number(row.id)})" ${isRetrying ? 'disabled aria-busy="true"' : ''} class="min-h-10 px-3 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 flex-shrink-0 disabled:opacity-60 disabled:cursor-wait"><i class="fa-solid ${isRetrying ? 'fa-circle-notch fa-spin' : 'fa-rotate'} mr-1"></i>${isRetrying ? 'กำลังส่ง…' : 'ลองส่งอีกครั้ง'}</button>` : ''}
                 </div>
             </article>`;
         }).join('');
@@ -8718,12 +9387,16 @@
             return;
         }
         const topicLabels = { all: 'ทั้งหมด', issue: 'ใบเบิก', loan: 'ยืม-คืน', stock: 'สต็อกต่ำ', receipt: 'รับของ', system: 'ระบบ' };
-        container.innerHTML = notificationRecipients.map(recipient => `
-            <article class="p-4 flex items-start gap-3 ${recipient.enabled ? '' : 'opacity-60'}">
+        const isAnyRecipientActionBusy = isSavingNotificationRecipient || pendingNotificationRecipientIds.size > 0;
+        container.innerHTML = notificationRecipients.map(recipient => {
+            const isPending = pendingNotificationRecipientIds.has(String(recipient.id));
+            return `
+            <article class="p-4 flex items-start gap-3 ${recipient.enabled ? '' : 'opacity-60'} ${isPending ? 'bg-teal-50/50' : ''}">
                 <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user-shield"></i></div>
                 <div class="flex-1 min-w-0"><div class="flex flex-wrap items-center gap-2"><strong class="text-sm text-gray-800">${escapeLoanText(recipient.label)}</strong>${recipient.source === 'environment' ? '<span class="text-[10px] px-2 py-0.5 bg-gray-100 rounded-full text-gray-500">ENV</span>' : ''}</div><p class="text-[11px] font-mono text-gray-400 mt-1">${escapeLoanText(recipient.maskedLineUserId)}</p><p class="text-xs text-gray-500 mt-1">${(recipient.topics || []).map(topic => topicLabels[topic] || topic).join(', ')}</p></div>
-                ${recipient.source === 'database' ? `<div class="flex gap-1"><button type="button" onclick="editNotificationRecipient(${Number(recipient.id)})" class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:text-teal-600" aria-label="แก้ไข"><i class="fa-solid fa-pen"></i></button><button type="button" onclick="toggleNotificationRecipient(${Number(recipient.id)}, ${recipient.enabled ? 'false' : 'true'})" class="w-9 h-9 rounded-lg ${recipient.enabled ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}" aria-label="${recipient.enabled ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}"><i class="fa-solid ${recipient.enabled ? 'fa-bell-slash' : 'fa-bell'}"></i></button></div>` : ''}
-            </article>`).join('');
+                ${recipient.source === 'database' ? `<div class="flex gap-1"><button type="button" onclick="editNotificationRecipient(${Number(recipient.id)})" ${isAnyRecipientActionBusy ? 'disabled' : ''} class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:text-teal-600 disabled:opacity-40 disabled:cursor-not-allowed" aria-label="แก้ไข"><i class="fa-solid fa-pen"></i></button><button type="button" onclick="toggleNotificationRecipient(${Number(recipient.id)}, ${recipient.enabled ? 'false' : 'true'})" ${isAnyRecipientActionBusy ? 'disabled' : ''} aria-busy="${isPending}" class="w-9 h-9 rounded-lg ${recipient.enabled ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'} disabled:opacity-60 disabled:cursor-wait" aria-label="${recipient.enabled ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}"><i class="fa-solid ${isPending ? 'fa-circle-notch fa-spin' : recipient.enabled ? 'fa-bell-slash' : 'fa-bell'}"></i></button></div>` : ''}
+            </article>`;
+        }).join('');
     }
 
     function syncNotificationTopicSelection(changed) {
@@ -8734,13 +9407,15 @@
         if (!boxes.some(box => box.checked) && allBox) allBox.checked = true;
     }
 
-    function resetNotificationRecipientForm() {
+    function resetNotificationRecipientForm(force = false) {
+        if (!force && (isSavingNotificationRecipient || pendingNotificationRecipientIds.size > 0)) return;
         document.getElementById('notificationRecipientForm')?.reset();
         const id = document.getElementById('notificationRecipientId');
         if (id) id.value = '';
     }
 
     function editNotificationRecipient(id) {
+        if (isSavingNotificationRecipient || pendingNotificationRecipientIds.size > 0) return;
         const recipient = notificationRecipients.find(row => Number(row.id) === Number(id));
         if (!recipient || recipient.source !== 'database') return;
         document.getElementById('notificationRecipientId').value = recipient.id;
@@ -8752,51 +9427,103 @@
 
     async function saveNotificationRecipient(event) {
         event.preventDefault();
+        if (isSavingNotificationRecipient || pendingNotificationRecipientIds.size > 0) return;
+        const form = event.currentTarget;
+        if (!form.reportValidity()) return;
         const topics = [...document.querySelectorAll('input[name="notificationTopic"]:checked')].map(input => input.value);
+        const label = document.getElementById('notificationRecipientLabel').value.trim();
+        const lineUserId = document.getElementById('notificationRecipientLineId').value.trim();
+        if (!topics.length) return showToast('กรุณาเลือกหัวข้อแจ้งเตือนอย่างน้อย 1 รายการ', 'warning');
+
+        isSavingNotificationRecipient = true;
+        syncNotificationRecipientFormState();
+        renderNotificationRecipients();
         try {
             await callServerFunction('saveNotificationRecipient', {
                 id: document.getElementById('notificationRecipientId').value || null,
-                label: document.getElementById('notificationRecipientLabel').value,
-                lineUserId: document.getElementById('notificationRecipientLineId').value,
+                label,
+                lineUserId,
                 topics,
                 enabled: true,
-            });
-            resetNotificationRecipientForm();
-            showToast('บันทึกผู้รับแจ้งเตือนแล้ว');
-            await loadNotificationCenter();
-        } catch (error) { showToast(error.message || 'บันทึกผู้รับไม่สำเร็จ', 'error'); }
+            }, { suppressFailure: true });
+            resetNotificationRecipientForm(true);
+            showToast('บันทึกผู้รับแจ้งเตือนแล้ว', 'success');
+            await loadNotificationCenter(true);
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'บันทึกผู้รับไม่สำเร็จ', 'error');
+        } finally {
+            isSavingNotificationRecipient = false;
+            syncNotificationRecipientFormState();
+            renderNotificationRecipients();
+        }
     }
 
     async function toggleNotificationRecipient(id, enabled) {
+        const pendingKey = String(id);
+        if (isSavingNotificationRecipient || pendingNotificationRecipientIds.size > 0) return;
+        pendingNotificationRecipientIds.add(pendingKey);
+        syncNotificationRecipientFormState();
+        renderNotificationRecipients();
         try {
-            await callServerFunction('toggleNotificationRecipient', { id, enabled });
-            showToast(enabled ? 'เปิดรับการแจ้งเตือนแล้ว' : 'ปิดรับการแจ้งเตือนแล้ว');
-            await loadNotificationCenter();
-        } catch (error) { showToast(error.message || 'แก้ไขสถานะไม่สำเร็จ', 'error'); }
+            await callServerFunction('toggleNotificationRecipient', { id, enabled }, { suppressFailure: true });
+            showToast(enabled ? 'เปิดรับการแจ้งเตือนแล้ว' : 'ปิดรับการแจ้งเตือนแล้ว', 'success');
+            await loadNotificationCenter(true);
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'แก้ไขสถานะไม่สำเร็จ', 'error');
+        } finally {
+            pendingNotificationRecipientIds.delete(pendingKey);
+            syncNotificationRecipientFormState();
+            renderNotificationRecipients();
+        }
     }
 
     async function retryNotification(id) {
+        const pendingKey = String(id);
+        if (retryingNotificationIds.has(pendingKey)) return;
+        retryingNotificationIds.add(pendingKey);
+        renderNotificationLogs();
         try {
-            const result = await callServerFunction('retryNotification', { notificationId: id });
+            const result = await callServerFunction('retryNotification', { notificationId: id }, { suppressFailure: true });
             showToast(result?.sent ? 'ส่งข้อความสำเร็จแล้ว' : 'บันทึกการลองส่งอีกครั้งแล้ว', result?.status === 'failed' ? 'warning' : 'success');
-            await loadNotificationCenter();
-        } catch (error) { showToast(error.message || 'ลองส่งข้อความไม่สำเร็จ', 'error'); }
+            await loadNotificationCenter(true);
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'ลองส่งข้อความไม่สำเร็จ', 'error');
+        } finally {
+            retryingNotificationIds.delete(pendingKey);
+            renderNotificationLogs();
+        }
     }
 
     async function retryDueNotifications() {
+        if (isRetryingDueNotifications || isRunningLoanDueReminders) return;
+        isRetryingDueNotifications = true;
+        syncNotificationToolbarState();
         try {
-            const result = await callServerFunction('retryDueNotifications', { limit: 25 });
+            const result = await callServerFunction('retryDueNotifications', { limit: 25 }, { suppressFailure: true });
             showToast(`ประมวลผล ${Number(result?.processed || 0)} ข้อความ ส่งสำเร็จ ${Number(result?.sent || 0)} ข้อความ`);
-            await loadNotificationCenter();
-        } catch (error) { showToast(error.message || 'ประมวลผลข้อความค้างไม่สำเร็จ', 'error'); }
+            await loadNotificationCenter(true);
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'ประมวลผลข้อความค้างไม่สำเร็จ', 'error');
+        } finally {
+            isRetryingDueNotifications = false;
+            syncNotificationToolbarState();
+        }
     }
 
     async function runLoanDueReminders() {
+        if (isRunningLoanDueReminders || isRetryingDueNotifications) return;
+        isRunningLoanDueReminders = true;
+        syncNotificationToolbarState();
         try {
-            const result = await callServerFunction('runLoanDueReminders');
+            const result = await callServerFunction('runLoanDueReminders', null, { suppressFailure: true });
             showToast(`ตรวจ ${Number(result?.checked || 0)} รายการ สร้างการเตือน ${Number(result?.processed || 0)} รายการ`);
-            await loadNotificationCenter();
-        } catch (error) { showToast(error.message || 'แจ้งเตือนกำหนดคืนไม่สำเร็จ', 'error'); }
+            await loadNotificationCenter(true);
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'แจ้งเตือนกำหนดคืนไม่สำเร็จ', 'error');
+        } finally {
+            isRunningLoanDueReminders = false;
+            syncNotificationToolbarState();
+        }
     }
 
 </script>

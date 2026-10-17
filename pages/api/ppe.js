@@ -655,17 +655,31 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   let receiveTransactions = [];
   let loanTransactions = [];
   let feedback = [];
+  let notificationFailures = { count: 0, recent: [], available: true };
   if (auth.isAdmin) {
-    const [issues, receives, loans, feedbacks] = await Promise.all([
+    const [issues, receives, loans, feedbacks, failedNotifications] = await Promise.all([
       supabase.from('issue_vouchers').select('*'),
       supabase.from('receive_transactions').select('*'),
       supabase.from('loan_transactions').select('*'),
       supabase.from('feedback').select('*').order('created_at', { ascending: false }),
+      supabase
+        .from('notification_log')
+        .select('id, status, notification_type, entity_type, entity_id, last_error, attempt_count, max_attempts, created_at, updated_at', { count: 'exact' })
+        .in('status', ['failed', 'retry_scheduled'])
+        .order('updated_at', { ascending: false })
+        .limit(5),
     ]);
     issueVouchers = issues.data || [];
     receiveTransactions = receives.data || [];
     loanTransactions = loans.data || [];
     feedback = feedbacks.data || [];
+    notificationFailures = failedNotifications.error
+      ? { count: 0, recent: [], available: false }
+      : {
+          count: Number(failedNotifications.count || failedNotifications.data?.length || 0),
+          recent: failedNotifications.data || [],
+          available: true,
+        };
   } else if (auth.lineUser) {
     const [issues, loans] = await Promise.all([
       supabase.from('issue_vouchers').select('*').eq('userid', auth.lineUser.userId),
@@ -706,6 +720,7 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
       topIssuedItems,
       loanStatusSummary,
       recentActivities,
+      notificationFailures,
     },
   };
 }

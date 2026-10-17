@@ -27,6 +27,10 @@ const LoadingManager = (() => {
   /** @type {Map<string, Set<Function>>} - Subscribers for each key */
   const _subscribers = new Map();
 
+  /** @type {Map<string, { message: string, order: number }>} - Active jobs sharing the global overlay */
+  const _overlayJobs = new Map();
+  let _overlayOrder = 0;
+
   // ─── Skeleton DOM Registry ────────────────────────────────────────────────
   /**
    * Maps loading keys to DOM behaviour.
@@ -94,7 +98,7 @@ const LoadingManager = (() => {
 
     if (!reg) {
       // All 'action.*' keys → global overlay
-      if (key.startsWith('action.')) _showOverlay(message);
+      if (key.startsWith('action.')) _showOverlay(key, message);
       return;
     }
 
@@ -128,7 +132,7 @@ const LoadingManager = (() => {
     const reg = SKELETON_REGISTRY[key];
 
     if (!reg) {
-      if (key.startsWith('action.')) _hideOverlay();
+      if (key.startsWith('action.')) _hideOverlay(key);
       return;
     }
 
@@ -161,23 +165,37 @@ const LoadingManager = (() => {
     }
   }
 
-  // Fix #4/#5: update overlay message properly
-  function _showOverlay(message = 'กำลังดำเนินการ...') {
+  function _renderOverlay() {
     const overlay  = document.getElementById('loadingOverlay');
     const titleEl  = overlay ? overlay.querySelector('#overlayTitle')  : null;
     const subtextEl= overlay ? overlay.querySelector('#overlaySubtext'): null;
 
     if (!overlay) return;
-    overlay.classList.remove('hidden');
 
-    // Update message text if element exists (added in HTML fix)
-    if (titleEl)   titleEl.textContent   = message;
+    if (_overlayJobs.size === 0) {
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-busy', 'false');
+      return;
+    }
+
+    const activeJob = [..._overlayJobs.values()].sort((a, b) => b.order - a.order)[0];
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-busy', 'true');
+
+    if (titleEl)   titleEl.textContent   = activeJob?.message || 'กำลังดำเนินการ...';
     if (subtextEl) subtextEl.textContent = 'กรุณารอสักครู่…';
   }
 
-  function _hideOverlay() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) overlay.classList.add('hidden');
+  // One DOM overlay is shared by every action. Keep it visible until the last
+  // action finishes, and show the message from the most recently started job.
+  function _showOverlay(key, message = 'กำลังดำเนินการ...') {
+    _overlayJobs.set(key, { message, order: ++_overlayOrder });
+    _renderOverlay();
+  }
+
+  function _hideOverlay(key) {
+    _overlayJobs.delete(key);
+    _renderOverlay();
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────

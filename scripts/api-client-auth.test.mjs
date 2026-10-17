@@ -3,11 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-function loadApiClient(fetchImpl, windowOverrides = {}) {
+function loadApiClient(fetchImpl, windowOverrides = {}, navigatorOverrides = {}) {
   const context = {
     console,
     fetch: fetchImpl,
-    window: { _adminToken: null, _lineAccessToken: 'expired-token', ...windowOverrides },
+    AbortController,
+    setTimeout,
+    clearTimeout,
+    navigator: { onLine: true, ...navigatorOverrides },
+    CustomEvent: class CustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
+    window: { _adminToken: null, _lineAccessToken: 'expired-token', dispatchEvent: () => true, ...windowOverrides },
     LoadingManager: { wrap: async (_key, fn) => fn(null) },
   };
   vm.createContext(context);
@@ -74,4 +79,45 @@ test('preserves feedback-required code and voucher details on API 409', async ()
       && error.details?.voucherId === 117
     ),
   );
+});
+
+test('aborts a stalled request and returns a retryable timeout error', async () => {
+  const browser = loadApiClient((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => {
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    }, { once: true });
+  }));
+
+  await assert.rejects(
+    browser.apiCall('getInitialData', {}, { silent: true, timeoutMs: 5 }),
+    error => (
+      error.name === 'TimeoutError'
+      && error.code === 'REQUEST_TIMEOUT'
+      && error.retryable === true
+      && error.timeoutMs === 5
+    ),
+  );
+});
+
+test('fails fast while offline without attempting a network request', async () => {
+  let fetchCount = 0;
+  let offlineAction = '';
+  const browser = loadApiClient(async () => {
+    fetchCount += 1;
+    throw new Error('fetch should not run');
+  }, {
+    dispatchEvent: event => {
+      offlineAction = event.detail?.action || '';
+      return true;
+    },
+  }, { onLine: false });
+
+  await assert.rejects(
+    browser.apiCall('addNewVoucher', {}, { silent: true }),
+    error => error.name === 'OfflineError' && error.code === 'OFFLINE' && error.retryable === true,
+  );
+  assert.equal(fetchCount, 0);
+  assert.equal(offlineAction, 'addNewVoucher');
 });
