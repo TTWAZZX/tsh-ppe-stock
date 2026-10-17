@@ -2406,13 +2406,13 @@
 </div>
 
 <div id="feedbackModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform transition-all scale-100">
+    <div id="feedbackDialog" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform transition-all scale-100" aria-busy="false">
         
         <div class="bg-gradient-to-r from-teal-600 to-teal-500 p-4 text-white flex justify-between items-center">
             <h3 class="font-bold flex items-center gap-2 text-lg">
                 <i class="fa-solid fa-star text-yellow-300"></i> ให้คะแนนอุปกรณ์
             </h3>
-            <button onclick="closeFeedbackModal()" class="text-white/80 hover:text-white transition-colors bg-white/20 rounded-full w-8 h-8 flex items-center justify-center">
+            <button id="btnCloseFeedback" type="button" onclick="closeFeedbackModal()" class="text-white/80 hover:text-white transition-colors bg-white/20 rounded-full w-8 h-8 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed" aria-label="ปิดหน้าประเมิน">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -2441,12 +2441,14 @@
                 <label class="text-xs font-semibold text-gray-500 ml-1 mb-1 block">ความคิดเห็นเพิ่มเติม (ถ้ามี)</label>
                 <textarea id="feedbackComment" rows="3" class="w-full border border-gray-200 bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-teal-500 focus:bg-white outline-none resize-none transition-all" placeholder="เช่น ใส่สบาย, ทนทาน, ชำรุดง่าย..."></textarea>
             </div>
+
+            <div id="feedbackSaveStatus" class="hidden w-full rounded-xl border px-3 py-2.5 text-sm" role="status" aria-live="polite"></div>
         </div>
 
         <div class="p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
-            <button onclick="closeFeedbackModal()" class="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-200 rounded-xl transition-colors">ยกเลิก</button>
-            <button onclick="submitFeedback()" class="flex-1 py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-200 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" id="btnSubmitFeedback" disabled>
-                ส่งรีวิว
+            <button id="btnCancelFeedback" type="button" onclick="closeFeedbackModal()" class="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">ยกเลิก</button>
+            <button type="button" onclick="submitFeedback()" class="flex-1 py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-200 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none" id="btnSubmitFeedback" disabled>
+                <span id="feedbackSubmitContent"><i class="fa-solid fa-paper-plane mr-1.5"></i>ส่งรีวิว</span>
             </button>
         </div>
     </div>
@@ -2528,16 +2530,16 @@
     // ─── callServerFunction (Refactored → delegates to apiCall) ──────────────
     // เก็บไว้เพื่อ backward-compat กับ call sites ที่ยังไม่ได้ migrate
     // ใหม่: ใช้ apiCall() จาก api-client.js โดยตรง
-    async function callServerFunction(action, payload = null) {
+    async function callServerFunction(action, payload = null, options = {}) {
         // sync admin token ให้ api-client.js อ่านได้
         window._adminToken = (isAdmin && adminSessionToken) ? adminSessionToken : null;
 
         try {
-            return await apiCall(action, payload);
+            return await apiCall(action, payload, options);
         } catch (error) {
             if (error.name === 'AbortError') return null; // cancelled — ไม่ต้อง toast
             console.error(`API call failed for action "${action}":`, error);
-            if (!error.authenticationRedirected) onFailure(error);
+            if (!error.authenticationRedirected && !options.suppressFailure) onFailure(error);
             throw error;
         }
     }
@@ -7477,12 +7479,56 @@
     }
 
     // --- 🌟 Logic ระบบ Feedback (Supabase Version) ---
-    
+    let isFeedbackSubmitting = false;
+
+    function setFeedbackSaveStatus(state = 'idle', message = '') {
+        const status = document.getElementById('feedbackSaveStatus');
+        if (!status) return;
+        const styles = {
+            saving: 'border-blue-200 bg-blue-50 text-blue-700',
+            success: 'border-green-200 bg-green-50 text-green-700',
+            error: 'border-red-200 bg-red-50 text-red-700',
+        };
+        const icons = {
+            saving: '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>',
+            success: '<i class="fa-solid fa-circle-check mr-2"></i>',
+            error: '<i class="fa-solid fa-circle-exclamation mr-2"></i>',
+        };
+        status.className = state === 'idle'
+            ? 'hidden w-full rounded-xl border px-3 py-2.5 text-sm'
+            : `w-full rounded-xl border px-3 py-2.5 text-sm font-medium ${styles[state] || styles.saving}`;
+        status.innerHTML = state === 'idle' ? '' : `${icons[state] || ''}${escapeLoanText(message)}`;
+    }
+
+    function setFeedbackSubmitting(submitting) {
+        isFeedbackSubmitting = submitting;
+        const dialog = document.getElementById('feedbackDialog');
+        const submitButton = document.getElementById('btnSubmitFeedback');
+        const submitContent = document.getElementById('feedbackSubmitContent');
+        const cancelButton = document.getElementById('btnCancelFeedback');
+        const closeButton = document.getElementById('btnCloseFeedback');
+        const comment = document.getElementById('feedbackComment');
+        const stars = document.querySelectorAll('.star-btn');
+        const hasRating = Number(document.getElementById('feedbackScore')?.value || 0) > 0;
+
+        if (dialog) dialog.setAttribute('aria-busy', String(submitting));
+        if (submitButton) submitButton.disabled = submitting || !hasRating;
+        if (submitContent) submitContent.innerHTML = submitting
+            ? '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>กำลังบันทึกคะแนน…'
+            : '<i class="fa-solid fa-paper-plane mr-1.5"></i>ส่งรีวิว';
+        if (cancelButton) cancelButton.disabled = submitting;
+        if (closeButton) closeButton.disabled = submitting;
+        if (comment) comment.disabled = submitting;
+        stars.forEach(button => { button.disabled = submitting; });
+    }
+
     function openFeedbackModal(itemData, transactionId, type) {
         // 1. Reset ค่าในฟอร์ม
         document.getElementById('feedbackScore').value = 0;
         document.getElementById('feedbackComment').value = '';
-        document.getElementById('btnSubmitFeedback').disabled = true;
+        isFeedbackSubmitting = false;
+        setFeedbackSaveStatus('idle');
+        setFeedbackSubmitting(false);
         updateStars(0);
 
         // 2. Set ค่าที่จะส่งไป DB
@@ -7500,11 +7546,14 @@
     }
 
     function closeFeedbackModal() {
+        if (isFeedbackSubmitting) return;
         document.getElementById('feedbackModal').classList.add('hidden');
+        setFeedbackSaveStatus('idle');
     }
 
     // จัดการเปลี่ยนสีดาว
     function setRating(val) {
+        if (isFeedbackSubmitting) return;
         document.getElementById('feedbackScore').value = val;
         updateStars(val);
         document.getElementById('btnSubmitFeedback').disabled = false; // ปลดล็อคปุ่มส่ง
@@ -7537,14 +7586,11 @@
 
         if(payload.rating == 0) return showToast('กรุณาให้คะแนนก่อนส่ง', 'error');
 
-        // ปิดหน้าให้คะแนน (เพื่อกลับไปหน้าเลือกของ)
-        closeFeedbackModal(); 
-        showLoading();
+        setFeedbackSubmitting(true);
+        setFeedbackSaveStatus('saving', 'กำลังบันทึกคะแนน กรุณารอสักครู่…');
 
         try {
-            const result = await callServerFunction('saveFeedback', payload);
-            
-            showToast(result?.alreadyRated ? 'รายการนี้ให้คะแนนแล้ว' : 'บันทึกคะแนนแล้ว ⭐');
+            const result = await callServerFunction('saveFeedback', payload, { silent: true, suppressFailure: true });
 
             if (!currentData.feedbackData) currentData.feedbackData = [];
             currentData.feedbackData = currentData.feedbackData.filter(row => !(
@@ -7563,22 +7609,24 @@
                 created_at: new Date().toISOString()
             });
 
-            // ถ้าหน้าเลือกของยังเปิดอยู่ (หรือถูกซ่อนไว้ใต้ Modal ให้คะแนน) ให้ Refresh มัน
-            // โดยเรียก openRatingSelector ซ้ำด้วย ID เดิม และสถานะบังคับเดิม
+            setFeedbackSaveStatus(
+                'success',
+                result?.alreadyRated ? 'รายการนี้ได้รับการบันทึกคะแนนไว้แล้ว' : 'บันทึกคะแนนสำเร็จ กำลังไปยังรายการถัดไป…'
+            );
+            updateHistoryTable();
+            await new Promise(resolve => setTimeout(resolve, 650));
+            isFeedbackSubmitting = false;
+            closeFeedbackModal();
+
             const selectorModal = document.getElementById('rateItemSelectorModal');
             if (!selectorModal.classList.contains('hidden')) {
-                // หา Voucher ID จาก input ที่ซ่อนอยู่ หรือจากตัวแปร global (ถ้ามี)
-                // แต่ในที่นี้เราส่ง payload.transactionId ไปได้เลย
                 openRatingSelector(payload.transactionId, isMandatoryReview);
             }
-            updateHistoryTable();
+            showToast(result?.alreadyRated ? 'รายการนี้ให้คะแนนแล้ว' : 'บันทึกคะแนนแล้ว ⭐');
             
         } catch (error) {
-            showToast(error.message || 'บันทึกคะแนนไม่สำเร็จ กรุณาลองใหม่', 'error');
-            const voucherId = Number(payload.transactionId);
-            if (voucherId) openRatingSelector(voucherId, isMandatoryReview);
-        } finally {
-            hideLoading();
+            setFeedbackSubmitting(false);
+            setFeedbackSaveStatus('error', error.message || 'บันทึกคะแนนไม่สำเร็จ กรุณาลองอีกครั้ง');
         }
     }
 
