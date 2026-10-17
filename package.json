@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:notifications": "node --no-warnings scripts/run-notification-tests.mjs"
+    "test:notifications": "node --no-warnings scripts/run-notification-tests.mjs",
+    "test:notifications:live": "node --no-warnings scripts/live-flex-smoke.mjs --confirm-live"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.0",

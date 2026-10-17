@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { createLineNotificationService } from '../../lib/notification-service.js';
 import { createNotificationWorkflows } from '../../lib/notification-workflows.js';
+import { createPpeFlexMessage } from '../../lib/line-flex.js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
@@ -334,10 +335,6 @@ async function sendLinePush(userId, messages, eventKey) {
   });
 }
 
-function textMessage(text) {
-  return { type: 'text', text: String(text || '').slice(0, 5000) };
-}
-
 async function checkLineIntegrationStatus() {
   const recipientState = await notificationWorkflows.listRecipients();
   if (!LINE_CHANNEL_ACCESS_TOKEN) return {
@@ -390,6 +387,10 @@ async function getItemSummary(items) {
   }).join('\n');
 }
 
+function itemSummaryLines(summary) {
+  return String(summary || '').split('\n').map(line => line.trim()).filter(Boolean);
+}
+
 async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includeReceiveLink = false) {
   if (!voucher?.userid) return { sent: false, reason: 'no_recipient' };
   const summary = await getItemSummary(items);
@@ -398,8 +399,27 @@ async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includ
     ? notificationWorkflows.buildLiffLink('allHistory', { mode: 'confirmReceive', voucherId: voucher.id })
     : notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id });
   const linkLabel = includeReceiveLink ? 'ยืนยันรับของ' : 'ดูรายละเอียด';
-  const text = `${statusLabel}\n\nใบเบิก #${voucher.id}\nผู้เบิก: ${voucher.user || '-'}\nแผนก: ${voucher.department || '-'}${note ? `\nหมายเหตุ: ${note}` : ''}${summary ? `\n\n${summary}` : ''}${targetUrl ? `\n\n${linkLabel}: ${targetUrl}` : ''}`;
-  return sendLinePush(voucher.userid, [textMessage(text)], eventKey);
+  const theme = eventKey.startsWith('issue-rejected')
+    ? 'danger'
+    : eventKey.startsWith('issue-partial')
+      ? 'partial'
+      : 'success';
+  const message = createPpeFlexMessage({
+    eyebrow: 'PPE STOCK • ใบเบิก',
+    title: `ใบเบิก #${voucher.id}`,
+    status: statusLabel,
+    summary: note ? `หมายเหตุจากผู้อนุมัติ: ${note}` : '',
+    fields: [
+      { label: 'ผู้เบิก', value: voucher.user || '-' },
+      { label: 'แผนก', value: voucher.department || '-' },
+    ],
+    items: itemSummaryLines(summary),
+    theme,
+    actionLabel: linkLabel,
+    actionUrl: targetUrl,
+    altText: `${statusLabel} — ใบเบิก #${voucher.id}`,
+  });
+  return sendLinePush(voucher.userid, [message], eventKey);
 }
 
 // Audit Log: บันทึกทุก action — fire-and-forget ไม่ throw ไม่กระทบ main flow
@@ -463,14 +483,24 @@ async function checkAndAlertLowStock(updatedItems) {
   if (!lowItems.length) return { sent: false, status: 'skipped', reason: 'stock_not_low' };
 
   const lines = lowItems.map(i =>
-    `• ${i.name}: เหลือ ${i.stock} ชิ้น (จุดสั่งซื้อ: ${i.reorderPoint})`
-  ).join('\n');
+    `${i.name}: เหลือ ${i.stock} ชิ้น (จุดสั่งซื้อ ${i.reorderPoint})`
+  );
 
   const eventKey = `stock-low:${lowItems.map(item => `${item.id}-${item.stock}`).join(',')}`;
   const stockUrl = notificationWorkflows.buildLiffLink('manage');
   return notificationWorkflows.sendToAdmins({
     topic: 'stock',
-    messages: [textMessage(`⚠️ แจ้งเตือนสต็อกต่ำ\n\n${lines}\n\nกรุณาสั่งซื้อเพิ่มเติม${stockUrl ? `\n\nเปิดหน้าจัดการ: ${stockUrl}` : ''}`)],
+    messages: [createPpeFlexMessage({
+      eyebrow: 'PPE STOCK • คลังอุปกรณ์',
+      title: 'อุปกรณ์ถึงจุดสั่งซื้อ',
+      status: `พบสต็อกต่ำ ${lowItems.length} รายการ`,
+      summary: 'กรุณาตรวจสอบและวางแผนสั่งซื้อเพิ่มเติม',
+      items: lines,
+      theme: 'danger',
+      actionLabel: 'จัดการอุปกรณ์',
+      actionUrl: stockUrl,
+      altText: `แจ้งเตือนสต็อกต่ำ ${lowItems.length} รายการ`,
+    })],
     eventKey,
     notificationType: 'stock-low',
     entityType: 'ppe_items',
@@ -802,10 +832,37 @@ async function addNewVoucher(voucherData, auth) {
   const userUrl = notificationWorkflows.buildLiffLink('allHistory', { voucherId: data.id });
   const adminUrl = notificationWorkflows.buildLiffLink('pending', { voucherId: data.id });
   const [userNotification, adminNotification] = await Promise.all([
-    sendLinePush(ownerUserId, [textMessage(`ส่งคำขอเบิกเรียบร้อยแล้ว\n\nใบเบิก #${data.id}\nสถานะ: รออนุมัติ${summary ? `\n\n${summary}` : ''}${userUrl ? `\n\nติดตามสถานะ: ${userUrl}` : ''}`)], `issue-created-user:${data.id}`),
+    sendLinePush(ownerUserId, [createPpeFlexMessage({
+      eyebrow: 'PPE STOCK • ใบเบิก',
+      title: `รับคำขอใบเบิก #${data.id}`,
+      status: 'รอผู้ดูแลตรวจสอบและอนุมัติ',
+      summary: 'ระบบบันทึกคำขอของคุณเรียบร้อยแล้ว',
+      fields: [
+        { label: 'ผู้เบิก', value: userName },
+        { label: 'แผนก', value: voucherData.department || '-' },
+      ],
+      items: itemSummaryLines(summary),
+      theme: 'pending',
+      actionLabel: 'ติดตามสถานะ',
+      actionUrl: userUrl,
+      altText: `รับคำขอใบเบิก #${data.id} แล้ว — รออนุมัติ`,
+    })], `issue-created-user:${data.id}`),
     notificationWorkflows.sendToAdmins({
       topic: 'issue',
-      messages: [textMessage(`มีใบเบิกใหม่\n\nใบเบิก #${data.id}\nผู้เบิก: ${userName}\nแผนก: ${voucherData.department || '-'}${summary ? `\n\n${summary}` : ''}${adminUrl ? `\n\nตรวจสอบคำขอ: ${adminUrl}` : ''}`)],
+      messages: [createPpeFlexMessage({
+        eyebrow: 'PPE STOCK • ADMIN',
+        title: `ใบเบิกใหม่ #${data.id}`,
+        status: 'มีคำขอใหม่รอการอนุมัติ',
+        fields: [
+          { label: 'ผู้เบิก', value: userName },
+          { label: 'แผนก', value: voucherData.department || '-' },
+        ],
+        items: itemSummaryLines(summary),
+        theme: 'pending',
+        actionLabel: 'ตรวจสอบคำขอ',
+        actionUrl: adminUrl,
+        altText: `มีใบเบิกใหม่ #${data.id} จาก ${userName}`,
+      })],
       eventKey: `issue-created-admin:${data.id}`,
       notificationType: 'issue-created-admin',
       entityType: 'issue_vouchers',
@@ -1095,12 +1152,42 @@ async function borrowItem(borrowData, auth) {
 
   const dueText = new Date(`${dueDate}T00:00:00`).toLocaleDateString('th-TH', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' });
   const loanUrl = notificationWorkflows.buildLiffLink('loan', { loanId: data.loanId });
-  const message = `บันทึกการยืมอุปกรณ์แล้ว\n\nรายการ: ${updatedItem.name || `อุปกรณ์ #${itemId}`}\nผู้ยืม: ${borrowerName}\nแผนก: ${department}\nกำหนดคืน: ${dueText}${loanUrl ? `\n\nเปิดรายการยืม: ${loanUrl}` : ''}`;
+  const userMessage = createPpeFlexMessage({
+    eyebrow: 'PPE STOCK • ยืมอุปกรณ์',
+    title: `รายการยืม #${data.loanId}`,
+    status: 'บันทึกการยืมเรียบร้อยแล้ว',
+    summary: 'โปรดคืนอุปกรณ์ภายในวันที่กำหนด',
+    fields: [
+      { label: 'อุปกรณ์', value: updatedItem.name || `อุปกรณ์ #${itemId}` },
+      { label: 'ผู้ยืม', value: borrowerName },
+      { label: 'แผนก', value: department },
+      { label: 'กำหนดคืน', value: dueText },
+    ],
+    theme: 'info',
+    actionLabel: 'เปิดรายการยืม',
+    actionUrl: loanUrl,
+    altText: `บันทึกรายการยืม #${data.loanId} แล้ว กำหนดคืน ${dueText}`,
+  });
+  const adminMessage = createPpeFlexMessage({
+    eyebrow: 'PPE STOCK • ADMIN',
+    title: `มีรายการยืมใหม่ #${data.loanId}`,
+    status: 'บันทึกรายการยืมใหม่',
+    fields: [
+      { label: 'อุปกรณ์', value: updatedItem.name || `อุปกรณ์ #${itemId}` },
+      { label: 'ผู้ยืม', value: borrowerName },
+      { label: 'แผนก', value: department },
+      { label: 'กำหนดคืน', value: dueText },
+    ],
+    theme: 'info',
+    actionLabel: 'ตรวจสอบรายการ',
+    actionUrl: loanUrl,
+    altText: `มีรายการยืมใหม่ #${data.loanId} โดย ${borrowerName}`,
+  });
   const [userNotification, adminNotification] = await Promise.all([
-    sendLinePush(ownerUserId, [textMessage(message)], `loan-created-user:${data.loanId}`),
+    sendLinePush(ownerUserId, [userMessage], `loan-created-user:${data.loanId}`),
     notificationWorkflows.sendToAdmins({
       topic: 'loan',
-      messages: [textMessage(message)],
+      messages: [adminMessage],
       eventKey: `loan-created-admin:${data.loanId}`,
       notificationType: 'loan-created-admin',
       entityType: 'loan_transactions',
@@ -1143,7 +1230,19 @@ async function returnItem(loanId) {
 
   const notification = await sendLinePush(
     loan.userid,
-    [textMessage(`รับคืนอุปกรณ์เรียบร้อยแล้ว ✅\n\nรายการยืม #${normalizedLoanId}\nอุปกรณ์: ${updatedItem.name || `#${loan.itemId}`}\nเวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}${notificationWorkflows.buildLiffLink('allHistory', { loanId: normalizedLoanId }) ? `\n\nดูประวัติ: ${notificationWorkflows.buildLiffLink('allHistory', { loanId: normalizedLoanId })}` : ''}`)],
+    [createPpeFlexMessage({
+      eyebrow: 'PPE STOCK • คืนอุปกรณ์',
+      title: `รายการยืม #${normalizedLoanId}`,
+      status: 'รับคืนอุปกรณ์เรียบร้อยแล้ว',
+      fields: [
+        { label: 'อุปกรณ์', value: updatedItem.name || `#${loan.itemId}` },
+        { label: 'เวลารับคืน', value: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) },
+      ],
+      theme: 'success',
+      actionLabel: 'ดูประวัติ',
+      actionUrl: notificationWorkflows.buildLiffLink('allHistory', { loanId: normalizedLoanId }),
+      altText: `รับคืนอุปกรณ์รายการยืม #${normalizedLoanId} เรียบร้อยแล้ว`,
+    })],
     `loan-returned:${normalizedLoanId}`
   );
   return { returnedLoanId: normalizedLoanId, updatedItem, notification };
@@ -1468,7 +1567,19 @@ async function confirmReceive(payload, auth) {
 
   const notification = await notificationWorkflows.sendToAdmins({
     topic: 'receipt',
-    messages: [textMessage(`ยืนยันรับของแล้ว 📦\n\nใบเบิก #${voucher.id}\nผู้รับ: ${receivedBy}\nเวลา: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}${notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id }) ? `\n\nดูรายการ: ${notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id })}` : ''}`)],
+    messages: [createPpeFlexMessage({
+      eyebrow: 'PPE STOCK • รับของ',
+      title: `ใบเบิก #${voucher.id}`,
+      status: 'ผู้ใช้ยืนยันรับของแล้ว',
+      fields: [
+        { label: 'ผู้รับ', value: receivedBy },
+        { label: 'เวลารับ', value: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) },
+      ],
+      theme: 'success',
+      actionLabel: 'ดูรายการ',
+      actionUrl: notificationWorkflows.buildLiffLink('allHistory', { voucherId: voucher.id }),
+      altText: `ยืนยันรับของแล้ว — ใบเบิก #${voucher.id}`,
+    })],
     eventKey: `issue-received-admin:${voucher.id}`,
     notificationType: 'issue-received-admin',
     entityType: 'issue_vouchers',

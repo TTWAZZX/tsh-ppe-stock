@@ -62,7 +62,8 @@ test('sends due reminders to borrower and configured admin with idempotent event
   assert.equal(sent[0].recipient, USER_ID);
   assert.equal(sent[1].recipient, ADMIN_ID);
   assert.match(sent[0].eventKey, /^loan-reminder-due-today-user:10:2026-10-17$/);
-  assert.match(sent[0].messages[0].text, /module=loan&loanId=10/);
+  assert.equal(sent[0].messages[0].type, 'flex');
+  assert.match(JSON.stringify(sent[0].messages[0]), /module=loan&loanId=10/);
 });
 
 test('respects recipient topic preferences instead of falling back to the env recipient', async () => {
