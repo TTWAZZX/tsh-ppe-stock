@@ -24,7 +24,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'saveCategory', 'deleteCategory', 'savePpeItem', 'deletePpeItem',
   'approveVoucher', 'approvePartialVoucher', 'rejectVoucher',
   'addReceiveTransaction', 'saveMatrixRule', 'deleteMatrixRule',
-  'uploadDocument', 'deleteDocument', 'deleteVoucher',
+  'uploadDocument', 'deleteDocument', 'deleteVoucher', 'returnItem',
 ]);
 
 // ปิด bodyParser เดิมของ Next.js เพื่อให้เราอ่าน text/plain เอง
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
         break;
 
       case 'approveVoucher':
-        result = await approveVoucher(payload.voucherId);
+        result = await approveVoucher(payload);
         await writeAuditLog(actor, 'approveVoucher', 'issue_vouchers', payload.voucherId);
         break;
 
@@ -102,7 +102,7 @@ export default async function handler(req, res) {
         break;
 
       case 'rejectVoucher':
-        result = await rejectVoucher(payload.voucherId);
+        result = await rejectVoucher(payload);
         await writeAuditLog(actor, 'rejectVoucher', 'issue_vouchers', payload.voucherId);
         break;
 
@@ -123,7 +123,13 @@ export default async function handler(req, res) {
 
       case 'addReceiveTransaction':
         result = await addReceiveTransactionAndUpdateStock(payload);
-        await writeAuditLog(actor, 'addReceiveTransaction', 'receive_transactions', null, { itemId: payload.itemId, quantity: payload.quantity });
+        await writeAuditLog(actor, 'addReceiveTransaction', 'receive_transactions', result?.transaction?.id, {
+          itemId: payload.itemId,
+          quantity: payload.quantity,
+          type: payload.type,
+          department: payload.department,
+          receiver: payload.user,
+        });
         break;
 
       case 'checkAdminCredentials': {
@@ -409,34 +415,105 @@ async function saveCategory(categoryData) {
 }
 
 async function deleteCategory(categoryId) {
-  const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+  const normalizedId = Number(categoryId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) throw new Error('รหัสหมวดหมู่ไม่ถูกต้อง');
+  const { data: category, error: categoryError } = await supabase
+    .from('categories')
+    .select('id, name')
+    .eq('id', normalizedId)
+    .maybeSingle();
+  if (categoryError) throw categoryError;
+  if (!category) throw new Error('ไม่พบหมวดหมู่ที่ต้องการลบ');
+
+  const { count, error: countError } = await supabase
+    .from('ppe_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('category', category.name)
+    .is('deleted_at', null);
+  if (countError) throw countError;
+  if ((count || 0) > 0) throw new Error(`ยังลบหมวดหมู่ “${category.name}” ไม่ได้ เนื่องจากมีอุปกรณ์ใช้งานอยู่ ${count} รายการ`);
+
+  const { error } = await supabase.from('categories').delete().eq('id', normalizedId);
   if (error) throw error;
-  return categoryId;
+  return normalizedId;
 }
 
 async function savePpeItem(itemData) {
   if (!itemData) throw new Error('Missing item data');
 
+  const id = itemData.id ? Number(itemData.id) : null;
+  const code = String(itemData.code || '').trim().toUpperCase();
+  const name = String(itemData.name || '').trim();
+  const category = String(itemData.category || '').trim();
+  const unit = String(itemData.unit || '').trim();
+  const stock = Number(itemData.stock);
+  const reorderPoint = Number(itemData.reorderPoint);
+  const price = Number(itemData.price || 0);
+  const imageUrl = String(itemData.imageUrl || '').trim();
+
+  if (id !== null && (!Number.isInteger(id) || id <= 0)) throw new Error('รหัสอุปกรณ์ไม่ถูกต้อง');
+  if (!code || code.length > 50) throw new Error('กรุณาระบุรหัสอุปกรณ์ไม่เกิน 50 ตัวอักษร');
+  if (!name || name.length > 150) throw new Error('กรุณาระบุชื่ออุปกรณ์ไม่เกิน 150 ตัวอักษร');
+  if (!category || category.length > 100) throw new Error('กรุณาเลือกหมวดหมู่ให้ถูกต้อง');
+  if (!unit || unit.length > 30) throw new Error('กรุณาระบุหน่วยนับไม่เกิน 30 ตัวอักษร');
+  if (!Number.isInteger(stock) || stock < 0) throw new Error('จำนวนคงเหลือต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป');
+  if (!Number.isInteger(reorderPoint) || reorderPoint < 0) throw new Error('จุดสั่งซื้อต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป');
+  if (!Number.isFinite(price) || price < 0 || price > 999999999) throw new Error('ราคาต่อหน่วยไม่ถูกต้อง');
+  if (imageUrl) {
+    try {
+      const parsedUrl = new URL(imageUrl);
+      if (parsedUrl.protocol !== 'https:') throw new Error('invalid protocol');
+    } catch {
+      throw new Error('ลิงก์รูปภาพต้องเป็น HTTPS ที่ถูกต้อง');
+    }
+  }
+
+  const [{ data: validCategory, error: categoryError }, { data: duplicateCodes, error: duplicateError }] = await Promise.all([
+    supabase.from('categories').select('id').eq('name', category).limit(1).maybeSingle(),
+    supabase.from('ppe_items').select('id, name').ilike('code', code).is('deleted_at', null),
+  ]);
+  if (categoryError) throw categoryError;
+  if (duplicateError) throw duplicateError;
+  if (!validCategory) throw new Error('ไม่พบหมวดหมู่ที่เลือก กรุณารีเฟรชข้อมูลแล้วลองใหม่');
+  const duplicate = (duplicateCodes || []).find(item => Number(item.id) !== id);
+  if (duplicate) throw new Error(`รหัส ${code} ถูกใช้กับอุปกรณ์ “${duplicate.name}” แล้ว`);
+
+  let existingItem = null;
+  if (id !== null) {
+    const { data, error } = await supabase
+      .from('ppe_items')
+      .select('*')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error('ไม่พบอุปกรณ์ที่ต้องการแก้ไข กรุณารีเฟรชข้อมูล');
+    existingItem = data;
+  }
+
   const payload = {
-    code: itemData.code,
-    name: itemData.name,
-    category: itemData.category,
-    unit: itemData.unit,
-    reorderPoint: itemData.reorderPoint || 0,
-    stock: itemData.stock || 0,
-    onLoanQuantity: itemData.onLoanQuantity || 0,
-    price: itemData.price || 0,
-    image_url: itemData.imageUrl || '',
+    code,
+    name,
+    category,
+    unit,
+    reorderPoint,
+    stock,
+    onLoanQuantity: existingItem ? Math.max(0, Number(existingItem.onLoanQuantity) || 0) : 0,
+    price,
+    image_url: imageUrl,
   };
 
-  if (itemData.id) {
+  if (id !== null) {
     const { data, error } = await supabase
       .from('ppe_items')
       .update(payload)
-      .eq('id', itemData.id)
+      .eq('id', id)
+      .eq('stock', Number(existingItem.stock) || 0)
+      .is('deleted_at', null)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw new Error('ข้อมูลสต็อกถูกเปลี่ยนโดยรายการอื่น กรุณารีเฟรชแล้วตรวจสอบอีกครั้ง');
     return { item: data, isNew: false };
   } else {
     const nextId = await getNextId('ppe_items', 'id');
@@ -481,27 +558,61 @@ async function addNewVoucher(voucherData) {
   return data;
 }
 
-async function approveVoucher(voucherId) {
+async function claimPendingVoucher(voucherId) {
+  const normalizedId = Number(voucherId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) throw new Error('รหัสใบเบิกไม่ถูกต้อง');
   const { data: voucher, error } = await supabase
     .from('issue_vouchers')
+    .update({ status: 'processing' })
+    .eq('id', normalizedId)
+    .eq('status', 'pending')
     .select('*')
-    .eq('id', voucherId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
-  if (!voucher) throw new Error('ไม่พบใบเบิก');
-  if (voucher.status !== 'pending') throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว');
+  if (!voucher) throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว กรุณารีเฟรชข้อมูล');
+  return voucher;
+}
+
+async function releaseVoucherClaim(voucherId) {
+  const { error } = await supabase
+    .from('issue_vouchers')
+    .update({ status: 'pending' })
+    .eq('id', Number(voucherId))
+    .eq('status', 'processing');
+  if (error) console.error('Voucher claim rollback failed:', error);
+}
+
+function normalizeAdminNote(value) {
+  return String(value || '').trim().slice(0, 500);
+}
+
+async function approveVoucher(approvalData) {
+  const voucherId = Number(approvalData?.voucherId);
+  const adminNote = normalizeAdminNote(approvalData?.adminNote);
+  const voucher = await claimPendingVoucher(voucherId);
 
   const itemsToUpdate = Array.isArray(voucher.itemsJson)
     ? voucher.itemsJson
     : JSON.parse(voucher.itemsJson || '[]');
-
-  const updatedStockItems = await updateStockLevels(itemsToUpdate, 'decrease');
-
-  const { error: upErr } = await supabase
-    .from('issue_vouchers')
-    .update({ status: 'approved', adminNotes: 'อนุมัติโดย Admin' })
-    .eq('id', voucherId);
-  if (upErr) throw upErr;
+  let updatedStockItems = [];
+  try {
+    updatedStockItems = await updateStockLevels(itemsToUpdate, 'decrease');
+    const { data: updatedVoucher, error: upErr } = await supabase
+      .from('issue_vouchers')
+      .update({ status: 'approved', adminNotes: adminNote || 'อนุมัติโดย Admin' })
+      .eq('id', voucherId)
+      .eq('status', 'processing')
+      .select('id')
+      .maybeSingle();
+    if (upErr) throw upErr;
+    if (!updatedVoucher) throw new Error('ไม่สามารถยืนยันสถานะใบเบิกได้ กรุณาลองใหม่');
+  } catch (error) {
+    if (updatedStockItems.length) {
+      await updateStockLevels(itemsToUpdate, 'increase').catch(rollbackError => console.error('Approval stock rollback failed:', rollbackError));
+    }
+    await releaseVoucherClaim(voucherId);
+    throw error;
+  }
 
   checkAndAlertLowStock(updatedStockItems).catch((e) => console.error('Stock alert error:', e));
 
@@ -509,125 +620,198 @@ async function approveVoucher(voucherId) {
 }
 
 async function approvePartialVoucher(approvalData) {
-  const voucherId = approvalData.voucherId;
-
-  const { data: voucher, error } = await supabase
-    .from('issue_vouchers')
-    .select('*')
-    .eq('id', voucherId)
-    .single();
-  if (error) throw error;
-  if (!voucher) throw new Error('ไม่พบใบเบิก');
-  if (voucher.status !== 'pending') throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว');
+  const voucherId = Number(approvalData?.voucherId);
+  const adminNote = normalizeAdminNote(approvalData?.adminNote);
+  const voucher = await claimPendingVoucher(voucherId);
 
   const originalItems = Array.isArray(voucher.itemsJson)
     ? voucher.itemsJson
     : JSON.parse(voucher.itemsJson || '[]');
 
-  const approvedItems = approvalData.items || [];
+  const approvedItems = Array.isArray(approvalData?.items) ? approvalData.items : [];
+  const seenIds = new Set();
   let allApprovedFully = true;
   const notes = ['อนุมัติบางส่วน:'];
   const itemsToUpdateInStock = [];
-
-  approvedItems.forEach((approved) => {
-    const original = originalItems.find((o) => Number(o.itemId) === Number(approved.itemId));
-    if (Number(approved.quantity) > 0) {
-      itemsToUpdateInStock.push({ itemId: approved.itemId, quantity: approved.quantity });
-      notes.push(
-        `- ${approved.itemName}: ${approved.quantity}/${original ? original.quantity : '?'}`
-      );
+  try {
+    for (const approved of approvedItems) {
+      const itemId = Number(approved?.itemId);
+      const quantity = Number(approved?.quantity);
+      const original = originalItems.find((item) => Number(item.itemId) === itemId);
+      if (!Number.isInteger(itemId) || itemId <= 0 || seenIds.has(itemId) || !original) throw new Error('รายการอนุมัติไม่ถูกต้องหรือซ้ำกัน');
+      if (!Number.isInteger(quantity) || quantity < 0 || quantity > Number(original.quantity)) throw new Error('จำนวนอนุมัติเกินจำนวนที่ผู้ใช้ขอ');
+      seenIds.add(itemId);
+      if (quantity > 0) {
+        itemsToUpdateInStock.push({ itemId, quantity });
+        notes.push(`- ${String(approved.itemName || `อุปกรณ์ #${itemId}`).slice(0, 160)}: ${quantity}/${Number(original.quantity)}`);
+      }
+      if (quantity < Number(original.quantity)) allApprovedFully = false;
     }
-    if (original && Number(approved.quantity) < Number(original.quantity)) {
-      allApprovedFully = false;
-    }
-  });
-
-  if (itemsToUpdateInStock.length === 0) {
-    throw new Error('ไม่สามารถอนุมัติโดยไม่มีรายการสินค้าได้ กรุณาปฏิเสธใบเบิกแทน');
+    if (seenIds.size !== originalItems.length) throw new Error('กรุณาตรวจสอบจำนวนอนุมัติให้ครบทุกรายการ');
+  } catch (error) {
+    await releaseVoucherClaim(voucherId);
+    throw error;
   }
 
-  const updatedStockItems = await updateStockLevels(itemsToUpdateInStock, 'decrease');
-
+  if (itemsToUpdateInStock.length === 0) {
+    await releaseVoucherClaim(voucherId);
+    throw new Error('ไม่สามารถอนุมัติโดยไม่มีรายการสินค้าได้ กรุณาปฏิเสธใบเบิกแทน');
+  }
+  let updatedStockItems = [];
   const newStatus = allApprovedFully ? 'approved' : 'partially_approved';
-  const finalNote = notes.join(' ');
-
-  const { error: upErr } = await supabase
-    .from('issue_vouchers')
-    .update({
-      status: newStatus,
-      adminNotes: finalNote,
-    })
-    .eq('id', voucherId);
-  if (upErr) throw upErr;
+  const finalNote = [notes.join(' '), adminNote].filter(Boolean).join(' | ').slice(0, 1000);
+  try {
+    updatedStockItems = await updateStockLevels(itemsToUpdateInStock, 'decrease');
+    const { data: updatedVoucher, error: upErr } = await supabase
+      .from('issue_vouchers')
+      .update({ status: newStatus, adminNotes: finalNote })
+      .eq('id', voucherId)
+      .eq('status', 'processing')
+      .select('id')
+      .maybeSingle();
+    if (upErr) throw upErr;
+    if (!updatedVoucher) throw new Error('ไม่สามารถยืนยันสถานะใบเบิกได้ กรุณาลองใหม่');
+  } catch (error) {
+    if (updatedStockItems.length) {
+      await updateStockLevels(itemsToUpdateInStock, 'increase').catch(rollbackError => console.error('Partial approval stock rollback failed:', rollbackError));
+    }
+    await releaseVoucherClaim(voucherId);
+    throw error;
+  }
 
   checkAndAlertLowStock(updatedStockItems).catch((e) => console.error('Stock alert error:', e));
 
   return { updatedVoucherId: voucherId, status: newStatus, updatedStockItems };
 }
 
-async function rejectVoucher(voucherId) {
-  const { error } = await supabase
+async function rejectVoucher(approvalData) {
+  const voucherId = Number(approvalData?.voucherId);
+  const adminNote = normalizeAdminNote(approvalData?.adminNote);
+  if (!Number.isInteger(voucherId) || voucherId <= 0) throw new Error('รหัสใบเบิกไม่ถูกต้อง');
+  if (!adminNote) throw new Error('กรุณาระบุเหตุผลที่ปฏิเสธ');
+  const { data, error } = await supabase
     .from('issue_vouchers')
-    .update({ status: 'rejected', adminNotes: 'ปฏิเสธโดย Admin' })
-    .eq('id', voucherId);
+    .update({ status: 'rejected', adminNotes: adminNote })
+    .eq('id', voucherId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว กรุณารีเฟรชข้อมูล');
   return { updatedVoucherId: voucherId, status: 'rejected' };
 }
 
 async function addReceiveTransactionAndUpdateStock(tx) {
-  const nextId = await getNextId('receive_transactions', 'id');
+  const itemId = Number(tx?.itemId);
+  const quantity = Number(tx?.quantity);
+  const type = String(tx?.type || '').trim();
+  const user = String(tx?.user || '').trim();
+  const department = String(tx?.department || '').trim();
+  const allowedTypes = new Set(['purchase', 'return', 'adjustment']);
 
-  const { error: rErr } = await supabase
-    .from('receive_transactions')
-    .insert({
-      id: nextId,
-      timestamp: new Date().toISOString(),
-      itemName: tx.itemName,
-      type: tx.type,
-      quantity: tx.quantity,
-      user: tx.user,
-      department: tx.department,
-      status: 'completed',
-    });
-  if (rErr) throw rErr;
+  if (!Number.isInteger(itemId) || itemId <= 0) throw new Error('กรุณาเลือกอุปกรณ์');
+  if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 999999) throw new Error('จำนวนที่รับต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 999,999');
+  if (!allowedTypes.has(type)) throw new Error('ประเภทการรับไม่ถูกต้อง');
+  if (!user || user.length > 150) throw new Error('กรุณาระบุชื่อผู้รับของให้ถูกต้อง');
+  if (!department || department.length > 150) throw new Error('กรุณาเลือกแผนก');
 
-  const updatedStockItems = await updateStockLevels(
-    [{ itemId: tx.itemId, quantity: tx.quantity }],
-    'increase'
-  );
+  const [{ data: item, error: itemError }, { data: masterDepartment, error: departmentError }] = await Promise.all([
+    supabase.from('ppe_items').select('id, name').eq('id', itemId).is('deleted_at', null).maybeSingle(),
+    supabase.from('departments').select('id, name').eq('name', department).limit(1).maybeSingle(),
+  ]);
+  if (itemError) throw itemError;
+  if (departmentError) throw departmentError;
+  if (!item) throw new Error('ไม่พบอุปกรณ์ที่เลือก กรุณารีเฟรชข้อมูล');
+  if (!masterDepartment) throw new Error('ไม่พบแผนกในข้อมูลมาสเตอร์ กรุณาเลือกแผนกใหม่');
 
-  return { updatedStockItems };
+  const updatedStockItems = await updateStockLevels([{ itemId, quantity }], 'increase');
+  let transaction = null;
+
+  try {
+    const nextId = await getNextId('receive_transactions', 'id');
+
+    const { data, error: rErr } = await supabase
+      .from('receive_transactions')
+      .insert({
+        id: nextId,
+        timestamp: new Date().toISOString(),
+        itemName: item.name,
+        type,
+        quantity,
+        user,
+        department: masterDepartment.name,
+        status: 'completed',
+      })
+      .select()
+      .single();
+    if (rErr) throw rErr;
+    transaction = data;
+  } catch (transactionError) {
+    try {
+      await updateStockLevels([{ itemId, quantity }], 'decrease');
+    } catch (rollbackError) {
+      console.error('[receive] stock rollback failed:', rollbackError.message);
+    }
+    throw transactionError;
+  }
+
+  return { updatedStockItems, transaction };
 }
 
 // ในไฟล์ ppe.js ค้นหาฟังก์ชัน borrowItem แล้วแก้เป็นแบบนี้
 async function borrowItem(borrowData) {
+  const itemId = Number(borrowData?.itemId);
+  const borrowerName = String(borrowData?.borrowerName || '').trim();
+  const employeeId = String(borrowData?.employeeId || '').trim();
+  const department = String(borrowData?.department || '').trim();
+  const dueDate = String(borrowData?.dueDate || '');
+  const notes = String(borrowData?.notes || '').trim().slice(0, 500);
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+
+  if (!Number.isInteger(itemId) || itemId <= 0) throw new Error('กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
+  if (!borrowerName || borrowerName.length > 150) throw new Error('กรุณาระบุชื่อผู้ยืมให้ถูกต้อง');
+  if (!employeeId || employeeId.length > 50) throw new Error('กรุณาระบุรหัสพนักงานให้ถูกต้อง');
+  if (!department || department.length > 150) throw new Error('กรุณาเลือกแผนก');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || Number.isNaN(Date.parse(`${dueDate}T00:00:00Z`))) {
+    throw new Error('กรุณาระบุกำหนดคืนให้ถูกต้อง');
+  }
+  if (dueDate < today) throw new Error('กำหนดคืนต้องไม่เป็นวันที่ย้อนหลัง');
+
   const nextId = await getNextId('loan_transactions', 'loanId');
-  const updatedItem = await updateLoanableStock(borrowData.itemId, 'borrow');
+  const updatedItem = await updateLoanableStock(itemId, 'borrow');
 
   const { data, error } = await supabase
     .from('loan_transactions')
     .insert({
       loanId: nextId,
-      itemId: borrowData.itemId,
-      borrowerName: borrowData.borrowerName,
+      itemId,
+      borrowerName,
       
       // ✅ แก้ตรงนี้: ฝั่งซ้ายคือชื่อคอลัมน์ใน DB (ตัวเล็ก) = ฝั่งขวาคือค่าจาก Frontend (CamelCase)
-      employeeid: borrowData.employeeId || '', 
+      employeeid: employeeId,
       userid: borrowData.userId || '', 
       
-      department: borrowData.department || '',
+      department,
       
       borrowDate: new Date().toISOString(),
-      dueDate: borrowData.dueDate || null,
+      dueDate,
       returnDate: null,
       status: 'on_loan',
-      notes: borrowData.notes || '',
+      notes,
     })
     .select()
     .single();
 
   if (error) {
-      console.error("Database Insert Error:", error); // เพิ่ม Log ให้เห็นชัดๆ ใน Vercel Logs
+      console.error("Database Insert Error:", error);
+      // คืนจำนวนสต็อกหากบันทึกรายการยืมไม่สำเร็จ
+      try {
+        await updateLoanableStock(itemId, 'return');
+      } catch (rollbackError) {
+        console.error('Loan stock rollback failed:', rollbackError);
+      }
       throw error;
   }
 
@@ -635,10 +819,12 @@ async function borrowItem(borrowData) {
 }
 
 async function returnItem(loanId) {
+  const normalizedLoanId = Number(loanId);
+  if (!Number.isInteger(normalizedLoanId) || normalizedLoanId <= 0) throw new Error('รหัสรายการยืมไม่ถูกต้อง');
   const { data: loan, error } = await supabase
     .from('loan_transactions')
     .select('*')
-    .eq('loanId', loanId)
+    .eq('loanId', normalizedLoanId)
     .single();
   if (error) throw error;
   if (!loan) throw new Error('ไม่พบรายการยืม');
@@ -652,10 +838,18 @@ async function returnItem(loanId) {
       status: 'returned',
       returnDate: new Date().toISOString(),
     })
-    .eq('loanId', loanId);
-  if (upErr) throw upErr;
+    .eq('loanId', normalizedLoanId);
+  if (upErr) {
+    // ย้อนจำนวนสต็อกกลับหากอัปเดตสถานะรับคืนไม่สำเร็จ
+    try {
+      await updateLoanableStock(loan.itemId, 'borrow');
+    } catch (rollbackError) {
+      console.error('Return stock rollback failed:', rollbackError);
+    }
+    throw upErr;
+  }
 
-  return { returnedLoanId: loanId, updatedItem };
+  return { returnedLoanId: normalizedLoanId, updatedItem };
 }
 
 // สร้าง HMAC session token อายุ 24 ชั่วโมง
@@ -731,35 +925,59 @@ async function getNextId(tableName, colName = 'id') {
 async function updateStockLevels(items, operation = 'decrease') {
   if (!items || items.length === 0) return [];
 
-  const ids = items.map((i) => Number(i.itemId));
+  const normalizedItems = items.map(item => ({
+    itemId: Number(item?.itemId),
+    quantity: Number(item?.quantity),
+  }));
+  if (normalizedItems.some(item => !Number.isInteger(item.itemId) || item.itemId <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0)) {
+    throw new Error('รายการหรือจำนวนอุปกรณ์ไม่ถูกต้อง');
+  }
+  if (new Set(normalizedItems.map(item => item.itemId)).size !== normalizedItems.length) {
+    throw new Error('พบรายการอุปกรณ์ซ้ำ');
+  }
+
+  const ids = normalizedItems.map((item) => item.itemId);
   const { data: ppeRows, error } = await supabase
     .from('ppe_items')
     .select('*')
     .in('id', ids)
     .is('deleted_at', null);
   if (error) throw error;
+  if ((ppeRows || []).length !== ids.length) throw new Error('มีอุปกรณ์บางรายการไม่อยู่ในคลังแล้ว');
 
   const updatedItems = [];
-
-  for (const item of items) {
+  const plannedUpdates = normalizedItems.map(item => {
     const target = ppeRows.find((p) => Number(p.id) === Number(item.itemId));
-    if (!target) continue;
-
     const currentStock = Number(target.stock || 0);
-    const qty = Number(item.quantity || 0);
+    const qty = item.quantity;
     const newStock = operation === 'decrease' ? currentStock - qty : currentStock + qty;
+    if (newStock < 0) throw new Error(`สต็อก "${target.name}" ไม่เพียงพอ (คงเหลือ: ${currentStock}, ต้องการ: ${qty})`);
+    return { target, currentStock, newStock, quantity: qty };
+  });
 
-    if (newStock < 0) {
-      throw new Error(`สต็อก "${target.name}" ไม่เพียงพอ (คงเหลือ: ${currentStock}, ต้องการ: ${qty})`);
+  try {
+    for (const plan of plannedUpdates) {
+      const { data: updated, error: upErr } = await supabase
+        .from('ppe_items')
+        .update({ stock: plan.newStock })
+        .eq('id', plan.target.id)
+        .eq('stock', plan.currentStock)
+        .select('id, stock')
+        .maybeSingle();
+      if (upErr) throw upErr;
+      if (!updated) throw new Error(`สต็อก "${plan.target.name}" มีการเปลี่ยนแปลง กรุณารีเฟรชและตรวจสอบใหม่`);
+      updatedItems.push({ id: plan.target.id, stock: plan.newStock, previousStock: plan.currentStock, quantity: plan.quantity });
     }
-
-    const { error: upErr } = await supabase
-      .from('ppe_items')
-      .update({ stock: newStock })
-      .eq('id', target.id);
-    if (upErr) throw upErr;
-
-    updatedItems.push({ id: target.id, stock: newStock });
+  } catch (updateError) {
+    for (const updated of [...updatedItems].reverse()) {
+      const { error: rollbackError } = await supabase
+        .from('ppe_items')
+        .update({ stock: updated.previousStock })
+        .eq('id', updated.id)
+        .eq('stock', updated.stock);
+      if (rollbackError) console.error('Stock rollback failed:', rollbackError);
+    }
+    throw updateError;
   }
 
   return updatedItems;
@@ -978,15 +1196,33 @@ async function confirmReceive(payload) {
 
 // ✅ ฟังก์ชันลบอุปกรณ์ (เวอร์ชัน Supabase)
 async function deletePpeItem(payload) {
-  if (!payload || !payload.id) throw new Error('Missing Item ID');
+  const itemId = Number(payload?.id);
+  if (!Number.isInteger(itemId) || itemId <= 0) throw new Error('รหัสอุปกรณ์ไม่ถูกต้อง');
+
+  const [{ data: item, error: itemError }, { data: activeLoans, error: loanError }, { data: activeVouchers, error: voucherError }] = await Promise.all([
+    supabase.from('ppe_items').select('id, name').eq('id', itemId).is('deleted_at', null).maybeSingle(),
+    supabase.from('loan_transactions').select('loanId').eq('itemId', itemId).eq('status', 'on_loan').limit(1),
+    supabase.from('issue_vouchers').select('id, items').in('status', ['pending', 'processing']),
+  ]);
+  if (itemError) throw itemError;
+  if (loanError) throw loanError;
+  if (voucherError) throw voucherError;
+  if (!item) throw new Error('ไม่พบอุปกรณ์ที่ต้องการนำออก');
+  if ((activeLoans || []).length > 0) throw new Error(`ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากมีรายการยืมที่ยังไม่คืน`);
+  const pendingReference = (activeVouchers || []).find(voucher => (Array.isArray(voucher.items) ? voucher.items : []).some(entry => Number(entry.itemId) === itemId));
+  if (pendingReference) throw new Error(`ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากอยู่ในคำขอ #${pendingReference.id} ที่กำลังดำเนินการ`);
 
   // Soft delete — ตั้ง deleted_at แทนการลบจริง (กู้คืนได้จาก Supabase dashboard)
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('ppe_items')
     .update({ deleted_at: new Date().toISOString() })
-    .eq('id', payload.id);
+    .eq('id', itemId)
+    .is('deleted_at', null)
+    .select('id')
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error('อุปกรณ์ถูกนำออกจากรายการไปแล้ว กรุณารีเฟรชข้อมูล');
   return { status: 'success', message: 'Soft deleted successfully' };
 }
 
@@ -1004,16 +1240,51 @@ async function deleteVoucher(voucherId) {
 
 // ⭐⭐⭐ แก้ไขฟังก์ชันนี้ใน api/ppe.js ⭐⭐⭐
 async function saveMatrixRule(payload) {
-  // รับค่า payload แบบใหม่ (มี itemsJson, properties, department)
-  const { id, jobFunction, itemsJson, lifespan, remark, properties, department } = payload;
+  const id = payload?.id ? Number(payload.id) : null;
+  const jobFunction = String(payload?.jobFunction || '').trim();
+  const department = String(payload?.department || '').trim();
+  const remark = String(payload?.remark || '').trim();
+  const itemsJson = Array.isArray(payload?.itemsJson) ? payload.itemsJson : [];
+
+  if (!jobFunction) throw new Error('กรุณาระบุชื่องานหรือพื้นที่');
+  if (jobFunction.length > 160) throw new Error('ชื่องานยาวเกิน 160 ตัวอักษร');
+  if (department.length > 100) throw new Error('ชื่อแผนกยาวเกิน 100 ตัวอักษร');
+  if (remark.length > 1000) throw new Error('รายละเอียดงานยาวเกิน 1,000 ตัวอักษร');
+  if (itemsJson.length < 1 || itemsJson.length > 50) throw new Error('กรุณาเลือกอุปกรณ์ 1-50 รายการ');
+
+  const normalizedItems = itemsJson.map(item => ({
+    id: Number(item?.id),
+    name: String(item?.name || '').trim().slice(0, 160),
+    props: String(item?.props || '').trim().slice(0, 500),
+    lifespan: String(item?.lifespan || '').trim().slice(0, 200),
+  }));
+  if (normalizedItems.some(item => !Number.isInteger(item.id) || item.id <= 0 || !item.name)) {
+    throw new Error('กรุณาเลือกอุปกรณ์จากรายการในคลังให้ครบถ้วน');
+  }
+  if (new Set(normalizedItems.map(item => item.id)).size !== normalizedItems.length) {
+    throw new Error('พบอุปกรณ์ซ้ำในมาตรฐาน');
+  }
+
+  const itemIds = normalizedItems.map(item => item.id);
+  const { data: linkedItems, error: linkedItemsError } = await supabase
+    .from('ppe_items')
+    .select('id, name')
+    .in('id', itemIds)
+    .is('deleted_at', null);
+  if (linkedItemsError) throw linkedItemsError;
+  if ((linkedItems || []).length !== itemIds.length) {
+    throw new Error('มีอุปกรณ์บางรายการไม่อยู่ในคลังแล้ว กรุณาเลือกใหม่');
+  }
+  const linkedById = new Map(linkedItems.map(item => [Number(item.id), item]));
+  normalizedItems.forEach(item => { item.name = linkedById.get(item.id)?.name || item.name; });
   
   const dbPayload = {
     job_function: jobFunction,
-    items_json: itemsJson, // เก็บเป็น JSON Array
-    lifespan,
+    items_json: normalizedItems,
+    lifespan: '',
     remark,
-    properties,   // ฟิลด์ใหม่
-    department    // ฟิลด์ใหม่
+    properties: '',
+    department
   };
 
   if (id) {
@@ -1036,15 +1307,22 @@ async function saveMatrixRule(payload) {
 }
 
 async function deleteMatrixRule(payload) {
-  const { error } = await supabase.from('ppe_matrix').delete().eq('id', payload.id);
+  const id = Number(payload?.id);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('รหัสมาตรฐานไม่ถูกต้อง');
+  const { error } = await supabase.from('ppe_matrix').delete().eq('id', id);
   if (error) throw error;
   return { status: 'success' };
 }
 
 async function uploadDocument(payload) {
-  const { title, fileName, fileBase64, user } = payload;
+  const title = String(payload?.title || '').trim();
+  const fileName = String(payload?.fileName || '').trim();
+  const fileBase64 = String(payload?.fileBase64 || '');
+  const user = String(payload?.user || 'Admin').trim().slice(0, 100);
 
   if (!title || !fileName || !fileBase64) throw new Error('ข้อมูลไม่ครบ กรุณาระบุชื่อและไฟล์');
+  if (title.length > 200) throw new Error('ชื่อเอกสารยาวเกิน 200 ตัวอักษร');
+  if (!fileName.toLowerCase().endsWith('.pdf')) throw new Error('รองรับเฉพาะไฟล์ PDF เท่านั้น');
 
   // 1. แปลง Base64 กลับเป็น Buffer
   const buffer = Buffer.from(fileBase64, 'base64');
@@ -1101,17 +1379,25 @@ async function uploadDocument(payload) {
 }
 
 async function deleteDocument(payload) {
-  const { id, fileUrl } = payload;
+  const id = Number(payload?.id);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('รหัสเอกสารไม่ถูกต้อง');
+
+  const { data: existingDoc, error: readError } = await supabase
+    .from('ppe_documents')
+    .select('file_url')
+    .eq('id', id)
+    .maybeSingle();
+  if (readError) throw readError;
 
   // 1. ลบจาก Database
   const { error: dbError } = await supabase.from('ppe_documents').delete().eq('id', id);
   if (dbError) throw dbError;
 
   // 2. ลบไฟล์จาก Storage เพื่อไม่ให้เปลืองพื้นที่
-  if (fileUrl) {
+  if (existingDoc?.file_url) {
     try {
-      const urlParts = fileUrl.split('/');
-      const storageFileName = urlParts[urlParts.length - 1];
+      const parsedUrl = new URL(existingDoc.file_url);
+      const storageFileName = decodeURIComponent(parsedUrl.pathname.split('/').pop() || '');
       if (storageFileName) {
         await supabase.storage.from('documents').remove([storageFileName]);
       }
