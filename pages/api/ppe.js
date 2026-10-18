@@ -8,6 +8,7 @@ import { createNotificationWorkflows } from '../../lib/notification-workflows.js
 import { createPpeFlexMessage } from '../../lib/line-flex.js';
 import { findIncompleteReceivedVoucher, parseVoucherItems } from '../../lib/feedback-policy.js';
 import { withApiObservability } from '../../lib/api-observability.js';
+import { getNextPpeCode } from '../../lib/ppe-code.js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
@@ -631,6 +632,15 @@ async function saveFeedback(payload, auth) {
 
 // ------------------------- ฟังก์ชันเดิมของคุณ (ไม่ต้องแก้) -------------------------
 
+async function getNextAvailablePpeCode() {
+  const { data, error } = await supabase
+    .from('ppe_items')
+    .select('code')
+    .ilike('code', 'PPE%');
+  if (error) throw error;
+  return getNextPpeCode(data || []);
+}
+
 async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   const ppeItemsQuery = auth.isAdmin
     ? supabase.from('ppe_items').select('*').is('deleted_at', null)
@@ -658,9 +668,10 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   let receiveTransactions = [];
   let loanTransactions = [];
   let feedback = [];
+  let nextPpeCode = null;
   let notificationFailures = { count: 0, recent: [], available: true };
   if (auth.isAdmin) {
-    const [issues, receives, loans, feedbacks, failedNotifications, receiveAudits] = await Promise.all([
+    const [issues, receives, loans, feedbacks, failedNotifications, receiveAudits, generatedPpeCode] = await Promise.all([
       supabase.from('issue_vouchers').select('*'),
       supabase.from('receive_transactions').select('*'),
       supabase.from('loan_transactions').select('*'),
@@ -677,7 +688,9 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
         .eq('action', 'addReceiveTransaction')
         .eq('entity_type', 'receive_transactions')
         .order('created_at', { ascending: false }),
+      getNextAvailablePpeCode(),
     ]);
+    nextPpeCode = generatedPpeCode;
     issueVouchers = issues.data || [];
     const receiveAuditById = new Map(
       (receiveAudits.data || []).map(entry => [String(entry.entity_id), entry.details || {}])
@@ -741,6 +754,7 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
     feedbackData: feedback, 
     ppeMatrix,
     ppeDocuments, // ⭐ ส่งกลับหน้าบ้าน
+    nextPpeCode,
     dashboardMetrics: {
       totalStockValue,
       topIssuedItems,
@@ -806,7 +820,7 @@ async function savePpeItem(itemData) {
   if (!itemData) throw new Error('Missing item data');
 
   const id = itemData.id ? Number(itemData.id) : null;
-  const code = String(itemData.code || '').trim().toUpperCase();
+  let code = '';
   const name = String(itemData.name || '').trim();
   const category = String(itemData.category || '').trim();
   const unit = String(itemData.unit || '').trim();
@@ -816,7 +830,6 @@ async function savePpeItem(itemData) {
   const imageUrl = String(itemData.imageUrl || '').trim();
 
   if (id !== null && (!Number.isInteger(id) || id <= 0)) throw new Error('รหัสอุปกรณ์ไม่ถูกต้อง');
-  if (!code || code.length > 50) throw new Error('กรุณาระบุรหัสอุปกรณ์ไม่เกิน 50 ตัวอักษร');
   if (!name || name.length > 150) throw new Error('กรุณาระบุชื่ออุปกรณ์ไม่เกิน 150 ตัวอักษร');
   if (!category || category.length > 100) throw new Error('กรุณาเลือกหมวดหมู่ให้ถูกต้อง');
   if (!unit || unit.length > 30) throw new Error('กรุณาระบุหน่วยนับไม่เกิน 30 ตัวอักษร');
@@ -832,15 +845,14 @@ async function savePpeItem(itemData) {
     }
   }
 
-  const [{ data: validCategory, error: categoryError }, { data: duplicateCodes, error: duplicateError }] = await Promise.all([
-    supabase.from('categories').select('id').eq('name', category).limit(1).maybeSingle(),
-    supabase.from('ppe_items').select('id, name').ilike('code', code).is('deleted_at', null),
-  ]);
+  const { data: validCategory, error: categoryError } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('name', category)
+    .limit(1)
+    .maybeSingle();
   if (categoryError) throw categoryError;
-  if (duplicateError) throw duplicateError;
   if (!validCategory) throw new Error('ไม่พบหมวดหมู่ที่เลือก กรุณารีเฟรชข้อมูลแล้วลองใหม่');
-  const duplicate = (duplicateCodes || []).find(item => Number(item.id) !== id);
-  if (duplicate) throw new Error(`รหัส ${code} ถูกใช้กับอุปกรณ์ “${duplicate.name}” แล้ว`);
 
   let existingItem = null;
   if (id !== null) {
@@ -854,6 +866,12 @@ async function savePpeItem(itemData) {
     if (!data) throw new Error('ไม่พบอุปกรณ์ที่ต้องการแก้ไข กรุณารีเฟรชข้อมูล');
     existingItem = data;
   }
+
+  // Codes are immutable after creation. Generate from all historical rows,
+  // including soft-deleted items, so an old PPE code is never reused.
+  code = existingItem
+    ? String(existingItem.code || '').trim().toUpperCase()
+    : await getNextAvailablePpeCode();
 
   const payload = {
     code,
@@ -1742,20 +1760,28 @@ async function confirmReceive(payload, auth) {
 // ✅ ฟังก์ชันลบอุปกรณ์ (เวอร์ชัน Supabase)
 async function deletePpeItem(payload) {
   const itemId = Number(payload?.id);
-  if (!Number.isInteger(itemId) || itemId <= 0) throw new Error('รหัสอุปกรณ์ไม่ถูกต้อง');
+  if (!Number.isInteger(itemId) || itemId <= 0) {
+    throw createHttpError(400, 'รหัสอุปกรณ์ไม่ถูกต้อง');
+  }
 
   const [{ data: item, error: itemError }, { data: activeLoans, error: loanError }, { data: activeVouchers, error: voucherError }] = await Promise.all([
     supabase.from('ppe_items').select('id, name').eq('id', itemId).is('deleted_at', null).maybeSingle(),
     supabase.from('loan_transactions').select('loanId').eq('itemId', itemId).eq('status', 'on_loan').limit(1),
-    supabase.from('issue_vouchers').select('id, items').in('status', ['pending', 'processing']),
+    supabase.from('issue_vouchers').select('id, itemsJson').in('status', ['pending', 'processing']),
   ]);
   if (itemError) throw itemError;
   if (loanError) throw loanError;
   if (voucherError) throw voucherError;
-  if (!item) throw new Error('ไม่พบอุปกรณ์ที่ต้องการนำออก');
-  if ((activeLoans || []).length > 0) throw new Error(`ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากมีรายการยืมที่ยังไม่คืน`);
-  const pendingReference = (activeVouchers || []).find(voucher => (Array.isArray(voucher.items) ? voucher.items : []).some(entry => Number(entry.itemId) === itemId));
-  if (pendingReference) throw new Error(`ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากอยู่ในคำขอ #${pendingReference.id} ที่กำลังดำเนินการ`);
+  if (!item) throw createHttpError(404, 'ไม่พบอุปกรณ์ที่ต้องการนำออก');
+  if ((activeLoans || []).length > 0) {
+    throw createHttpError(409, `ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากมีรายการยืมที่ยังไม่คืน`);
+  }
+  const pendingReference = (activeVouchers || []).find(voucher => (
+    parseVoucherItems(voucher.itemsJson).some(entry => Number(entry.itemId) === itemId)
+  ));
+  if (pendingReference) {
+    throw createHttpError(409, `ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากอยู่ในคำขอ #${pendingReference.id} ที่กำลังดำเนินการ`);
+  }
 
   // Soft delete — ตั้ง deleted_at แทนการลบจริง (กู้คืนได้จาก Supabase dashboard)
   const { data, error } = await supabase
@@ -1767,7 +1793,7 @@ async function deletePpeItem(payload) {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('อุปกรณ์ถูกนำออกจากรายการไปแล้ว กรุณารีเฟรชข้อมูล');
+  if (!data) throw createHttpError(409, 'อุปกรณ์ถูกนำออกจากรายการไปแล้ว กรุณารีเฟรชข้อมูล');
   return { status: 'success', message: 'Soft deleted successfully' };
 }
 

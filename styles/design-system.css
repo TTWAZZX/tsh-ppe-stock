@@ -626,10 +626,27 @@
         .ui-toast {
             width: min(24rem, calc(100vw - 1.5rem));
             min-height: 3.25rem;
+            position: relative;
+            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, .24);
             border-radius: var(--radius-control) !important;
             box-shadow: 0 14px 34px rgba(11, 31, 58, .22) !important;
             font-weight: 600;
+        }
+        .ui-toast::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, .72);
+            transform-origin: left center;
+            animation: toast-countdown var(--toast-duration, 4000ms) linear forwards;
+        }
+        @keyframes toast-countdown {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
         }
         .ui-toast-success { background: #047857 !important; }
         .ui-toast-warning { background: #b45309 !important; }

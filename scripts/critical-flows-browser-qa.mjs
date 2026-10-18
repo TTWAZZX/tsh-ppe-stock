@@ -77,6 +77,29 @@ try {
     await page.locator('#reportTabTransactions').click();
     assert.equal(await page.locator('#reportTransactionsPanel').isVisible(), true, `${viewport.name} report tab should switch panels`);
 
+    await page.evaluate(() => {
+      isAdmin = true;
+      updateAdminUI();
+      showPage('stock');
+      filterStock();
+    });
+    const editStockButton = page.locator('#stockGrid button[onclick^="editItem"]').first();
+    await editStockButton.click();
+    assert.equal(await page.locator('#managePage').isVisible(), true, `${viewport.name} stock edit should open manage page`);
+    assert.notEqual(await page.locator('#editItemId').inputValue(), '', `${viewport.name} stock edit should select an item`);
+    assert.notEqual(await page.locator('#itemName').inputValue(), '', `${viewport.name} stock edit should populate the form`);
+    assert.equal(await page.locator('#itemCode').isEditable(), false, `${viewport.name} PPE code should be read-only`);
+    assert.match(await page.locator('#itemCodeStatus').innerText(), /^รหัสเดิม PPE\d+$/i, `${viewport.name} edit mode should identify the locked code`);
+
+    await page.evaluate(() => resetManageForm());
+    assert.match(await page.locator('#itemCode').inputValue(), /^PPE\d{3,}$/i, `${viewport.name} create mode should preview the next PPE code`);
+    assert.match(await page.locator('#itemCodeStatus').innerText(), /^รหัสถัดไป PPE\d+$/i, `${viewport.name} create mode should expose code progress to admin`);
+
+    await page.evaluate(() => window.showToast('QA auto-dismiss', 'success', { duration: 120 }));
+    assert.equal(await page.getByText('QA auto-dismiss').isVisible(), true, `${viewport.name} toast should be visible initially`);
+    await page.waitForTimeout(550);
+    assert.equal(await page.getByText('QA auto-dismiss').count(), 0, `${viewport.name} toast should dismiss automatically`);
+
     await page.evaluate(() => window.PpeObservability.showFatal(new Error('QA synthetic failure')));
     assert.equal(await page.locator('#fatalErrorFallback').isVisible(), true, `${viewport.name} fatal fallback should be visible`);
     assert.equal(await page.locator('#fatalErrorFallback button').evaluate(element => element === document.activeElement), true, `${viewport.name} fatal fallback should move focus`);

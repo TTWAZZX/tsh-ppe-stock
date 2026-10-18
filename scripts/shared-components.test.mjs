@@ -56,7 +56,7 @@ test('every user and admin module participates in the shared component layer', (
 
 test('dynamic empty states and toasts use shared components', () => {
   assert.match(html, /return `<div class="ui-empty-state">/);
-  assert.match(html, /toast ui-toast ui-toast-\$\{type\}/);
+  assert.match(html, /toast ui-toast ui-toast-\$\{normalizedType\}/);
   assert.match(source, /loadingPanel\?\.classList\.add\('ui-loading-panel'\)/);
   assert.match(source, /modal\.setAttribute\('role', 'dialog'\)/);
 });

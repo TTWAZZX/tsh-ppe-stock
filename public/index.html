@@ -1026,12 +1026,19 @@
 
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">รหัส (Code) <span class="text-red-500">*</span></label>
-                                        <input type="text" id="itemCode" required maxlength="50" autocomplete="off" placeholder="เช่น PPE001" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase">
+                                        <label for="itemCode" class="block h-5 text-xs font-bold text-gray-700 mb-1">รหัสอัตโนมัติ (Code)</label>
+                                        <input type="text" id="itemCode" required readonly aria-readonly="true" aria-describedby="itemCodeHelp" class="w-full px-3 py-2 border border-blue-200 bg-blue-50/70 text-blue-900 font-mono font-bold tracking-wide rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-not-allowed uppercase">
+                                        <div class="mt-1 min-h-12 space-y-1">
+                                            <span id="itemCodeStatus" class="inline-flex text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">กำลังตรวจสอบ…</span>
+                                            <p id="itemCodeHelp" class="text-[11px] leading-4 text-gray-500">ระบบจะกำหนดรหัสถัดไปและยืนยันอีกครั้งเมื่อบันทึก</p>
+                                        </div>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">หน่วยนับ <span class="text-red-500">*</span></label>
-                                        <input type="text" id="itemUnit" required maxlength="30" autocomplete="off" placeholder="เช่น อัน, คู่, ชุด" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <label for="itemUnit" class="block h-5 text-xs font-bold text-gray-700 mb-1">หน่วยนับ <span class="text-red-500">*</span></label>
+                                        <input type="text" id="itemUnit" required maxlength="30" autocomplete="off" aria-describedby="itemUnitHelp" placeholder="เช่น อัน, คู่, ชุด" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <div class="mt-1 min-h-12">
+                                            <p id="itemUnitHelp" class="text-[11px] leading-4 text-gray-500">ระบุหน่วยที่ใช้รับเข้า เบิกจ่าย และแสดงในรายงาน</p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -2344,7 +2351,7 @@
         updateNetworkStatus(false);
         await refreshData(_activePage, { announce: true });
     }
-    let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], dashboardMetrics: {} };
+    let currentData = { ppeItems: [], issueVouchers: [], receiveTransactions: [], loanTransactions: [], categories: [], nextPpeCode: null, dashboardMetrics: {} };
     let categoryChartInstance = null;
     let topIssuedItemsChartInstance = null;
 
@@ -2692,6 +2699,7 @@
         if (!currentData.feedbackData) currentData.feedbackData = [];
         if (!currentData.ppeMatrix) currentData.ppeMatrix = [];
         if (!currentData.ppeDocuments) currentData.ppeDocuments = [];
+        if (!/^PPE\d+$/i.test(String(currentData.nextPpeCode || ''))) currentData.nextPpeCode = null;
 
         window.departments = data.departments || [];
 
@@ -2700,6 +2708,7 @@
 
         // ✅ หัวใจสำคัญ: สั่งให้หน้าจออัปเดตข้อมูลทันทีหลังจากโหลดเสร็จ
         updateUI();
+        syncManageItemCode();
         if (_activePage === 'issue') restoreIssueDraft();
         // หน้า Matrix อาจถูกเปิดจาก URL hash ก่อนคำขอข้อมูลจะเสร็จ
         // จึงต้องวาดซ้ำหลัง currentData ได้รับข้อมูลจริงจาก API
@@ -2877,6 +2886,10 @@
         // ⭐⭐⭐ ต้องมีบรรทัดนี้ เพื่อให้โหลดข้อมูลเมื่อกดเมนู ⭐⭐⭐
         if (pageName === 'matrix') {
             initMatrixPage();
+        }
+
+        if (pageName === 'manage') {
+            syncManageItemCode();
         }
 
         // --- Dashboard ---
@@ -3180,39 +3193,61 @@
     function hideDashboardSkeleton() {
         LoadingManager.stop('page.dashboard');
     }
-    function showToast(message, type = 'success') {
+    function showToast(message, type = 'success', options = {}) {
         const toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) return null;
         const toast = document.createElement('div');
         const config = {
-            success: { icon: 'fa-check-circle',          bg: 'bg-emerald-700' },
-            error:   { icon: 'fa-exclamation-circle',    bg: 'bg-red-700'    },
-            warning: { icon: 'fa-triangle-exclamation',  bg: 'bg-amber-700'  },
+            success: { icon: 'fa-check-circle',         bg: 'bg-emerald-700', duration: 4000 },
+            error:   { icon: 'fa-exclamation-circle',   bg: 'bg-red-700',     duration: 8000 },
+            warning: { icon: 'fa-triangle-exclamation', bg: 'bg-amber-700',   duration: 6500 },
         };
-        const { icon, bg } = config[type] || config.error;
-        toast.className = `toast ui-toast ui-toast-${type} px-4 py-2 text-white ${bg} flex items-center gap-3`;
-        toast.setAttribute('role', type === 'error' || type === 'warning' ? 'alert' : 'status');
-        toast.setAttribute('aria-live', type === 'error' || type === 'warning' ? 'assertive' : 'polite');
+        const normalizedType = config[type] ? type : 'error';
+        const { icon, bg, duration: defaultDuration } = config[normalizedType];
+        const requestedDuration = Number(options.duration);
+        const duration = Number.isFinite(requestedDuration)
+            ? Math.min(15000, Math.max(100, requestedDuration))
+            : defaultDuration;
+        const messageText = String(message || '');
+
+        // Prevent duplicate notices and keep the notification stack compact.
+        Array.from(toastContainer.children).forEach(existingToast => {
+            if (existingToast.dataset.toastMessage === messageText) existingToast.remove();
+        });
+        while (toastContainer.children.length >= 4) toastContainer.firstElementChild?.remove();
+
+        toast.className = `toast ui-toast ui-toast-${normalizedType} px-4 py-2 text-white ${bg} flex items-center gap-3`;
+        toast.dataset.toastMessage = messageText;
+        toast.dataset.autoDismiss = 'true';
+        toast.style.setProperty('--toast-duration', `${duration}ms`);
+        toast.setAttribute('role', normalizedType === 'error' || normalizedType === 'warning' ? 'alert' : 'status');
+        toast.setAttribute('aria-live', normalizedType === 'error' || normalizedType === 'warning' ? 'assertive' : 'polite');
         toast.setAttribute('aria-atomic', 'true');
         const iconElement = document.createElement('i');
         iconElement.className = `fas ${icon} text-xl`;
         iconElement.setAttribute('aria-hidden', 'true');
         const messageElement = document.createElement('span');
         messageElement.className = 'flex-1';
-        messageElement.textContent = String(message || '');
+        messageElement.textContent = messageText;
         const closeButton = document.createElement('button');
         closeButton.type = 'button';
         closeButton.className = 'flex items-center justify-center rounded-lg text-white/80 hover:bg-white/15 hover:text-white';
         closeButton.setAttribute('aria-label', 'ปิดข้อความแจ้งเตือน');
         closeButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        let dismissed = false;
+        let timeoutId = null;
         const dismiss = () => {
+            if (dismissed) return;
+            dismissed = true;
+            if (timeoutId) clearTimeout(timeoutId);
             toast.classList.add('hide');
             setTimeout(() => toast.remove(), 320);
         };
         closeButton.addEventListener('click', dismiss);
         toast.append(iconElement, messageElement, closeButton);
         toastContainer.appendChild(toast);
-        const timeout = setTimeout(dismiss, type === 'success' ? 4000 : 6500);
-        toast.addEventListener('mouseenter', () => clearTimeout(timeout), { once: true });
+        timeoutId = setTimeout(dismiss, duration);
+        return toast;
     }
 
     function getActiveHistoryTab() {
@@ -6529,6 +6564,42 @@
 
     let isSavingManageItem = false;
 
+    function getNextPpeCodePreview() {
+        const serverCode = String(currentData.nextPpeCode || '').trim().toUpperCase();
+        if (/^PPE\d+$/.test(serverCode)) return serverCode;
+
+        const highest = (currentData.ppeItems || []).reduce((max, item) => {
+            const match = String(item?.code || '').trim().match(/^PPE(\d+)$/i);
+            return match ? Math.max(max, Number(match[1]) || 0) : max;
+        }, 0);
+        return `PPE${String(highest + 1).padStart(3, '0')}`;
+    }
+
+    function getFollowingPpeCode(code) {
+        const match = String(code || '').trim().match(/^PPE(\d+)$/i);
+        if (!match) return null;
+        return `PPE${String((Number(match[1]) || 0) + 1).padStart(3, '0')}`;
+    }
+
+    function syncManageItemCode() {
+        const input = document.getElementById('itemCode');
+        const status = document.getElementById('itemCodeStatus');
+        const help = document.getElementById('itemCodeHelp');
+        if (!input) return;
+
+        const editing = Boolean(document.getElementById('editItemId')?.value);
+        if (editing) {
+            if (status) status.textContent = `รหัสเดิม ${input.value || '-'}`;
+            if (help) help.textContent = 'รหัสเดิมถูกล็อกไว้เพื่อรักษาประวัติและการเชื่อมโยงข้อมูล';
+            return;
+        }
+
+        const nextCode = getNextPpeCodePreview();
+        input.value = nextCode;
+        if (status) status.textContent = `รหัสถัดไป ${nextCode}`;
+        if (help) help.textContent = 'ระบบเรียงต่อจากรหัส PPE สูงสุดเดิม และจะยืนยันรหัสจริงอีกครั้งเมื่อบันทึก';
+    }
+
     function setManageFormBusy(isBusy) {
         const button = document.getElementById('manageSubmitBtn');
         const text = document.getElementById('manageSubmitText');
@@ -6570,9 +6641,6 @@
             return showToast('ลิงก์รูปภาพต้องขึ้นต้นด้วย https://', 'error');
         }
 
-        const duplicate = currentData.ppeItems.find(item => String(item.code || '').trim().toUpperCase() === code && Number(item.id) !== editId);
-        if (duplicate) return showToast(`รหัส ${code} ถูกใช้กับ “${duplicate.name}” แล้ว`, 'error');
-
         const originalItem = editId ? currentData.ppeItems.find(item => Number(item.id) === editId) : null;
         if (originalItem && Number(originalItem.stock) !== stock) {
             const confirmed = await showConfirmationModal(
@@ -6600,7 +6668,8 @@
         try {
             const result = await callServerFunction('savePpeItem', itemData);
             if (!result) return;
-            showToast(`บันทึกข้อมูล "${result.item.name}" สำเร็จ`);
+            if (result.isNew) currentData.nextPpeCode = getFollowingPpeCode(result.item.code);
+            showToast(`บันทึก ${result.item.code} · "${result.item.name}" สำเร็จ`);
             resetManageForm();
             await refreshData('manage');
         } catch (error) {
@@ -6614,9 +6683,15 @@
     function editItem(itemId) {
         const item = currentData.ppeItems.find(p => p.id == itemId);
         if (item) {
+            // The edit action is shared by the stock catalog and the manage list.
+            // Always reveal the form before filling it so the action never appears silent.
+            if (document.getElementById('managePage')?.classList.contains('hidden')) {
+                showPage('manage');
+            }
             // ... (โค้ด set value เดิม) ...
             document.getElementById('editItemId').value = item.id;
             document.getElementById('itemCode').value = item.code;
+            syncManageItemCode();
             document.getElementById('itemName').value = item.name;
             document.getElementById('itemCategory').value = item.category;
             document.getElementById('itemUnit').value = item.unit;
@@ -6633,7 +6708,14 @@
             updateImagePreview(item.image_url);
 
             // เลื่อนจอขึ้นไปหาฟอร์ม (Mobile สะดวกขึ้น)
-            document.getElementById('managePage').scrollIntoView({ behavior: 'smooth' });
+            const manageForm = document.getElementById('manageForm');
+            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            requestAnimationFrame(() => {
+                manageForm?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+                document.getElementById('itemName')?.focus({ preventScroll: true });
+            });
+        } else {
+            showToast('ไม่พบอุปกรณ์ที่ต้องการแก้ไข กรุณารีเฟรชข้อมูล', 'error');
         }
     }
 
@@ -6669,6 +6751,7 @@
         const submitText = document.getElementById('manageSubmitText');
         if (submitText) submitText.textContent = 'บันทึก';
         updateImagePreview(''); // รีเซ็ตรูป
+        syncManageItemCode();
         document.getElementById('itemName')?.focus({ preventScroll: true });
     }
 
