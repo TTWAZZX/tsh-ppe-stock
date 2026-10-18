@@ -136,6 +136,12 @@ async function apiRefresh(action, payload = null) {
 
 async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
   const requestController = new AbortController();
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
+  const requestStartedAt = now();
+  const requestId = globalThis.crypto?.randomUUID?.() || `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  let metricStatus = 0;
+  let metricOutcome = 'failure';
+  let metricRequestId = requestId;
   let timedOut = false;
   let timeoutId = null;
   const abortFromParent = () => requestController.abort(signal?.reason);
@@ -153,10 +159,13 @@ async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
   try {
     const response = await fetch('/api/ppe', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Request-Id': requestId },
       body:    JSON.stringify(body),
       signal:  requestController.signal,
     });
+    metricStatus = response.status;
+    metricRequestId = response.headers?.get?.('x-request-id') || requestId;
+    metricOutcome = response.ok ? 'success' : 'failure';
 
     if (signal?.aborted) return null;
 
@@ -203,6 +212,14 @@ async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
     }
     throw error;
   } finally {
+    window.PpeObservability?.recordApiMetric({
+      route: '/api/ppe',
+      method: 'POST',
+      status: metricStatus,
+      durationMs: Math.round((now() - requestStartedAt) * 10) / 10,
+      outcome: metricOutcome,
+      requestId: metricRequestId,
+    });
     if (timeoutId !== null) clearTimeout(timeoutId);
     signal?.removeEventListener('abort', abortFromParent);
   }

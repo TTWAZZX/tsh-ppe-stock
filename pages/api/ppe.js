@@ -7,6 +7,7 @@ import { createLineNotificationService } from '../../lib/notification-service.js
 import { createNotificationWorkflows } from '../../lib/notification-workflows.js';
 import { createPpeFlexMessage } from '../../lib/line-flex.js';
 import { findIncompleteReceivedVoucher, parseVoucherItems } from '../../lib/feedback-policy.js';
+import { withApiObservability } from '../../lib/api-observability.js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
@@ -62,7 +63,7 @@ export const config = {
   },
 };
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -254,6 +255,8 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default withApiObservability('/api/ppe', handler);
 
 // ------------------------- Enterprise Helper Functions -------------------------
 
@@ -657,7 +660,7 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   let feedback = [];
   let notificationFailures = { count: 0, recent: [], available: true };
   if (auth.isAdmin) {
-    const [issues, receives, loans, feedbacks, failedNotifications] = await Promise.all([
+    const [issues, receives, loans, feedbacks, failedNotifications, receiveAudits] = await Promise.all([
       supabase.from('issue_vouchers').select('*'),
       supabase.from('receive_transactions').select('*'),
       supabase.from('loan_transactions').select('*'),
@@ -668,9 +671,32 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
         .in('status', ['failed', 'retry_scheduled'])
         .order('updated_at', { ascending: false })
         .limit(5),
+      supabase
+        .from('audit_log')
+        .select('entity_id, details, created_at')
+        .eq('action', 'addReceiveTransaction')
+        .eq('entity_type', 'receive_transactions')
+        .order('created_at', { ascending: false }),
     ]);
     issueVouchers = issues.data || [];
-    receiveTransactions = receives.data || [];
+    const receiveAuditById = new Map(
+      (receiveAudits.data || []).map(entry => [String(entry.entity_id), entry.details || {}])
+    );
+    receiveTransactions = (receives.data || []).map(transaction => {
+      const details = receiveAuditById.get(String(transaction.id)) || {};
+      const itemId = Number(details.itemId || transaction.itemId || transaction.item_id || 0);
+      const item = itemId > 0 ? ppeItems.find(entry => Number(entry.id) === itemId) : null;
+      const storedName = String(transaction.itemName || transaction.item_name || '').trim();
+      const isGenericName = !storedName || ['อุปกรณ์', 'unknown', 'unknown item'].includes(storedName.toLowerCase());
+      return {
+        ...transaction,
+        itemId: itemId || null,
+        itemName: isGenericName ? (item?.name || storedName) : storedName,
+        itemCode: item?.code || '',
+        itemImageUrl: item?.image_url || '',
+        unit: item?.unit || 'หน่วย',
+      };
+    });
     loanTransactions = loans.data || [];
     feedback = feedbacks.data || [];
     notificationFailures = failedNotifications.error

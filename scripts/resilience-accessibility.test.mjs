@@ -3,6 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+const designSystem = await readFile(new URL('../styles/design-system.css', import.meta.url), 'utf8');
+const accessibilityManager = await readFile(new URL('../public/js/accessibility-manager.js', import.meta.url), 'utf8');
+const source = `${html}\n${designSystem}\n${accessibilityManager}`;
 
 test('shared refresh flow deduplicates work and exposes accessible busy state', () => {
   assert.match(html, /let refreshDataPromise = null;/);
@@ -36,6 +39,7 @@ test('global accessibility includes skip navigation, live status, dialog semanti
   assert.match(html, /id="mainContent" tabindex="-1"/);
   assert.match(html, /id="matrixRuleModal".*role="dialog".*aria-modal="true"/);
   assert.match(html, /id="uploadDocModal".*role="dialog".*aria-modal="true"/);
-  assert.match(html, /if \(event\.key !== 'Escape'\) return;/);
-  assert.match(html, /:focus-visible/);
+  assert.match(source, /event\.key === 'Escape' && activeModal/);
+  assert.match(source, /event\.key === 'Tab' && activeModal/);
+  assert.match(source, /:focus-visible/);
 });

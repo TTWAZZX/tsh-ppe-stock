@@ -5,11 +5,40 @@
     { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
+    {
+      "src": "/(.*)",
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.line-scdn.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co; frame-src 'self' blob: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://*.line.me; upgrade-insecure-requests",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
+        "X-Content-Type-Options": "nosniff",
+        "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload"
+      },
+      "continue": true
+    },
     { "src": "^/$", "dest": "/index.html" },
     {
-      "src": "/(.*)\\.(js|css|png|jpg|jpeg|gif|ico|svg|webp)$",
+      "src": "/api/(.*)",
+      "headers": {
+        "Cache-Control": "private, no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/(vendor|fonts)/(.*)",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "src": "/(.*)\\.(png|jpg|jpeg|gif|ico|svg|webp|woff2|webmanifest)$",
+      "headers": {
+        "Cache-Control": "public, max-age=2592000, stale-while-revalidate=604800"
+      }
+    },
+    {
+      "src": "/(.*)\\.(js|css)$",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate"
       }
     },
     {

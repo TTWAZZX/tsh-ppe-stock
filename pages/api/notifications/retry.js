@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { createLineNotificationService } from '../../../lib/notification-service.js';
 import { createNotificationWorkflows } from '../../../lib/notification-workflows.js';
+import { withApiObservability } from '../../../lib/api-observability.js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -26,7 +27,7 @@ function secretMatches(provided, expected) {
   return providedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ status: 'error', message: 'Method not allowed' });
@@ -49,3 +50,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ status: 'error', message: 'Notification retry failed' });
   }
 }
+
+export default withApiObservability('/api/notifications/retry', handler);
