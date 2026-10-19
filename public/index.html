@@ -2234,6 +2234,7 @@
 
 <script src="/js/vendor-loader.js"></script>
 <script src="/js/accessibility-manager.js"></script>
+<script src="/js/line-session.js"></script>
 
 <script>
     // ===========================================
@@ -2509,13 +2510,24 @@
 
         try {
             const liffSdk = await window.PpeVendorLoader.loadLiff();
-            if (liffSdk.isLoggedIn()) liffSdk.logout();
-            liffSdk.login({ redirectUri: window.location.href });
+            const moduleName = normalizeModuleName(window.location.hash) || _activePage || 'dashboard';
+            window.PpeLineSession.restartAuthentication({
+                liffSdk,
+                liffId: LIFF_ID,
+                currentUrl: window.location.href,
+                moduleName,
+                navigate: url => window.location.replace(url),
+            });
             return true;
         } catch (error) {
             console.error('Unable to restart LINE Login:', error);
             const moduleName = normalizeModuleName(window.location.hash) || _activePage || 'dashboard';
-            window.location.assign(`https://liff.line.me/${LIFF_ID}?module=${encodeURIComponent(moduleName)}`);
+            const restartUrl = window.PpeLineSession?.buildLiffRestartUrl(
+                LIFF_ID,
+                window.location.href,
+                moduleName,
+            ) || `https://liff.line.me/${LIFF_ID}?module=${encodeURIComponent(moduleName)}`;
+            window.location.replace(restartUrl);
             return true;
         }
     };
