@@ -1,4 +1,4 @@
-name: Deploy to Vercel
+name: CI
 
 on:
   push:
@@ -30,36 +30,3 @@ jobs:
           ADMIN_USERNAME: ci_test
           ADMIN_PASSWORD_BASE64: dGVzdA==
           SESSION_SECRET: ci-test-secret-placeholder-32chars
-
-  deploy-preview:
-    name: Deploy Preview (PR)
-    runs-on: ubuntu-latest
-    needs: lint-and-check
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to Vercel (Preview)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy-production:
-    name: Deploy Production
-    runs-on: ubuntu-latest
-    needs: lint-and-check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to Vercel (Production)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
