@@ -22,14 +22,19 @@
     function restartAuthentication({ liffSdk, liffId, currentUrl, moduleName, navigate }) {
         const isInLiffClient = Boolean(liffSdk.isInClient?.());
 
-        if (liffSdk.isLoggedIn?.()) liffSdk.logout();
-
         if (isInLiffClient) {
-            const restartUrl = buildLiffRestartUrl(liffId, currentUrl, moduleName);
+            // liff.login() cannot be used inside the LIFF browser. Re-enter the
+            // LIFF URL instead so liff.init() performs its automatic login and
+            // token validation again. A nonce prevents LINE's recent-app resume
+            // behavior from restoring the same stale page state.
+            const restartUrlObject = new URL(buildLiffRestartUrl(liffId, currentUrl, moduleName));
+            restartUrlObject.searchParams.set('reauth', String(Date.now()));
+            const restartUrl = restartUrlObject.toString();
             navigate(restartUrl);
             return { method: 'liff-url', url: restartUrl };
         }
 
+        if (liffSdk.isLoggedIn?.()) liffSdk.logout();
         liffSdk.login({ redirectUri: currentUrl });
         return { method: 'line-login', url: currentUrl };
     }

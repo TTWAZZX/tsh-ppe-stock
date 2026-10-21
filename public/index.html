@@ -2493,7 +2493,10 @@
     let lineReauthInProgress = false;
 
     window.handleLineSessionExpired = async function(message = '') {
-        if (isAdmin || IS_LOCAL_DEVELOPMENT || lineReauthInProgress) return false;
+        if (isAdmin || IS_LOCAL_DEVELOPMENT) return false;
+        // Concurrent requests can all receive 401 before the first navigation
+        // starts. Treat them as handled so they do not show duplicate errors.
+        if (lineReauthInProgress) return true;
 
         const lastAttempt = Number(sessionStorage.getItem(LINE_REAUTH_KEY) || 0);
         if (lastAttempt && Date.now() - lastAttempt < 60_000) {
@@ -2594,11 +2597,14 @@
                 // 1. Load and initialize LIFF only for hosted user flows.
                 LoadingManager.updateSplash('กำลังเชื่อมต่อ LINE…', 25);
                 const liffSdk = await window.PpeVendorLoader.loadLiff();
-                await liffSdk.init({ liffId: LIFF_ID });
+                await liffSdk.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
 
                 if (liffSdk.isLoggedIn()) {
                     window._lineAccessToken = liffSdk.getAccessToken();
-                    if (!window._lineAccessToken) throw new Error('ไม่พบ LINE access token กรุณาเข้าสู่ระบบใหม่');
+                    if (!window._lineAccessToken) {
+                        await window.handleLineSessionExpired('ไม่พบเซสชัน LINE กำลังเข้าสู่ระบบใหม่…');
+                        return;
+                    }
                     LoadingManager.updateSplash('กำลังตรวจสอบสิทธิ์…', 55);
                     liffProfile = await liffSdk.getProfile();
 
@@ -2618,7 +2624,11 @@
                     if (!isAdmin) setupUserInterface();
                 } else {
                     LoadingManager.updateSplash('กำลังเปลี่ยนเส้นทางไป LINE…', 40);
-                    liffSdk.login();
+                    if (liffSdk.isInClient?.()) {
+                        await window.handleLineSessionExpired('เซสชัน LINE ไม่พร้อมใช้งาน กำลังเข้าสู่ระบบใหม่…');
+                    } else {
+                        liffSdk.login({ redirectUri: window.location.href });
+                    }
                     return;
                 }
             }

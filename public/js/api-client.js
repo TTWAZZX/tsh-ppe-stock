@@ -90,13 +90,28 @@ async function apiCall(action, payload = null, options = {}) {
     throw offlineError;
   }
 
+  // Prefer the cached token, but recover directly from the initialized LIFF
+  // SDK when page state was restored without rerunning our assignment code.
+  // LINE can resume a recent LIFF view with its SDK session still available.
+  let lineAccessToken = String(window._lineAccessToken || '').trim();
+  if (!lineAccessToken && !window._adminToken) {
+    try {
+      if (window.liff?.isLoggedIn?.()) {
+        lineAccessToken = String(window.liff.getAccessToken?.() || '').trim();
+        if (lineAccessToken) window._lineAccessToken = lineAccessToken;
+      }
+    } catch (error) {
+      console.warn('Unable to recover LINE access token from LIFF SDK:', error);
+    }
+  }
+
   // Build request body
   const body = {
     action,
     payload: {
       ...(payload ?? {}),
       ...(window._adminToken ? { adminToken: window._adminToken } : {}),
-      ...(window._lineAccessToken ? { lineAccessToken: window._lineAccessToken } : {}),
+      ...(lineAccessToken ? { lineAccessToken } : {}),
     }
   };
 

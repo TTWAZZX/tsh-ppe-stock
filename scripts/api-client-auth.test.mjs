@@ -40,6 +40,30 @@ test('invokes centralized LINE re-login handler on API 401', async () => {
   assert.match(handledMessage, /เข้าสู่ระบบใหม่/);
 });
 
+test('recovers a missing cached token from an initialized LIFF session', async () => {
+  let requestBody = null;
+  const browser = loadApiClient(async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({ data: { ok: true } }),
+    };
+  }, {
+    _lineAccessToken: null,
+    liff: {
+      isLoggedIn: () => true,
+      getAccessToken: () => 'fresh-liff-token',
+    },
+  });
+
+  await browser.apiCall('addNewVoucher', {}, { silent: true });
+
+  assert.equal(requestBody.payload.lineAccessToken, 'fresh-liff-token');
+  assert.equal(browser._lineAccessToken, 'fresh-liff-token');
+});
+
 test('invokes centralized Admin login handler on API 403', async () => {
   let called = false;
   const browser = loadApiClient(async () => ({

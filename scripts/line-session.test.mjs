@@ -30,9 +30,14 @@ test('restarts an expired session through the LIFF URL inside the LIFF browser',
   });
 
   assert.equal(result.method, 'liff-url');
-  assert.equal(logoutCount, 1);
+  assert.equal(logoutCount, 0);
   assert.equal(loginCount, 0);
-  assert.equal(navigatedTo, 'https://liff.line.me/1234567890-AbCdEf?mode=confirmReceive&voucherId=42&module=issue');
+  const restartUrl = new URL(navigatedTo);
+  assert.equal(`${restartUrl.origin}${restartUrl.pathname}`, 'https://liff.line.me/1234567890-AbCdEf');
+  assert.equal(restartUrl.searchParams.get('mode'), 'confirmReceive');
+  assert.equal(restartUrl.searchParams.get('voucherId'), '42');
+  assert.equal(restartUrl.searchParams.get('module'), 'issue');
+  assert.match(restartUrl.searchParams.get('reauth'), /^\d+$/);
 });
 
 test('uses LINE Login outside the LIFF browser', () => {
