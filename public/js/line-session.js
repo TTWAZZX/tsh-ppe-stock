@@ -11,6 +11,10 @@
             const value = sourceUrl.searchParams.get(key);
             if (value) restartUrl.searchParams.set(key, value);
         });
+        const asset = sourceUrl.searchParams.get('asset');
+        if (/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(asset || '')) {
+            restartUrl.searchParams.set('asset', asset);
+        }
 
         if (!restartUrl.searchParams.has('module') && moduleName) {
             restartUrl.searchParams.set('module', moduleName);

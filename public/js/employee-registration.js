@@ -23,6 +23,8 @@
   function render(registration = {}) {
     const { status, reason, departments = [] } = registration;
     const editable = ['unregistered', 'rejected'].includes(status);
+    byId('employeeRegistrationTitle').textContent = status === 'rejected' ? 'แก้ข้อมูลลงทะเบียนพนักงาน' : 'ลงทะเบียนพนักงาน';
+    registrationButton.textContent = status === 'rejected' ? 'ส่งคำขอใหม่' : 'ส่งคำขอลงทะเบียน';
     byId('employeeRegistrationMessage').textContent = ({
       unregistered: 'กรอกข้อมูลพนักงานและเลือกแผนกเพื่อส่งคำขอ หลังได้รับอนุมัติจึงจะใช้คลัง เบิก และยืมอุปกรณ์ได้',
       pending: 'ส่งคำขอแล้ว กำลังรอผู้ดูแลตรวจสอบ กลับมากดตรวจสถานะได้ทุกเมื่อ',

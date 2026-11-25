@@ -126,6 +126,15 @@
                 <a href="#receive" onclick="showPage('receive')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
                     <i class="fa-solid fa-truck-ramp-box w-6 h-6 mr-3"></i><span>รับสินค้าเข้าสต็อก</span>
                 </a>
+                <a href="#stockCount" onclick="showPage('stockCount')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
+                    <i class="fa-solid fa-clipboard-check w-6 h-6 mr-3" aria-hidden="true"></i><span>ตรวจนับสต็อก</span>
+                </a>
+                <a href="#purchasePlan" onclick="showPage('purchasePlan')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
+                    <i class="fa-solid fa-cart-shopping w-6 h-6 mr-3" aria-hidden="true"></i><span>เตรียมสั่งซื้อ</span>
+                </a>
+                <a href="#loanAssets" onclick="showPage('loanAssets')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
+                    <i class="fa-solid fa-qrcode w-6 h-6 mr-3" aria-hidden="true"></i><span>ป้าย QR อุปกรณ์</span>
+                </a>
                 <a href="#report" onclick="showPage('report')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
                     <i class="fa-solid fa-chart-line w-6 h-6 mr-3"></i><span>รายงานสรุป</span>
                 </a>
@@ -363,7 +372,10 @@
                                                 <h3 id="adminStockAlertsTitle" class="text-sm font-bold text-gray-800">สต็อกที่ต้องจัดการ</h3>
                                                 <p class="text-[11px] text-gray-400 mt-0.5">เรียงรายการหมดและใกล้หมดก่อน</p>
                                             </div>
-                                            <button onclick="showPage('stock'); setStockStatusFilter('low')" class="text-xs font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap">ดูคลังทั้งหมด</button>
+                                            <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs font-semibold text-blue-700">
+                                                <button type="button" onclick="showPage('purchasePlan')" class="min-h-11">เตรียมสั่งซื้อ</button>
+                                                <button type="button" onclick="showPage('stock'); setStockStatusFilter('low')" class="min-h-11">ดูคลังทั้งหมด</button>
+                                            </div>
                                         </div>
                                         <div id="adminStockAlerts" class="space-y-2" aria-live="polite"></div>
                                     </section>
@@ -573,6 +585,15 @@
                                     <label class="block text-sm font-medium text-gray-700">รายการอุปกรณ์ <span class="text-red-500">*</span></label>
                                     <span class="text-[11px] text-gray-400">เพิ่มได้หลายรายการในครั้งเดียว</span>
                                 </div>
+                                <div class="mb-3 flex flex-wrap items-end gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3">
+                                    <div class="min-w-0 flex-1">
+                                        <label for="issueKit" class="mb-1 block text-sm font-semibold text-blue-900">ชุดเบิกตามประเภทงาน</label>
+                                        <select id="issueKit" onchange="document.getElementById('issueKitPreview').disabled = !this.value"
+                                            class="min-h-11 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm"></select>
+                                    </div>
+                                    <button id="issueKitPreview" type="button" onclick="openMatrixDetail(Number(document.getElementById('issueKit').value))"
+                                        class="min-h-11 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">ตรวจรายการในชุด</button>
+                                </div>
                                 <div id="issueItemsContainer" class="space-y-3 mb-3">
                                     <div class="issue-empty-state rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-gray-400">
                                         <i class="fa-solid fa-box-open text-2xl mb-2"></i>
@@ -653,6 +674,10 @@
                         </div>
                     </section>
 
+                    <section id="scannedLoanAsset" class="hidden rounded-xl border border-blue-200 bg-blue-50 p-4" aria-label="อุปกรณ์จากป้าย QR">
+                        <p id="scannedLoanAssetStatus" class="break-words text-sm font-semibold text-blue-900" role="status"></p>
+                        <div id="scannedLoanAssetActions" class="mt-2 flex flex-wrap gap-2"></div>
+                    </section>
                     <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
                         <section class="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6">
                             <div class="flex items-center justify-between gap-3 mb-6">
@@ -1436,6 +1461,114 @@
                     </div>
             </div>
 
+            <div id="purchasePlanPage" class="page hidden admin-page">
+                <div class="module-shell space-y-4 pb-24">
+                    <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                        <h2 class="ui-page-title text-xl font-bold text-gray-800">รายการเตรียมสั่งซื้อ</h2>
+                        <p class="mt-1 text-sm text-gray-600">คำนวณยอดเติมสต็อกจากยอดเบิกย้อนหลัง แล้วเลือกและปรับจำนวนเพื่อส่งออกให้ฝ่ายจัดซื้อ</p>
+                        <form id="purchasePlanForm" class="mt-4 flex flex-wrap items-end gap-3">
+                            <div>
+                                <label for="purchaseHistoryDays" class="block text-sm font-semibold">ยอดเบิกย้อนหลัง</label>
+                                <select id="purchaseHistoryDays" class="min-h-11 rounded-lg border border-gray-300 px-3 text-sm">
+                                    <option value="30">30 วัน</option><option value="60">60 วัน</option><option value="90" selected>90 วัน</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="purchaseCoverageDays" class="block text-sm font-semibold">เป้าหมายให้สต็อกพอใช้ (วัน)</label>
+                                <input id="purchaseCoverageDays" type="number" min="1" max="365" step="1" value="30" required inputmode="numeric"
+                                    class="min-h-11 w-24 rounded-lg border border-gray-300 px-3 text-sm">
+                            </div>
+                            <button id="purchaseCalculate" class="min-h-11 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white disabled:opacity-50">คำนวณใหม่</button>
+                        </form>
+                        <details class="mt-3 text-sm text-gray-700">
+                            <summary class="min-h-11 cursor-pointer py-3 font-semibold">วิธีคำนวณยอดแนะนำ</summary>
+                            <p>ยอดเป้าหมายใช้ค่าที่สูงกว่าระหว่างจุดสั่งซื้อกับยอดเบิกเฉลี่ยต่อวันคูณจำนวนวันที่ต้องการให้พอใช้ แล้วปัดขึ้นเป็นจำนวนเต็ม ยอดแนะนำคือส่วนที่ยังขาดจากสต็อกที่เบิกได้</p>
+                            <p class="mt-2">ยอดย้อนหลังรวมวันนี้ นับยอดเบิกที่อนุมัติและยังมีผล ใบเบิกเก่าที่มีจำนวนอนุมัติแต่ไม่มีรายการเคลื่อนไหวใช้วันที่ใบเบิก อุปกรณ์ที่เหลือเฉพาะชิ้นติดป้าย QR สำหรับยืมและไม่มีประวัติเบิกในช่วงนี้จะไม่มียอดแนะนำ</p>
+                            <p class="mt-2">การคำนวณใช้ยอดปัจจุบัน กรุณาตรวจรายการสั่งซื้อที่ยังมาไม่ถึงก่อนส่งต่อ</p>
+                        </details>
+                    </section>
+                    <p id="purchasePlanStatus" class="px-1 text-sm text-gray-700" role="status"></p>
+                    <section id="purchasePlanResults" class="hidden space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6" aria-label="ผลคำนวณเตรียมสั่งซื้อ">
+                        <div class="flex flex-wrap items-end justify-between gap-3">
+                            <div class="min-w-0 flex-1">
+                                <label for="purchaseSearch" class="block text-sm font-semibold">ค้นหาอุปกรณ์</label>
+                                <input id="purchaseSearch" type="search" placeholder="รหัส ชื่อ หรือหมวดหมู่" class="min-h-11 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                            </div>
+                            <div>
+                                <label for="purchaseFilter" class="block text-sm font-semibold">แสดงรายการ</label>
+                                <select id="purchaseFilter" class="min-h-11 rounded-lg border border-gray-300 px-3 text-sm">
+                                    <option value="attention">ควรตรวจสอบ</option><option value="suggested">มีจำนวนแนะนำ</option><option value="all">ทั้งหมด</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p id="purchasePlanSource" class="text-sm text-gray-600"></p>
+                        <p id="purchasePlanWarning" class="hidden rounded-lg bg-amber-50 p-3 text-sm text-amber-800"></p>
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <label class="inline-flex min-h-11 items-center gap-2 text-sm"><input id="purchaseSelectPage" type="checkbox"> เลือกทั้งหน้าที่มียอดสั่ง</label>
+                            <button id="purchaseExport" type="button" class="min-h-11 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white disabled:opacity-50">ดาวน์โหลด CSV</button>
+                        </div>
+                        <p id="purchaseSelectionStatus" class="text-sm text-gray-600" role="status"></p>
+                        <ul id="purchasePlanRows" class="space-y-2"></ul>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span id="purchasePagination" class="text-sm text-gray-600"></span>
+                            <div class="flex gap-2">
+                                <button id="purchasePrevious" type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 text-sm disabled:opacity-50">ก่อนหน้า</button>
+                                <button id="purchaseNext" type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 text-sm disabled:opacity-50">ถัดไป</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="loanAssetsPage" class="page hidden admin-page">
+                <div class="module-shell space-y-4 pb-24">
+                    <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                        <h2 class="ui-page-title text-xl font-bold text-gray-800">ป้าย QR อุปกรณ์รายชิ้น</h2>
+                        <p class="mt-1 text-sm text-gray-600">สร้างป้ายสำหรับชิ้นที่อยู่ในคลัง ติดป้ายแล้วสแกนเพื่อเปิดรายการยืม–คืนของชิ้นนั้น</p>
+                    </section>
+                    <section id="loanAssetManager" class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                        <fieldset id="loanAssetControls" class="min-w-0 space-y-3">
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="min-w-0">
+                                    <label for="loanAssetItem" class="block text-sm font-semibold">อุปกรณ์ในคลัง</label>
+                                    <select id="loanAssetItem" class="min-h-11 w-full rounded-lg border border-gray-300 px-3 text-sm"></select>
+                                </div>
+                                <form id="loanAssetForm" class="flex flex-wrap items-end gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <label for="loanAssetLabel" class="block text-sm font-semibold">รหัสประจำชิ้น</label>
+                                        <input id="loanAssetLabel" required maxlength="80" placeholder="เช่น TOOL-001" class="min-h-11 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                    </div>
+                                    <button id="loanAssetRegister" class="min-h-11 rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white disabled:opacity-50">สร้างป้าย</button>
+                                </form>
+                            </div>
+                            <p id="loanAssetManagerStatus" class="break-words text-sm text-gray-700" role="status"></p>
+                            <ul id="loanAssetList" class="space-y-2"></ul>
+                            <button id="loanAssetMore" type="button" class="hidden min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold">ดูป้ายก่อนหน้า</button>
+                        </fieldset>
+                    </section>
+                    <section id="loanAssetPreview" class="hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="loanAssetPrintTitle">
+                        <h3 id="loanAssetPrintTitle" class="break-words font-bold text-gray-800" tabindex="-1"></h3>
+                        <img id="loanAssetPrintImage" alt="QR อุปกรณ์" width="192" height="192" class="my-2 h-48 w-48">
+                        <div class="flex flex-wrap gap-2">
+                            <button id="loanAssetPrint" type="button" class="min-h-11 rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white">พิมพ์ป้าย</button>
+                            <a id="loanAssetDownload" class="inline-flex min-h-11 items-center rounded-lg border border-gray-300 px-3 text-sm font-semibold">ดาวน์โหลด QR</a>
+                            <a id="loanAssetLink" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center rounded-lg border border-gray-300 px-3 text-sm font-semibold">เปิดลิงก์ QR</a>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="stockCountPage" class="page hidden admin-page">
+                <div class="module-shell space-y-4 pb-24">
+                    <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                        <h2 class="ui-page-title text-xl font-bold text-gray-800">ตรวจนับสต็อกตามรอบ</h2>
+                        <p class="mt-1 text-sm text-gray-600">บันทึกยอดที่นับจริงและตรวจส่วนต่างก่อนยืนยันปรับสต็อก</p>
+                    </section>
+                    <p id="stockCountStatus" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="status"></p>
+                    <div id="stockCountContent"></div>
+                </div>
+            </div>
+
             <div id="notificationsPage" class="page hidden admin-page">
                 <div class="module-shell space-y-4 pb-24">
                     <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6">
@@ -1798,7 +1931,7 @@
                 <div class="module-shell">
                     <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 space-y-5">
                         <div>
-                            <h2 class="ui-page-title text-2xl font-bold text-gray-900">ลงทะเบียนพนักงาน</h2>
+                            <h2 id="employeeRegistrationTitle" class="ui-page-title text-2xl font-bold text-gray-900">ลงทะเบียนพนักงาน</h2>
                             <p id="employeeRegistrationMessage" class="mt-2 text-sm text-gray-600" role="status"></p>
                             <p id="employeeRegistrationReason" class="hidden mt-2 text-sm text-red-700"></p>
                         </div>
@@ -1910,12 +2043,21 @@
                     <span class="relative"><i class="fa-solid fa-bars text-xl mb-1" aria-hidden="true"></i><span id="adminMoreBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span></span>
                     <span>เพิ่มเติม</span>
                 </button>
-                <div id="adminMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
+                <div id="adminMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 max-h-[65dvh] overflow-y-auto p-2 space-y-1 z-50 animate-fade-in-up">
                     <a href="#employeeApprovals" onclick="showPage('employeeApprovals'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
                         <i class="fa-solid fa-user-check mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i><span>อนุมัติพนักงาน</span><span id="employeeBadgeMobile" class="nav-badge"></span>
                     </a>
                     <a onclick="showPage('stock'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-boxes-stacked mr-3 text-blue-500 w-5 text-center"></i> สต็อกทั้งหมด
+                    </a>
+                    <a href="#stockCount" onclick="showPage('stockCount'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
+                        <i class="fa-solid fa-clipboard-check mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i> ตรวจนับสต็อก
+                    </a>
+                    <a href="#purchasePlan" onclick="showPage('purchasePlan'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
+                        <i class="fa-solid fa-cart-shopping mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i> เตรียมสั่งซื้อ
+                    </a>
+                    <a href="#loanAssets" onclick="showPage('loanAssets'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
+                        <i class="fa-solid fa-qrcode mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i> ป้าย QR อุปกรณ์
                     </a>
                     <a onclick="showPage('report'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-chart-line mr-3 text-purple-500 w-5 text-center"></i> รายงาน
@@ -2078,27 +2220,6 @@
 </div>
 
 <!-- imagePreviewModal (duplicate removed — correct version is defined below) -->
-
-<div id="timelineDetailModal" class="fixed inset-0 bg-gray-900/60 hidden items-center justify-center z-[60] backdrop-blur-sm px-4">
-    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-bounce-in">
-
-        <div class="bg-blue-600 px-5 py-4 flex justify-between items-center">
-            <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-box-open mr-2"></i>รายการที่เบิก</h3>
-            <button onclick="document.getElementById('timelineDetailModal').classList.add('hidden'); document.getElementById('timelineDetailModal').classList.remove('flex')" class="text-white/80 hover:text-white transition-colors">
-                <i class="fa-solid fa-times text-xl"></i>
-            </button>
-        </div>
-
-        <div id="timelineItemsList" class="p-5 space-y-3 max-h-[60vh] overflow-y-auto bg-gray-50">
-            </div>
-
-        <div class="p-4 border-t border-gray-100 bg-white">
-            <button onclick="document.getElementById('timelineDetailModal').classList.add('hidden'); document.getElementById('timelineDetailModal').classList.remove('flex')" class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors">
-                ปิดหน้าต่าง
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- 🔒 Loading Overlay -->
 <!-- Fix: added 'flex' class (required for items-center/justify-center to work) -->
@@ -2377,6 +2498,9 @@
         notifications: { adminOnly: true },
         employeeRegistration: { adminOnly: false },
         employeeApprovals: { adminOnly: true },
+        stockCount: { adminOnly: true },
+        loanAssets: { adminOnly: true },
+        purchasePlan: { adminOnly: true },
     });
 
     function setLiveStatus(message = '') {
@@ -2527,6 +2651,12 @@
         const loanId = Number(params.get('loanId'));
         const mode = params.get('mode');
 
+        if (params.has('asset') && (isAdmin || currentData.accessStatus === 'authorized')) {
+            _deepLinkHandled = true;
+            LoanAssets.openScan(params.get('asset'));
+            return;
+        }
+
         if (Number.isInteger(voucherId) && voucherId > 0 && mode !== 'confirmReceive') {
             const voucher = (currentData.issueVouchers || []).find(row => Number(row.id) === voucherId);
             if (voucher) {
@@ -2548,20 +2678,15 @@
             if (_activePage === 'allHistory') {
                 showHistoryTab('loan');
             } else {
-                updateOnLoanTable();
-                setTimeout(() => {
-                    const card = document.querySelector(`[data-loan-id="${loanId}"]`);
-                    if (!card) return;
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    card.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
-                    setTimeout(() => card.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2'), 4000);
-                }, 150);
+                focusActiveLoan(loanId);
             }
         }
     }
 
     function persistActiveModule(pageName) {
         sessionStorage.setItem(MODULE_STATE_KEY, pageName);
+        if (!IS_LOCAL_DEVELOPMENT && !liffUrlReady
+            && (!isAdmin || new URLSearchParams(window.location.search).has('liff.state'))) return;
         const nextUrl = `${window.location.pathname}${window.location.search}#${pageName}`;
         window.history.replaceState({ module: pageName }, '', nextUrl);
     }
@@ -2570,6 +2695,7 @@
     let liffProfile = null;
     const LIFF_ID = "2007053300-JTSerFbF"; // **ต้องใส่ LIFF ID ของคุณ**
     const IS_LOCAL_DEVELOPMENT = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    let liffUrlReady = false;
     const LINE_REAUTH_KEY = 'ppe_line_reauth_attempted_at';
     let lineReauthInProgress = false;
 
@@ -2682,11 +2808,16 @@
                 LoadingManager.updateSplash('กำลังเปิดโหมดทดสอบ Local…', 45);
                 liffProfile = getLocalDevelopmentProfile();
                 if (!isAdmin) setupUserInterface();
+            } else if (isAdmin && params.has('liff.state')) {
+                const liffSdk = await window.PpeVendorLoader.loadLiff();
+                await liffSdk.init({ liffId: LIFF_ID });
+                liffUrlReady = true;
             } else if (!isAdmin) {
                 // 1. Load and initialize LIFF only for hosted user flows.
                 LoadingManager.updateSplash('กำลังเชื่อมต่อ LINE…', 25);
                 const liffSdk = await window.PpeVendorLoader.loadLiff();
                 await liffSdk.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
+                liffUrlReady = true;
 
                 if (liffSdk.isLoggedIn()) {
                     window._lineAccessToken = liffSdk.getAccessToken();
@@ -2814,6 +2945,10 @@
         } else {
             clearAdminNotificationCounts();
             EmployeeRegistration.clearApprovals();
+            StockCount.reset();
+            LoanAssets.resetAdmin();
+            PurchasePlan.reset();
+            if (currentData.accessStatus !== 'authorized') LoanAssets.clearScan();
         }
         updateUI();
         if (registrationRequired()) {
@@ -2823,11 +2958,15 @@
             showPage(getRestorableModule(), { restoring: true });
         }
         syncManageItemCode();
-        if (_activePage === 'issue') restoreIssueDraft();
+        if (_activePage === 'issue') {
+            restoreIssueDraft();
+            renderIssueKits();
+        }
         syncEmployeeFields();
         // หน้า Matrix อาจถูกเปิดจาก URL hash ก่อนคำขอข้อมูลจะเสร็จ
         // จึงต้องวาดซ้ำหลัง currentData ได้รับข้อมูลจริงจาก API
         if (_activePage === 'matrix') initMatrixPage();
+        if (_activePage === 'loanAssets') LoanAssets.load();
         applyDeepLinkFocus();
 
         // ✅ สำคัญมาก: ซ่อน Loading Skeleton และ Loading Overlay
@@ -3027,7 +3166,7 @@
             }
         });
         const userMorePages = new Set(['allHistory', 'matrix']);
-        const adminMorePages = new Set(['stock', 'report', 'notifications', 'allHistory', 'matrix', 'loan', 'issue', 'employeeApprovals']);
+        const adminMorePages = new Set(['stock', 'report', 'notifications', 'allHistory', 'matrix', 'loan', 'issue', 'employeeApprovals', 'stockCount', 'loanAssets', 'purchasePlan']);
         const moreTrigger = document.getElementById(isAdmin ? 'adminMoreTrigger' : 'userMoreTrigger');
         if (moreTrigger && (isAdmin ? adminMorePages : userMorePages).has(pageName)) {
             moreTrigger.classList.add('active');
@@ -3081,6 +3220,7 @@
                 ? '<i class="fa-solid fa-user-shield"></i><span>สร้างคำขอในโหมด Admin</span>'
                 : '<i class="fa-solid fa-user"></i><span>คำขอของผู้ใช้</span>';
             restoreIssueDraft();
+            renderIssueKits();
             updateIssueFormSummary();
         }
 
@@ -3120,6 +3260,9 @@
         }
         if (pageName === 'pending' && pageChanged && !options.restoring) refreshData('pending');
         if (pageName === 'employeeApprovals') EmployeeRegistration.loadApprovals();
+        if (pageName === 'stockCount') StockCount.load();
+        if (pageName === 'loanAssets') LoanAssets.load();
+        if (pageName === 'purchasePlan') PurchasePlan.load();
 
         persistActiveModule(pageName);
         applySharedComponentStyles(pageElement || document);
@@ -3718,6 +3861,7 @@
 
                 const requestedModule = getRestorableModule();
                 const data = await apiCall('getInitialData', null, { silent: true });
+                if (data.isAdmin && new URLSearchParams(window.location.search).has('asset')) _deepLinkHandled = false;
                 onDataLoaded(data);
                 if (!isAdmin) throw new Error('เบราว์เซอร์ไม่ได้บันทึกเซสชันผู้ดูแล');
                 showPage(canAccessModule(requestedModule) ? requestedModule : 'dashboard', { restoring: true });
@@ -4785,18 +4929,31 @@
             .replaceAll("'", '&#039;');
     }
 
-    function getLoanDueState(loan) {
-        const dueDate = new Date(`${loan.dueDate || ''}T00:00:00`);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (Number.isNaN(dueDate.getTime())) {
+    function getLoanDueState(loan, today = getBangkokDateKey()) {
+        const dueDate = String(loan.dueDate || '');
+        const dueTime = Date.parse(`${dueDate}T00:00:00Z`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !Number.isFinite(dueTime)
+            || new Date(dueTime).toISOString().slice(0, 10) !== dueDate) {
             return { type: 'unknown', days: null, label: 'ไม่ระบุกำหนดคืน' };
         }
-        const days = Math.round((dueDate - today) / 86400000);
+        const days = (dueTime - Date.parse(`${today}T00:00:00Z`)) / 86400000;
         if (days < 0) return { type: 'overdue', days: Math.abs(days), label: `เกินกำหนด ${Math.abs(days)} วัน` };
         if (days === 0) return { type: 'dueSoon', days: 0, label: 'ครบกำหนดวันนี้' };
         if (days <= 3) return { type: 'dueSoon', days, label: `เหลือ ${days} วัน` };
         return { type: 'normal', days, label: `เหลือ ${days} วัน` };
+    }
+
+    function focusActiveLoan(loanId) {
+        document.getElementById('loanActiveSearch').value = '';
+        document.getElementById('loanActiveFilter').value = 'all';
+        updateOnLoanTable();
+        requestAnimationFrame(() => {
+            const card = document.querySelector(`[data-loan-id="${Number(loanId)}"]`);
+            if (!card || _activePage !== 'loan') return;
+            card.tabIndex = -1;
+            card.focus({ preventScroll: true });
+            card.scrollIntoView({ behavior: 'instant', block: 'center' });
+        });
     }
 
     function getVisibleOnLoanItems() {
@@ -4847,7 +5004,7 @@
         const onLoanItems = getVisibleOnLoanItems()
             .filter(loan => {
                 const item = currentData.ppeItems.find(p => p.id == loan.itemId);
-                const haystack = `${item?.name || ''} ${item?.code || ''} ${loan.borrowerName || ''} ${loan.employeeid || loan.employeeId || ''} ${loan.department || ''}`.toLowerCase();
+                const haystack = `${item?.name || ''} ${item?.code || ''} ${loan.loan_asset_label || ''} ${loan.borrowerName || ''} ${loan.employeeid || loan.employeeId || ''} ${loan.department || ''}`.toLowerCase();
                 const matchesSearch = !search || haystack.includes(search);
                 const dueState = getLoanDueState(loan);
                 const matchesDue = dueFilter === 'all' || dueState.type === dueFilter;
@@ -4915,7 +5072,7 @@
                                 ${item ? safeItemName : '<span class="text-red-500">ไม่พบข้อมูลอุปกรณ์</span>'}
                             </h4>
                             <p class="text-xs text-gray-500 font-mono mb-2 bg-gray-100 inline-block px-1.5 rounded">
-                                ${safeItemCode}
+                                ${safeItemCode}${loan.loan_asset_label ? ` · ${escapeLoanText(loan.loan_asset_label)}` : ''}
                             </p>
                         </div>
                         ${isOverdue
@@ -4994,6 +5151,7 @@
                     <div class="flex-1 min-w-0">
                         <h4 class="font-bold text-gray-800 text-sm truncate">${safeItemName}</h4>
                         <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                            ${loan.loan_asset_label ? `<span class="font-semibold text-blue-700">ป้าย ${escapeLoanText(loan.loan_asset_label)}</span>` : ''}
                             <span><i class="fa-solid fa-user mr-1"></i>${safeBorrower}</span>
                             <span class="text-gray-300">|</span>
                             <span>${safeDepartment}</span>
@@ -5116,33 +5274,40 @@
 
     function openLoanCatalog() {
         openItemSelector((item) => {
-            document.getElementById('loanItemId').value = item.id;
-            // อัปเดต UI หน้าจอ
-            const nameEl = document.getElementById('loanItemName');
-            nameEl.textContent = item.name;
-            nameEl.classList.remove('text-gray-500');
-            nameEl.classList.add('text-gray-900', 'font-bold');
-            const codeEl = document.getElementById('loanItemCode');
-            codeEl.textContent = `${item.code || '-'} · คงเหลือ ${Number(item.stock || 0).toLocaleString('th-TH')} ${item.unit || ''}`;
-            codeEl.classList.remove('hidden');
-
-            // โชว์รูป
-            const img = document.getElementById('loanItemImg');
-            if(item.image_url) {
-                img.src = item.image_url;
-                img.classList.remove('hidden');
-                document.getElementById('loanItemImgPlaceholder').classList.add('hidden');
-            } else {
-                img.classList.add('hidden');
-                document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
-            }
-            const availability = document.getElementById('loanItemAvailability');
-            if (availability) {
-                availability.textContent = `พร้อมให้ยืม ${Number(item.stock || 0).toLocaleString('th-TH')} ${item.unit || 'ชิ้น'}`;
-                availability.className = 'mt-2 text-xs font-medium text-emerald-700';
-            }
-            updateLoanFormState();
+            LoanAssets.clearScan();
+            setLoanSelectedItem(item);
         });
+    }
+
+    function setLoanSelectedItem(item) {
+        document.getElementById('loanItemId').value = item.id;
+        // อัปเดต UI หน้าจอ
+        const nameEl = document.getElementById('loanItemName');
+        nameEl.textContent = item.name;
+        nameEl.classList.remove('text-gray-500');
+        nameEl.classList.add('text-gray-900', 'font-bold');
+        const codeEl = document.getElementById('loanItemCode');
+        codeEl.textContent = `${item.code || '-'} · คงเหลือ ${Number(item.stock || 0).toLocaleString('th-TH')} ${item.unit || ''}`;
+        codeEl.classList.remove('hidden');
+
+        // โชว์รูป
+        const img = document.getElementById('loanItemImg');
+        if(item.image_url) {
+            img.src = item.image_url;
+            img.classList.remove('hidden');
+            document.getElementById('loanItemImgPlaceholder').classList.add('hidden');
+        } else {
+            img.classList.add('hidden');
+            document.getElementById('loanItemImgPlaceholder').classList.remove('hidden');
+        }
+        const availability = document.getElementById('loanItemAvailability');
+        if (availability) {
+            availability.textContent = LoanAssets.selectionLabel()
+                ? `เลือกจากป้าย QR ${LoanAssets.selectionLabel()}`
+                : 'ถ้าชิ้นที่จะยืมมีป้าย QR ให้สแกนป้ายก่อนบันทึก';
+            availability.className = 'mt-2 text-xs font-medium text-emerald-700';
+        }
+        updateLoanFormState();
     }
 
     function formatLocalDateInput(date) {
@@ -5199,6 +5364,7 @@
     }
 
     function resetLoanForm() {
+        LoanAssets.clearSelection();
         const form = document.getElementById('loanForm');
         if (!form) return;
         const savedEmployeeId = localStorage.getItem('last_employee_id') || '';
@@ -5366,44 +5532,46 @@
     // ==========================================
     // 3. ฟังก์ชันจัดการฟอร์ม (Form Helpers)
     // ==========================================
-    function addIssueRow(item) {
+    function addIssueRow(item, quantity = 1) {
         const container = document.getElementById('issueItemsContainer');
         if (!container) return;
         if (Number(item.stock) <= 0) return showToast('อุปกรณ์รายการนี้หมดสต็อก', 'error');
 
         // ป้องกันเลือกซ้ำ
-        if (container.querySelector(`input[value="${item.id}"]`)) {
+        if ([...container.querySelectorAll('.item-select-value')].some(field => field.value === String(item.id))) {
             return showToast('เลือกรายการนี้ไปแล้ว', 'error');
         }
 
         container.querySelector('.issue-empty-state')?.remove();
 
-        const rowId = `row-${Date.now()}-${item.id}`;
-        const img = item.image_url || 'https://placehold.co/100?text=Box';
+        const rowId = `row-${Date.now()}-${Number(item.id)}`;
+        const img = escapeLoanText(item.image_url || 'https://placehold.co/100?text=Box');
+        const max = Math.min(999999, Number(item.stock));
 
         container.insertAdjacentHTML('beforeend', `
-            <div id="${rowId}" class="issue-item flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm" data-max-stock="${Number(item.stock) || 0}">
-                <input type="hidden" class="item-select-value" value="${item.id}">
+            <div id="${rowId}" class="issue-item flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm" data-max-stock="${max}">
+                <input type="hidden" class="item-select-value" value="${Number(item.id)}">
                 <div class="flex items-center gap-3 flex-1 min-w-0">
                     <img src="${img}" alt="" class="w-14 h-14 rounded-lg object-contain border border-gray-100 bg-gray-50 p-1 shrink-0">
                     <div class="flex-1 min-w-0">
-                        <h4 class="font-bold text-gray-800 text-sm truncate">${item.name}</h4>
-                        <p class="text-xs text-gray-500 mt-0.5"><span class="font-mono">${item.code || '-'}</span> · คงเหลือ ${item.stock} ${item.unit || ''}</p>
+                        <h4 class="font-bold text-gray-800 text-sm truncate">${escapeLoanText(item.name)}</h4>
+                        <p class="text-xs text-gray-500 mt-0.5"><span class="font-mono">${escapeLoanText(item.code || '-')}</span> · คงเหลือ ${Number(item.stock)} ${escapeLoanText(item.unit || '')}</p>
                     </div>
                 </div>
                 <div class="flex items-center justify-between sm:justify-end gap-2 sm:pl-3">
                     <div class="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden bg-white">
                         <button type="button" onclick="changeIssueQuantity('${rowId}', -1)" aria-label="ลดจำนวน" class="w-10 h-10 text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-minus text-xs"></i></button>
-                        <input type="number" class="item-quantity w-14 h-10 border-x border-y-0 border-gray-200 text-center font-bold text-gray-800 focus:ring-0" value="1" min="1" max="${item.stock}" inputmode="numeric" oninput="updateIssueFormSummary()">
+                        <input type="number" aria-label="จำนวน ${escapeLoanText(item.name)}" class="item-quantity w-14 h-10 border-x border-y-0 border-gray-200 text-center font-bold text-gray-800 focus:ring-0" value="${Math.min(max, Math.max(1, Number(quantity) || 1))}" min="1" max="${max}" inputmode="numeric" oninput="updateIssueFormSummary()">
                         <button type="button" onclick="changeIssueQuantity('${rowId}', 1)" aria-label="เพิ่มจำนวน" class="w-10 h-10 text-blue-700 hover:bg-blue-50"><i class="fa-solid fa-plus text-xs"></i></button>
                     </div>
-                    <span class="text-xs text-gray-400 w-10">${item.unit || ''}</span>
-                    <button type="button" onclick="removeIssueRow('${rowId}')" aria-label="ลบ ${item.name}" class="w-10 h-10 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50"><i class="fa-solid fa-trash"></i></button>
+                    <span class="text-xs text-gray-400 w-10">${escapeLoanText(item.unit || '')}</span>
+                    <button type="button" onclick="removeIssueRow('${rowId}')" aria-label="ลบ ${escapeLoanText(item.name)}" class="w-10 h-10 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
         `);
         updateIssueFormSummary();
         saveIssueDraft();
+        return document.getElementById(rowId);
     }
 
     function getIssueEmptyStateHtml() {
@@ -5580,6 +5748,78 @@
     // ==========================================
 
     // 🎨 User Dashboard เวอร์ชัน 3.0 (Responsive: Mobile & Desktop)
+    function canEmployeeConfirmReceipt(voucher) {
+        return !isAdmin && currentData.accessStatus === 'authorized'
+            && isRecordOwnedByCurrentUser(voucher, 'user')
+            && voucher.status_received !== 'received' && !voucher.voided_at
+            && Boolean(getApprovedItems(voucher)?.length);
+    }
+
+    function renderMyTasks(vouchers, activeLoans, today) {
+        const loanTasks = activeLoans.map(loan => ({ loan, due: getLoanDueState(loan, today) }))
+            .filter(({ due }) => ['overdue', 'dueSoon'].includes(due.type))
+            .sort((a, b) => a.loan.dueDate.localeCompare(b.loan.dueDate))
+            .map(({ loan, due }) => ({
+                title: currentData.ppeItems.find(item => Number(item.id) === Number(loan.itemId))?.name || `รายการยืม #${loan.loanId}`,
+                status: due.label, urgent: due.type === 'overdue',
+                label: 'ดูกำหนดคืน', action: `showPage('loan'); focusActiveLoan(${Number(loan.loanId)})`,
+            }));
+        const orderedVouchers = [...vouchers].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const receipts = orderedVouchers.filter(canEmployeeConfirmReceipt).map(voucher => ({
+            title: `ใบเบิก #${voucher.id}`,
+            status: voucher.status === 'partially_approved' ? 'อนุมัติบางส่วน · รอรับของ' : 'อนุมัติแล้ว · รอรับของ',
+            label: voucher.status === 'partially_approved' ? 'ดูยอดอนุมัติและรับของ' : 'ยืนยันรับของ',
+            action: voucher.status === 'partially_approved'
+                ? `showVoucherDetails(${Number(voucher.id)})`
+                : `confirmEmployeeVoucherReceipt(${Number(voucher.id)})`,
+        }));
+        const reviews = orderedVouchers
+            .filter(voucher => voucher.status_received === 'received' && hasApprovedStatus(voucher) && !voucher.voided_at)
+            .filter(voucher => {
+                const feedback = getVoucherFeedbackState(voucher);
+                return feedback.total > 0 && !feedback.complete;
+            })
+            .map(voucher => ({
+                title: `ใบเบิก #${voucher.id}`, status: 'รับของแล้ว · รอประเมิน',
+                label: 'ประเมินอุปกรณ์', action: `openRatingSelector(${Number(voucher.id)}, true)`,
+            }));
+        const pending = orderedVouchers.filter(voucher => voucher.status === 'pending').map(voucher => ({
+            title: `ใบเบิก #${voucher.id}`, status: 'รอผู้ดูแลอนุมัติ',
+            label: 'ดูรายละเอียด', action: `showVoucherDetails(${Number(voucher.id)})`,
+        }));
+        const tasks = [
+            ...loanTasks.filter(task => task.urgent),
+            ...receipts,
+            ...loanTasks.filter(task => !task.urgent),
+            ...reviews,
+        ];
+
+        function renderRows(rows, limit) {
+            const row = task => `
+                <li class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-3">
+                    <div class="min-w-0 break-words">
+                        <p class="text-sm font-bold text-gray-800">${escapeLoanText(task.title)}</p>
+                        <p class="text-sm ${task.urgent ? 'font-semibold text-red-700' : 'text-gray-600'}">${task.status}</p>
+                    </div>
+                    <button type="button" onclick="${task.action}" aria-label="${task.label} ${escapeLoanText(task.title)}"
+                        class="min-h-11 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">${task.label}</button>
+                </li>`;
+            const extra = rows.length - limit;
+            return `<ul class="space-y-2">${rows.slice(0, limit).map(row).join('')}</ul>
+                ${extra > 0 ? `<details>
+                    <summary class="min-h-11 cursor-pointer py-3 text-sm font-semibold text-blue-700">ดูอีก ${extra} รายการ</summary>
+                    <ul class="space-y-2">${rows.slice(limit).map(row).join('')}</ul>
+                </details>` : ''}`;
+        }
+
+        return `
+            <section id="myTasks" class="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" aria-labelledby="myTasksTitle">
+                <h3 id="myTasksTitle" class="text-sm font-bold text-gray-800"><i class="fa-solid fa-list-check mr-2 text-blue-600" aria-hidden="true"></i>งานของฉัน</h3>
+                ${tasks.length ? renderRows(tasks, 4) : '<p class="text-sm text-gray-600">ตอนนี้ไม่มีรายการที่ต้องทำ</p>'}
+                ${pending.length ? `<h4 class="text-sm font-bold text-gray-800">กำลังรออนุมัติ</h4>${renderRows(pending, 2)}` : ''}
+            </section>`;
+    }
+
     function renderUserDashboard() {
         const dashboardDiv = document.getElementById('userDashboardPanel');
         if (!dashboardDiv) return;
@@ -5595,17 +5835,13 @@
             : `<div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border-4 border-white shadow-md"><i class="fa-solid fa-user text-xl"></i></div>`;
 
         // 2. เตรียมข้อมูลสถิติ
-        const myActiveLoans = currentData.loanTransactions?.filter(l => l.borrowerName === displayName && l.status === 'on_loan') || [];
-        const myPendingVouchers = currentData.issueVouchers?.filter(v => v.user === displayName && v.status === 'pending') || [];
-        const myTotalHistoryCount = (currentData.issueVouchers?.filter(v => v.user === displayName).length || 0) +
-                                    (currentData.loanTransactions?.filter(l => l.borrowerName === displayName).length || 0);
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const myOverdueLoans = myActiveLoans.filter(loan => {
-            const dueDate = new Date(loan.dueDate);
-            dueDate.setHours(0, 0, 0, 0);
-            return !Number.isNaN(dueDate.getTime()) && dueDate < todayStart;
-        });
+        const myVouchers = (currentData.issueVouchers || []).filter(voucher => isRecordOwnedByCurrentUser(voucher, 'user'));
+        const myLoans = (currentData.loanTransactions || []).filter(loan => isRecordOwnedByCurrentUser(loan, 'borrowerName'));
+        const myActiveLoans = myLoans.filter(loan => loan.status === 'on_loan');
+        const myPendingVouchers = myVouchers.filter(voucher => voucher.status === 'pending');
+        const myTotalHistoryCount = myVouchers.length + myLoans.length;
+        const today = getBangkokDateKey();
+        const myOverdueLoans = myActiveLoans.filter(loan => getLoanDueState(loan, today).type === 'overdue');
         const dashboardUpdatedText = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
         // 3. เตรียม HTML ชั้นวางของ (Active Gear)
@@ -5614,10 +5850,8 @@
             const gearItems = myActiveLoans.map(loan => {
                 const item = currentData.ppeItems.find(p => p.id == loan.itemId);
                 const img = item?.image_url || 'https://placehold.co/100?text=Item';
-                const dueDate = new Date(loan.dueDate);
-                const today = new Date(); today.setHours(0,0,0,0); dueDate.setHours(0,0,0,0);
-                const isOverdue = dueDate < today;
-                const dateText = isOverdue ? 'เกินกำหนด!' : `คืน: ${dueDate.getDate()}/${dueDate.getMonth()+1}`;
+                const { type, label: dateText } = getLoanDueState(loan, today);
+                const isOverdue = type === 'overdue';
                 const statusColor = isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600';
 
                 return `
@@ -5645,36 +5879,10 @@
             </div>`;
         }
 
-        // 4. Timeline ล่าสุด
-        const lastVoucher = currentData.issueVouchers
-            ?.filter(v => v.user === displayName)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-
-        let timelineHtml = '';
-        if (lastVoucher && lastVoucher.status === 'pending') {
-             timelineHtml = `
-            <div class="mb-6 animate-fade-in-up cursor-pointer active:scale-95 transition-transform" onclick="showTimelineDetails(${lastVoucher.id})">
-                <div class="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm shadow-orange-50/50 relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-1.5 h-full bg-orange-400"></div>
-                    <div class="flex justify-between items-start pl-2">
-                        <div>
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                                <p class="text-xs text-orange-500 font-bold uppercase tracking-wide">กำลังดำเนินการ</p>
-                            </div>
-                            <h4 class="font-bold text-gray-800 text-base">คำขอใบเบิก #${lastVoucher.id}</h4>
-                            <p class="text-xs text-gray-500 mt-1">รอการอนุมัติจากผู้ดูแลระบบ • ${new Date(lastVoucher.timestamp).toLocaleDateString('th-TH')}</p>
-                        </div>
-                        <i class="fa-solid fa-chevron-right text-gray-300 mt-2"></i>
-                    </div>
-                </div>
-            </div>`;
-        }
-
         // 5. ประวัติล่าสุด
         const recentHistoryList = [
-            ...(currentData.issueVouchers || []).filter(v => v.user === displayName).map(v => ({...v, type: 'issue', date: v.timestamp})),
-            ...(currentData.loanTransactions || []).filter(l => l.borrowerName === displayName).map(l => ({...l, type: 'loan', date: l.borrowDate}))
+            ...myVouchers.map(v => ({...v, type: 'issue', date: v.timestamp})),
+            ...myLoans.map(l => ({...l, type: 'loan', date: l.borrowDate}))
         ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
         const historyHtml = recentHistoryList.length > 0 ? recentHistoryList.map(h => {
@@ -5770,6 +5978,8 @@
 
                     <div class="lg:col-span-2 space-y-6">
 
+                        ${currentData.accessStatus === 'authorized' ? renderMyTasks(myVouchers, myActiveLoans, today) : ''}
+
                         <div class="dashboard-metrics grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
 
                             <div onclick="showPage('allHistory'); showHistoryTab('issue');" class="dashboard-metric-card min-w-0 bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex flex-col justify-between h-28 hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
@@ -5850,8 +6060,6 @@
                                 </button>
                             </div>
                         </section>
-
-                        ${timelineHtml}
 
                         <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 animate-fade-in-up delay-200">
                             <div class="flex justify-between items-end mb-3">
@@ -5943,63 +6151,6 @@
             const u = document.getElementById('issueUser'); if(u) { u.value = liffProfile.displayName; u.readOnly = true; u.classList.add('bg-gray-100'); }
             const b = document.getElementById('loanUser'); if(b) { b.value = liffProfile.displayName; b.readOnly = true; b.classList.add('bg-gray-100'); }
         }
-    }
-
-    function showTimelineDetails(voucherId) {
-        // 1. หาข้อมูลใบเบิก
-        const voucher = currentData.issueVouchers.find(v => v.id === voucherId);
-        if (!voucher) {
-            console.error("ไม่พบใบเบิก ID:", voucherId);
-            return;
-        }
-
-        // 2. แปลงรายการสินค้า
-        const items = getDisplayedVoucherItems(voucher);
-
-        const listContainer = document.getElementById('timelineItemsList');
-        if (!listContainer) return;
-
-        listContainer.innerHTML = !items.length && hasApprovedStatus(voucher)
-            ? '<p class="text-sm text-amber-800">ยอดอนุมัติเดิมยังต้องตรวจสอบ</p>' : items.map((item, index) => {
-            const targetId = String(item.itemId).trim();
-
-            // ค้นหาใน Stock
-            const product = currentData.ppeItems.find(p => {
-                return String(p.id).trim() === targetId || String(p.code).trim() === targetId;
-            }) || { name: 'ไม่พบข้อมูลสินค้า', unit: 'หน่วย', image_url: null, code: targetId };
-
-            const pName = product.name;
-            const pCode = product.code || item.itemId;
-
-            // --- แก้ไขจุดสำคัญ: ดึงรูปจาก image_url ---
-            // เช็คทั้ง image_url (ชื่อจริง) และ image (เผื่อบางตัวใช้ชื่อเก่า)
-            const imgLink = product.image_url || product.image || '';
-            const fallbackImage = 'https://cdn-icons-png.flaticon.com/512/2829/2829824.png'; // รูปหมวก Safety สำรอง
-
-            const pImgHtml = (imgLink && imgLink !== "")
-                ? `<img src="${escapeLoanText(imgLink)}" class="w-full h-full object-cover" onerror="this.src='${fallbackImage}'">`
-                : `<div class="w-full h-full bg-gray-50 flex items-center justify-center p-2"><img src="${fallbackImage}" class="opacity-50 w-full h-full object-contain"></div>`;
-            // ----------------------------------------
-
-            return `
-            <div class="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                <div class="w-12 h-12 rounded-lg bg-white flex-shrink-0 overflow-hidden border border-gray-100 relative">
-                    ${pImgHtml}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold text-gray-800 truncate">${escapeLoanText(pName)}</p>
-                    <p class="text-xs text-gray-500">รหัส: ${escapeLoanText(pCode)}</p>
-                </div>
-                <div class="bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
-                    <span class="text-sm font-bold text-blue-700">x${Number(item.quantity) || 0}</span>
-                </div>
-            </div>`;
-        }).join('');
-
-        // เปิด Modal
-        const modal = document.getElementById('timelineDetailModal');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
     }
 
     // ==========================================
@@ -6104,8 +6255,8 @@
             const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
             const requested = Number(item.quantity) || 0;
             const actual = approvedItems === null ? 'รอตรวจสอบ' : (approvedById.get(Number(item.itemId)) || 0);
-            return `<li class="flex justify-between">
-                        <span>${escapeLoanText(item.itemName || ppeItem?.name || 'อุปกรณ์')}</span>
+            return `<li class="flex flex-wrap justify-between gap-x-3">
+                        <span class="min-w-0 break-words">${escapeLoanText(item.itemName || ppeItem?.name || 'อุปกรณ์')}</span>
                         <span class="font-medium">ขอ ${requested}${hasApprovedStatus(voucher) ? ' · อนุมัติ ' + actual : ''} ${escapeLoanText(item.unit || ppeItem?.unit || '')}</span>
                     </li>`;
         }).join('');
@@ -6167,6 +6318,11 @@
                     </div>` : ''}
                 </div>
                 <div class="mt-6 flex flex-col gap-3">
+                    ${canEmployeeConfirmReceipt(voucher) ? `
+                    <button type="button" onclick="confirmEmployeeVoucherReceipt(${Number(voucher.id)})"
+                        class="min-h-11 rounded-lg bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">
+                        ยืนยันรับของ
+                    </button>` : ''}
                     ${canAdminConfirm ? `
                     <button onclick="adminConfirmReceive(${Number(voucher.id)})" class="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform font-bold">
                         <i class="fa-solid fa-box-open"></i> กดรับของแทนผู้ใช้
@@ -6645,6 +6801,18 @@
 
     let isConfirmingReceive = false;
 
+    async function confirmEmployeeVoucherReceipt(voucherId) {
+        const voucher = currentData.issueVouchers.find(row => Number(row.id) === voucherId);
+        if (!canEmployeeConfirmReceipt(voucher)) return;
+        const detailsOpen = !document.getElementById('voucherModal').classList.contains('hidden');
+        if (detailsOpen) hideVoucherModal();
+        const received = await confirmVoucherReceipt(voucherId);
+        if (detailsOpen && !received && canEmployeeConfirmReceipt(voucher)) {
+            showVoucherDetails(voucherId);
+            document.querySelector('#voucherModal button[onclick^="confirmEmployeeVoucherReceipt"]')?.focus();
+        }
+    }
+
     async function handleLiffConfirmReceive() {
         if (registrationRequired()) return;
         // 1. อ่านค่าจาก URL และเก็บลง Session (กรณีเปิดลิงก์ครั้งแรก)
@@ -6675,64 +6843,45 @@
             if (!liffSdk.isLoggedIn()) { liffSdk.login(); return; }
         }
 
+        hideSplash();
+        LoadingManager.cancel('action.confirmReceive');
+        await confirmVoucherReceipt(Number(voucherId), { fromLink: true });
+    }
+
+    async function confirmVoucherReceipt(voucherId, { fromLink = false } = {}) {
+        if (isConfirmingReceive) return false;
+        isConfirmingReceive = true;
         try {
-            isConfirmingReceive = true;
-            hideSplash();                                    // ซ่อน Splash ก่อน ไม่งั้น Modal จะอยู่หลัง Splash
-            LoadingManager.cancel('action.confirmReceive'); // เคลียร์ overlay ที่ initializeApp เปิดไว้ ก่อน show modal
-
-            // 3. ถามยืนยัน "ได้รับของแล้วใช่ไหม?"
-            const confirm = await showConfirmationModal('ยืนยันรับของ', 'ยืนยันว่าคุณได้รับอุปกรณ์แล้วใช่หรือไม่?');
-
-            if (!confirm) {
-                // ถ้ากด "ยกเลิก" -> ล้าง session แล้วจบ
+            const confirmed = await showConfirmationModal('ยืนยันรับของ', `คุณได้รับอุปกรณ์ตามใบเบิก #${voucherId} แล้วใช่ไหม?`);
+            if (confirmed) {
+                await apiCall('confirmReceive', { voucherId });
+            }
+            if (fromLink) {
                 sessionStorage.removeItem('confirm_mode');
                 sessionStorage.removeItem('confirm_voucher_id');
-                isConfirmingReceive = false;
-                return;
             }
-
-            // 4. เริ่มกระบวนการรับของ
-            showLoading('กำลังยืนยันการรับของ'); // แสดง overlay หลังจาก user กดยืนยันแล้วเท่านั้น
-
-            // Server ตรวจ LINE access token และเจ้าของใบเบิกก่อนยืนยันทุกครั้ง
-            await callServerFunction('confirmReceive', { voucherId: Number(voucherId) });
-
-            // แจ้งเตือนสำเร็จ
-            showToast('ยืนยันรับของเรียบร้อย', 'success');
-
-            // เคลียร์ค่าจาก Session (เพราะทำรายการเสร็จแล้ว)
-            sessionStorage.removeItem('confirm_mode');
-            const confirmedId = sessionStorage.getItem('confirm_voucher_id'); // เก็บ ID ไว้ใช้เปิดหน้า Review
-            sessionStorage.removeItem('confirm_voucher_id');
-
-            // --- ⚡ จุดสำคัญ: บังคับรีวิวทันที ---
-
-            // 5. โหลดข้อมูลใหม่ (เพื่อให้ App รู้จัก Voucher นี้)
-            const updatedData = await callServerFunction('getInitialData');
-            onDataLoaded(updatedData);
-            hideLoading();
-
-            // แสดงประวัติใบเบิกไว้ด้านหลัง แล้วเปิดการประเมินแบบบังคับทันที
-            showPage('allHistory');
-            if (typeof showHistoryTab === 'function') showHistoryTab('issue');
-
-            // 6. เปิดหน้าเลือกของแบบบังคับ (ส่ง true ไปในพารามิเตอร์ที่ 2)
-            // หน่วงเวลาเล็กน้อยเพื่อให้ UI พร้อม
-            setTimeout(() => {
-                // เรียก openRatingSelector(id, mandatory=true)
-                openRatingSelector(confirmedId, true);
-            }, 500);
-
-            // ----------------------------------------------------
-
-        } catch (err) {
-            console.error(err);
-            showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
-            LoadingManager.cancel('action.confirmReceive'); // เคลียร์ทุก key ที่อาจค้าง
-            hideLoading();
+            if (!confirmed) return false;
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'ยืนยันรับของไม่สำเร็จ', 'error');
+            return false;
         } finally {
             isConfirmingReceive = false;
         }
+
+        showToast('ยืนยันรับของเรียบร้อย', 'success');
+        const voucher = currentData.issueVouchers?.find(row => Number(row.id) === voucherId);
+        if (voucher) voucher.status_received = 'received';
+        if (!await refreshData()) {
+            if (!voucher) return true;
+            updateUI();
+        }
+        if (currentData.issueVouchers?.some(row => Number(row.id) === voucherId && row.status_received === 'received')) {
+            showPage('allHistory');
+            showHistoryTab('issue');
+            // Wait for the page focus update before opening the review dialog.
+            requestAnimationFrame(() => openRatingSelector(voucherId, true));
+        }
+        return true;
     }
 
     function previewImageAdmin() {
@@ -7051,6 +7200,8 @@
         const dueDate = document.getElementById('loanDueDate').value;
         const notes = document.getElementById('loanNotes').value.trim();
         const currentUserId = liffProfile?.userId || '';
+        const assetToken = LoanAssets.selectionToken(itemId);
+        const assetLabel = LoanAssets.selectionLabel();
 
         if (!selectedItem || Number(selectedItem.stock) < 1) {
             showToast('อุปกรณ์รายการนี้ไม่พร้อมให้ยืม กรุณาเลือกรายการใหม่', 'error');
@@ -7059,7 +7210,7 @@
 
         const confirmed = await showConfirmationModal(
             'ตรวจสอบก่อนบันทึกการยืม',
-            `อุปกรณ์: ${selectedItem.name}\nผู้ยืม: ${userName}\nแผนก: ${dept}\nกำหนดคืน: ${new Date(`${dueDate}T00:00:00`).toLocaleDateString('th-TH')}\n\nยืนยันบันทึกรายการนี้หรือไม่?`
+            `อุปกรณ์: ${selectedItem.name}${assetLabel ? ' · ' + assetLabel : ''}\nผู้ยืม: ${userName}\nแผนก: ${dept}\nกำหนดคืน: ${new Date(`${dueDate}T00:00:00`).toLocaleDateString('th-TH')}\n\nยืนยันบันทึกรายการนี้หรือไม่?`
         );
         if (!confirmed) return;
 
@@ -7074,6 +7225,7 @@
                 userId: currentUserId,
                 dueDate,
                 notes,
+                ...(assetToken ? { assetToken } : {}),
             });
 
             localStorage.setItem('last_employee_id', empId);
@@ -7085,6 +7237,7 @@
             }
             resetLoanForm();
             await refreshData('loan');
+            if (assetToken) await LoanAssets.refreshScan(assetToken);
             showToast('บันทึกการยืมสำเร็จ และเพิ่มในรายการติดตามแล้ว', 'success');
 
         } catch (error) {
@@ -7149,7 +7302,7 @@
         }
     }
 
-    async function handleReturnItem(loanId) {
+    async function handleReturnItem(loanId, assetToken = null) {
         if (!isAdmin) return showToast('เฉพาะผู้ดูแลระบบเท่านั้นที่บันทึกรับคืนได้', 'error');
         const pendingKey = String(loanId);
         if (returningLoanIds.has(pendingKey)) return;
@@ -7162,13 +7315,14 @@
         try {
             const confirmed = await showConfirmationModal(
                 'ยืนยันการรับคืน',
-                `อุปกรณ์: ${itemName}\nผู้ยืม: ${loan.borrowerName || '-'}\n\nตรวจสอบสภาพและยืนยันรับคืนรายการนี้หรือไม่?`
+                `อุปกรณ์: ${itemName}${loan.loan_asset_label ? ' · ' + loan.loan_asset_label : ''}\nผู้ยืม: ${loan.borrowerName || '-'}\n\nตรวจสอบสภาพและยืนยันรับคืนรายการนี้หรือไม่?`
             );
             if (!confirmed) return;
 
             updateOnLoanTable();
-            await callServerFunction('returnItem', { loanId }, { suppressFailure: true });
+            await callServerFunction('returnItem', { loanId, ...(assetToken ? { assetToken } : {}) }, { suppressFailure: true });
             await refreshData('loan');
+            if (assetToken) await LoanAssets.refreshScan(assetToken);
             showToast(`รับคืน ${itemName} สำเร็จ`, 'success');
         } catch (error) {
             showToast('บันทึกรับคืนไม่สำเร็จ: ' + error.message, 'error');
@@ -8519,7 +8673,7 @@
     function syncMatrixRuleFormState() {
         const form = document.getElementById('matrixRuleForm');
         if (form) form.setAttribute('aria-busy', String(isSavingMatrixRule));
-        form?.querySelectorAll('input, textarea, button').forEach(element => { element.disabled = isSavingMatrixRule; });
+        form?.querySelectorAll('input, select, textarea, button').forEach(element => { element.disabled = isSavingMatrixRule; });
         const closeButton = document.getElementById('matrixRuleCloseButton');
         if (closeButton) closeButton.disabled = isSavingMatrixRule;
         const content = document.getElementById('matrixRuleSubmitContent');
@@ -8576,24 +8730,32 @@
     }
 
     function getMatrixRuleState(rule) {
-        const requirements = Array.isArray(rule?.items_json) ? rule.items_json : [];
+        const requirements = Array.isArray(rule?.items_json) ? rule.items_json.filter(item => item && typeof item === 'object') : rule?.item_id
+            ? [{ id: rule.item_id, props: rule.properties, lifespan: rule.lifespan }] : [];
         const itemStates = requirements.map(requirement => {
-            const stockItem = requirement.id
-                ? (currentData.ppeItems || []).find(item => String(item.id) === String(requirement.id))
-                : null;
+            const quantity = Math.max(1, Math.min(999999, Math.trunc(Number(requirement.quantity)) || 1));
+            const alternatives = Array.isArray(requirement.alternativeIds) ? requirement.alternativeIds : [];
+            const choices = [...new Set([requirement.id, ...alternatives].map(Number))]
+                .map(id => (currentData.ppeItems || []).find(item => Number(item.id) === id && !item.deleted_at))
+                .filter(Boolean);
+            const stockItem = choices.find(item => Number(item.stock) >= quantity)
+                || choices.find(item => Number(item.stock) > 0) || choices[0];
             const stock = stockItem ? Math.max(0, Number(stockItem.stock) || 0) : 0;
             const reorderPoint = stockItem ? Math.max(0, Number(stockItem.reorderPoint) || 0) : 0;
             return {
                 requirement,
+                choices,
+                quantity,
                 stockItem,
                 stock,
                 isMissing: !stockItem,
                 isOut: Boolean(stockItem) && stock === 0,
                 isLow: Boolean(stockItem) && stock > 0 && reorderPoint > 0 && stock <= reorderPoint,
-                isAvailable: Boolean(stockItem) && stock > 0
+                isAvailable: stock > 0,
+                isShort: stock > 0 && stock < quantity,
             };
         });
-        const unavailable = itemStates.filter(item => item.isMissing || item.isOut);
+        const unavailable = itemStates.filter(item => item.isMissing || item.isOut || item.isShort);
         const lowStock = itemStates.filter(item => item.isLow);
         return {
             requirements,
@@ -8604,6 +8766,18 @@
             lowStock,
             needsAttention: itemStates.length === 0 || unavailable.length > 0
         };
+    }
+
+    function renderIssueKits() {
+        const select = document.getElementById('issueKit');
+        const selected = select.value;
+        const rules = [...(currentData.ppeMatrix || [])]
+            .filter(rule => getMatrixRuleState(rule).total > 0)
+            .sort((a, b) => String(a.job_function || '').localeCompare(String(b.job_function || ''), 'th'));
+        select.replaceChildren(new Option(rules.length ? 'เลือกประเภทงาน' : 'ยังไม่มีชุดเบิก', ''),
+            ...rules.map(rule => new Option([rule.job_function, rule.department].filter(Boolean).join(' · '), rule.id)));
+        select.value = rules.some(rule => String(rule.id) === selected) ? selected : '';
+        document.getElementById('issueKitPreview').disabled = !select.value;
     }
 
     function scheduleMatrixRender() {
@@ -8735,7 +8909,7 @@
         if (!stockItem) {
             return showToast('กรุณาเลือกอุปกรณ์จากรายการในคลัง', 'warning');
         }
-        if (stockItem && tempMatrixItems.some(item => String(item.id) === String(stockItem.id))) {
+        if (matrixKitUsesItem(stockItem.id)) {
             return showToast('อุปกรณ์นี้อยู่ในมาตรฐานแล้ว', 'warning');
         }
 
@@ -8768,7 +8942,36 @@
     }
 
     // 🎨 วาดรายการใน Modal (พร้อมช่องกรอก Spec/Lifespan)
-    function renderTempMatrixItems() {
+    function matrixKitUsesItem(id) {
+        return tempMatrixItems.some(item =>
+            [item.id, ...(Array.isArray(item.alternativeIds) ? item.alternativeIds : [])].some(candidate => Number(candidate) === Number(id)));
+    }
+
+    function loadMatrixAlternateOptions(details, index) {
+        if (!details.open) return;
+        const select = document.getElementById(`matrixAlternate${index}`);
+        const available = currentData.ppeItems.filter(item => !item.deleted_at && !matrixKitUsesItem(item.id));
+        select.replaceChildren(new Option('เลือกอุปกรณ์จากคลัง', ''), ...available.map(item =>
+            new Option([item.code, item.name].filter(Boolean).join(' · '), item.id)));
+    }
+
+    function editMatrixAlternates(index, removeId) {
+        if (!isAdmin || isSavingMatrixRule) return;
+        const item = tempMatrixItems[index];
+        if (!Array.isArray(item.alternativeIds)) item.alternativeIds = [];
+        if (removeId) {
+            item.alternativeIds = item.alternativeIds.filter(id => Number(id) !== removeId);
+        } else {
+            const id = Number(document.getElementById(`matrixAlternate${index}`).value);
+            if (!id || matrixKitUsesItem(id)) return;
+            if (item.alternativeIds.length >= 50) return showToast('เพิ่มตัวเลือกได้สูงสุด 50 รายการ', 'warning');
+            item.alternativeIds.push(id);
+        }
+        renderTempMatrixItems(index);
+        document.getElementById(`matrixAlternate${index}`)?.focus();
+    }
+
+    function renderTempMatrixItems(expandedIndex = -1) {
         const container = document.getElementById('selectedMatrixItemsContainer');
 
         if (tempMatrixItems.length === 0) {
@@ -8806,6 +9009,30 @@
                                class="w-full text-xs px-2 py-1.5 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
+                <div class="mt-3">
+                    <label class="block text-xs font-semibold" for="matrixKitQuantity${index}">จำนวนแนะนำในชุด</label>
+                    <input id="matrixKitQuantity${index}" type="number" min="1" max="999999" step="1" required
+                        value="${escapeLoanText(item.quantity ?? 1)}" oninput="updateItemDetail(${index}, 'quantity', this.value)"
+                        class="min-h-11 w-24 rounded-lg border border-gray-300 px-2 text-sm">
+                </div>
+                <details class="mt-2 text-sm" ${index === expandedIndex ? 'open' : ''} ontoggle="loadMatrixAlternateOptions(this, ${index})">
+                    <summary class="cursor-pointer py-2 font-semibold">ไซซ์หรือรุ่นที่เลือกแทนได้</summary>
+                    <ul class="space-y-1">${(Array.isArray(item.alternativeIds) ? item.alternativeIds : []).map(id => {
+                        const alternate = currentData.ppeItems.find(candidate => Number(candidate.id) === Number(id));
+                        const label = alternate ? [alternate.code, alternate.name].filter(Boolean).join(' · ') : `ไม่พบอุปกรณ์ #${Number(id)}`;
+                        return `<li class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="min-w-0 break-words">${escapeLoanText(label)}</span>
+                            <button type="button" onclick="editMatrixAlternates(${index}, ${Number(id)})" class="min-h-11 px-2 text-red-700"
+                                aria-label="ลบตัวเลือก ${escapeLoanText(label)}">นำออก</button></li>`;
+                    }).join('')}</ul>
+                    <div class="flex flex-wrap items-end gap-2">
+                        <div class="min-w-0 flex-1">
+                            <label for="matrixAlternate${index}" class="block text-xs">ตัวเลือกจากคลัง</label>
+                            <select id="matrixAlternate${index}" class="min-h-11 w-full rounded-lg border border-gray-300 px-2"></select>
+                        </div>
+                        <button type="button" onclick="editMatrixAlternates(${index})" class="min-h-11 rounded-lg bg-blue-50 px-3 font-semibold text-blue-700">เพิ่มตัวเลือก</button>
+                    </div>
+                </details>
             </div>`;
         }).join('');
     }
@@ -8835,7 +9062,9 @@
                 id: item.id ? Number(item.id) : null,
                 name: String(item.name || '').trim(),
                 props: String(item.props || '').trim(),
-                lifespan: String(item.lifespan || '').trim()
+                lifespan: String(item.lifespan || '').trim(),
+                quantity: Number(item.quantity ?? 1),
+                alternativeIds: Array.isArray(item.alternativeIds) ? item.alternativeIds.map(Number) : [],
             })), // ส่งเฉพาะ field ที่รองรับ
             // Field เก่าปล่อยว่างหรือใส่ dummy ไว้
             properties: '',
@@ -9069,68 +9298,69 @@
         document.getElementById('detailDesc').textContent = rule.remark || 'ไม่ได้ระบุรายละเอียดลักษณะงาน';
 
         const state = getMatrixRuleState(rule);
-        const items = state.requirements;
-        const summary = document.getElementById('detailAvailabilitySummary');
-        if (summary) {
-            summary.innerHTML = state.needsAttention
-                ? `<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 flex items-start gap-3"><i class="fa-solid fa-triangle-exclamation mt-0.5"></i><div><p class="font-bold">อุปกรณ์ยังไม่พร้อมครบชุด</p><p class="text-xs mt-0.5">พร้อม ${state.available}/${state.total} รายการ · สามารถเบิกเฉพาะรายการที่มีสต็อกได้</p></div></div>`
-                : `<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-start gap-3"><i class="fa-solid fa-circle-check mt-0.5"></i><div><p class="font-bold">อุปกรณ์พร้อมครบตามมาตรฐาน</p><p class="text-xs mt-0.5">พร้อมเบิกทั้งหมด ${state.total} รายการ</p></div></div>`;
-        }
-
-        const issueBtn = document.getElementById('matrixIssueBtn');
-        if (issueBtn) {
-            issueBtn.disabled = state.available === 0;
-            issueBtn.className = state.available === 0
-                ? 'w-full py-3.5 bg-gray-200 text-gray-500 rounded-xl font-bold cursor-not-allowed text-base flex items-center justify-center gap-2'
-                : 'w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all text-base flex items-center justify-center gap-2';
-            issueBtn.innerHTML = state.available === 0
-                ? '<i class="fa-solid fa-ban"></i> <span>ยังไม่มีอุปกรณ์พร้อมเบิก</span>'
-                : `<i class="fa-solid fa-paper-plane"></i> <span>เบิก ${state.available}/${state.total} รายการ</span>`;
-        }
+        document.getElementById('detailAvailabilitySummary').textContent = state.needsAttention
+            ? 'บางรายการมีไม่ครบตามจำนวนแนะนำ เลือกเฉพาะรายการและจำนวนที่ต้องการเบิก'
+            : 'ตรวจไซซ์หรือรุ่นและจำนวนก่อนเพิ่มลงใบเบิก';
         const adminStockBtn = document.getElementById('matrixAdminStockBtn');
-        if (adminStockBtn) {
-            const showAdminStock = isAdmin && state.needsAttention;
-            adminStockBtn.classList.toggle('hidden', !showAdminStock);
-            adminStockBtn.classList.toggle('flex', showAdminStock);
-            issueBtn?.classList.toggle('sm:col-span-2', !showAdminStock);
-        }
+        const showAdminStock = isAdmin && state.needsAttention;
+        adminStockBtn.classList.toggle('hidden', !showAdminStock);
+        adminStockBtn.classList.toggle('flex', showAdminStock);
+        document.getElementById('matrixIssueBtn').classList.toggle('sm:col-span-2', !showAdminStock);
 
         const grid = document.getElementById('detailItemsGrid');
-        grid.innerHTML = items.map(i => {
-            const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
-            const img = real?.image_url || 'https://placehold.co/100?text=PPE';
-            const stock = real ? Number(real.stock) : null;
-            const isOut = stock === 0;
-            const isLow = stock !== null && stock > 0 && stock <= Number(real?.reorderPoint || 0);
-
-            let stockBadge = '';
-            if (isOut) stockBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-circle-xmark text-[9px]"></i>หมดสต็อก</span>`;
-            else if (isLow) stockBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i>เหลือน้อย (${stock})</span>`;
-            else if (stock !== null) stockBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full"><i class="fa-solid fa-circle-check text-[9px]"></i>พร้อม (${stock})</span>`;
-
-            return `
-            <div class="bg-white p-3 rounded-xl border ${isOut ? 'border-red-100 opacity-60' : 'border-gray-200'} flex gap-3 items-start shadow-sm">
-                <img src="${img}" alt="${escapeLoanText(i.name || real?.name || 'อุปกรณ์ PPE')}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-14 h-14 rounded-lg object-contain bg-gray-50 border border-gray-100 shrink-0 ${isOut ? 'grayscale' : ''}">
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-start justify-between gap-2">
-                        <h5 class="font-bold text-gray-800 text-sm">${escapeLoanText(i.name || real?.name || 'ไม่ระบุอุปกรณ์')}</h5>
-                        ${real?.code ? `<span class="text-[10px] font-mono text-gray-400 shrink-0">${escapeLoanText(real.code)}</span>` : ''}
+        grid.innerHTML = state.itemStates.map(({ requirement, stockItem, choices, quantity }, index) => {
+            const name = requirement.name || stockItem?.name || 'อุปกรณ์ตามมาตรฐาน';
+            return `<div class="kit-requirement space-y-2 rounded-xl border border-gray-200 bg-white p-3">
+                <p class="break-words text-sm font-bold text-gray-800">${escapeLoanText(name)} · แนะนำ ${quantity} ${escapeLoanText(stockItem?.unit || '')}</p>
+                ${requirement.props ? `<p class="break-words text-xs text-gray-600">${escapeLoanText(requirement.props)}</p>` : ''}
+                ${requirement.lifespan ? `<p class="break-words text-xs text-gray-600">อายุการใช้งาน ${escapeLoanText(requirement.lifespan)}</p>` : ''}
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <div class="min-w-0">
+                        <label for="kitChoice${index}" class="block text-xs font-semibold">ไซซ์ / รุ่น / อุปกรณ์<span class="sr-only"> ${escapeLoanText(name)}</span></label>
+                        <select id="kitChoice${index}" class="kit-choice min-h-11 w-full rounded-lg border border-gray-300 px-2 text-sm" onchange="syncKitPreview(this)">
+                            <option value="">${choices.length ? 'ข้ามรายการนี้' : 'ไม่พบอุปกรณ์ที่เชื่อมในคลัง'}</option>
+                            ${choices.map(item => `<option value="${Number(item.id)}" data-stock="${Math.min(999999, Number(item.stock) || 0)}"
+                                ${Number(item.stock) <= 0 ? 'disabled' : ''} ${item === stockItem && Number(item.stock) > 0 ? 'selected' : ''}>
+                                ${escapeLoanText([item.code, item.name].filter(Boolean).join(' · '))} (${Number(item.stock) > 0 ? 'เหลือ ' + Number(item.stock) : 'หมดสต็อก'})
+                            </option>`).join('')}
+                        </select>
                     </div>
-                    <div class="text-xs text-gray-500 mt-1 space-y-0.5">
-                        <p><i class="fa-solid fa-shield-halved w-4 text-center text-blue-500"></i> ${escapeLoanText(i.props || '-')}</p>
-                        <p><i class="fa-solid fa-clock w-4 text-center text-blue-500"></i> ${escapeLoanText(i.lifespan || '-')}</p>
+                    <div>
+                        <label for="kitQuantity${index}" class="block text-xs font-semibold">จำนวน<span class="sr-only"> ${escapeLoanText(name)}</span></label>
+                        <input id="kitQuantity${index}" type="number" min="1" step="1" inputmode="numeric" data-recommended="${quantity}"
+                            class="kit-quantity min-h-11 w-full rounded-lg border border-gray-300 px-2 text-sm" oninput="syncKitPreview()">
                     </div>
-                    <div class="mt-2">${stockBadge || '<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-full"><i class="fa-solid fa-link-slash"></i>ไม่พบในคลัง</span>'}</div>
                 </div>
             </div>`;
         }).join('');
+        grid.querySelectorAll('.kit-choice').forEach(choice => syncKitPreview(choice));
+        syncKitPreview();
+        const modal = document.getElementById('matrixDetailModal');
+        if (modal.parentElement !== document.body) document.body.append(modal);
+        rememberDialogTrigger();
+        modal.classList.remove('hidden');
+    }
 
-        document.getElementById('matrixDetailModal').classList.remove('hidden');
+    function syncKitPreview(choice) {
+        if (choice) {
+            const quantity = choice.closest('.kit-requirement').querySelector('.kit-quantity');
+            const stock = Number(choice.selectedOptions[0]?.dataset.stock) || 0;
+            quantity.disabled = !stock;
+            quantity.max = stock;
+            quantity.value = stock ? Math.min(stock, Number(quantity.dataset.recommended)) : '';
+        }
+        const rows = [...document.querySelectorAll('#detailItemsGrid .kit-requirement')];
+        const selected = rows.filter(row => row.querySelector('.kit-choice').value);
+        const button = document.getElementById('matrixIssueBtn');
+        button.disabled = !selected.length || selected.some(row => !row.querySelector('.kit-quantity').value
+            || !row.querySelector('.kit-quantity').validity.valid);
+        button.textContent = selected.length ? `เพิ่ม ${selected.length} รายการลงใบเบิก` : 'ยังไม่มีรายการที่เลือกได้';
     }
 
     function closeMatrixDetail() {
         document.getElementById('matrixDetailModal').classList.add('hidden');
         _currentMatrixRuleId = null;
+        restoreDialogTrigger();
     }
 
     function manageStockFromMatrix() {
@@ -9151,38 +9381,49 @@
 
     // Pre-fill issue form จาก matrix rule
     function issueFromMatrix() {
-        if (!_currentMatrixRuleId) return;
-        const rule = currentData.ppeMatrix.find(r => r.id == _currentMatrixRuleId);
-        if (!rule) return;
-
-        const items = Array.isArray(rule.items_json) ? rule.items_json : [];
-        const availableItems = items.filter(i => {
-            const real = i.id ? currentData.ppeItems.find(p => p.id == i.id) : null;
-            return real && Number(real.stock) > 0;
+        if (!_currentMatrixRuleId || !canAccessModule('issue')) return;
+        const rows = [...document.querySelectorAll('#detailItemsGrid .kit-requirement')];
+        const selected = rows.filter(row => row.querySelector('.kit-choice').value).map(row => {
+            const id = Number(row.querySelector('.kit-choice').value);
+            const quantity = Number(row.querySelector('.kit-quantity').value);
+            const item = currentData.ppeItems.find(entry => Number(entry.id) === id && !entry.deleted_at);
+            return { item, quantity };
         });
-
-        if (availableItems.length === 0) {
-            showToast('อุปกรณ์ทุกรายการหมดสต็อก', 'error');
-            return;
+        if (!selected.length) return;
+        if (selected.some(({ item, quantity }) => !item || !Number.isInteger(quantity) || quantity < 1
+            || quantity > Math.min(999999, Number(item.stock)))) {
+            return showToast('จำนวนหรือสต็อกเปลี่ยน กรุณาตรวจรายการในชุดอีกครั้ง', 'warning');
         }
 
         closeMatrixDetail();
         showPage('issue');
-
-        // รอให้หน้า issue render ก่อน แล้วค่อย pre-fill
-        setTimeout(() => {
-            const container = document.getElementById('issueItemsContainer');
-            if (container) container.innerHTML = '';
-            availableItems.forEach(i => {
-                const real = currentData.ppeItems.find(p => p.id == i.id);
-                if (real) addIssueRow(real);
-            });
-            if (availableItems.length < items.length) {
-                showToast(`เพิ่ม ${availableItems.length}/${items.length} รายการ (บางรายการหมดสต็อก)`, 'warning');
-            } else {
-                showToast(`เพิ่ม ${availableItems.length} รายการในใบเบิกแล้ว`, 'success');
-            }
-        }, 100);
+        const existing = new Set(getIssueFormSnapshot().items.map(item => Number(item.itemId)));
+        const additions = selected.filter(({ item }) => {
+            const id = Number(item.id);
+            if (existing.has(id)) return false;
+            existing.add(id);
+            return true;
+        });
+        if (existing.size > 100) {
+            return showToast('ใบเบิกใส่อุปกรณ์ได้สูงสุด 100 รายการ กรุณาลดรายการก่อนเพิ่มชุด', 'warning');
+        }
+        let firstAdded;
+        additions.forEach(({ item, quantity }) => {
+            const row = addIssueRow(item, quantity);
+            if (!firstAdded) firstAdded = row;
+        });
+        const duplicates = selected.length - additions.length;
+        const skipped = rows.length - selected.length;
+        const notes = [
+            `เพิ่ม ${additions.length} รายการลงใบเบิก`,
+            duplicates ? `คงจำนวนเดิมของรายการซ้ำ ${duplicates} รายการ` : '',
+            skipped ? `ข้าม ${skipped} รายการ` : '',
+        ].filter(Boolean);
+        showToast(notes.join(' · '), duplicates || skipped ? 'warning' : 'success');
+        if (firstAdded) requestAnimationFrame(() => {
+            firstAdded.querySelector('.item-quantity').focus({ preventScroll: true });
+            firstAdded.scrollIntoView({ block: 'center', behavior: 'instant' });
+        });
     }
 
     // 3. Document Logic (Announcements)
@@ -9728,6 +9969,9 @@
 <script src="/js/skeleton-registry.js"></script>
 <script src="/js/api-client.js"></script>
 <script src="/js/employee-registration.js"></script>
+<script src="/js/stock-count.js"></script>
+<script src="/js/loan-assets.js"></script>
+<script src="/js/purchase-plan.js"></script>
 
 </body>
 </html>

@@ -63,6 +63,8 @@ const DEFAULT_CONFIG = { key: 'action.generic', overlay: true };
 const DEFAULT_READ_TIMEOUT_MS = 30000;
 const DEFAULT_ACTION_TIMEOUT_MS = 45000;
 const INVENTORY_WRITES = new Set([
+  'mutateLoanAsset',
+  'mutateStockCount',
   'saveCategory', 'savePpeItem', 'deletePpeItem', 'addNewVoucher', 'approveVoucher',
   'approvePartialVoucher', 'rejectVoucher', 'deleteVoucher', 'reverseVoucher', 'confirmReceive',
   'borrowItem', 'returnItem', 'addReceiveTransaction', 'saveFeedback',

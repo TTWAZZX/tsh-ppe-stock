@@ -37,6 +37,11 @@
 
 ## Deployment
 
+- [ ] For cycle counting, apply `009_stock_counts.sql` before deploying the admin UI. Applying the migration creates the round tables and functions. Closing a round from the app is what commits stock adjustments.
+- [ ] In staging, save a count and change stock through the normal receiving or issuing flow before closing the round. Verify the app requires a recount, then verify the completed round, the movement, and the reason in the audit log.
+- [ ] Apply `010_loan_asset_qr.sql` after `009_stock_counts.sql` and before deploying per-unit QR loans. Existing loans remain eligible for normal returns. Verify registration, scanning through LINE, one tagged borrow, and admin receipt in staging.
+- [ ] Apply `011_purchase_plan.sql` after `010_loan_asset_qr.sql`. Check that voided issues and loan movements do not count as usage, tagged units do not count as stock available for issue, and adjusted purchase quantities appear in the CSV without changing stock.
+
 - [ ] Deploy the verified commit only.
 - [ ] Confirm `/index.html` and `/api/ppe` respond over HTTPS.
 - [ ] Confirm the CSP permits the LINE LIFF SDK and required Supabase connections without browser violations.

@@ -92,7 +92,6 @@ function rememberDialogTrigger() {
             confirmationModal: () => modal._cancelAction?.(),
             categoryManagementModal: () => hideCategoryModal(),
             itemSelectorModal: () => closeItemSelector(),
-            timelineDetailModal: () => { modal.classList.add('hidden'); modal.classList.remove('flex'); },
             slipModal: () => closeSlip(),
             imagePreviewModal: () => closeImagePreview(),
             feedbackModal: () => closeFeedbackModal(),

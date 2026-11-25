@@ -73,3 +73,12 @@ test('does not copy LIFF credentials or unknown query parameters into restart UR
 
   assert.equal(restartUrl, 'https://liff.line.me/1234567890-AbCdEf?loanId=7&module=loan');
 });
+
+test('preserves only valid per-unit QR tokens across LINE reauthentication', () => {
+  const lineSession = loadLineSession();
+  const token = 'ae000000-1111-4000-8000-000000000001';
+  const restart = value => new URL(lineSession.buildLiffRestartUrl('1234567890-AbCdEf',
+    `https://example.com/index.html?module=loan&asset=${value}`, 'loan'));
+  assert.equal(restart(token).searchParams.get('asset'), token);
+  assert.equal(restart('invalid').searchParams.has('asset'), false);
+});

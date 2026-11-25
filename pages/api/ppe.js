@@ -2,6 +2,7 @@
 // API เวอร์ชัน Supabase ที่เลียนแบบ Code.gs และรับ text/plain แบบเดิมจาก index.html
 
 import { createClient } from '@supabase/supabase-js';
+import { renderSVG } from 'uqr';
 import crypto from 'crypto';
 import { createLineNotificationService } from '../../lib/notification-service.js';
 import { createNotificationWorkflows } from '../../lib/notification-workflows.js';
@@ -54,11 +55,13 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'checkLineStatus', 'getNotificationLogs', 'retryNotification', 'retryDueNotifications',
   'getNotificationRecipients', 'saveNotificationRecipient', 'toggleNotificationRecipient',
   'runLoanDueReminders', 'getIssueReport', 'listEmployeeRegistrations', 'reviewEmployeeRegistrations',
-  'getAdminNotificationCounts',
+  'getAdminNotificationCounts', 'listStockCounts', 'getStockCount', 'mutateStockCount',
+  'listLoanAssets', 'mutateLoanAsset', 'getLoanAssetQr',
+  'getPurchasePlan',
 ]);
 
 const LINE_OR_ADMIN_ACTIONS = new Set([
-  'addNewVoucher', 'borrowItem', 'confirmReceive', 'saveFeedback',
+  'addNewVoucher', 'borrowItem', 'confirmReceive', 'saveFeedback', 'getScannedLoanAsset',
 ]);
 
 const LINE_USER_ID_PATTERN = /^U[0-9a-f]{32}$/;
@@ -154,9 +157,21 @@ async function handler(req, res) {
       case 'getAdminNotificationCounts':
         result = await getAdminNotificationCounts();
         break;
+      case 'listStockCounts':
+        result = await listStockCounts(requestPayload);
+        break;
+      case 'getStockCount':
+        result = await getStockCount(requestPayload);
+        break;
+      case 'mutateStockCount':
+        result = await mutateStockCount(requestPayload, actor, req.headers['x-idempotency-key']);
+        break;
 
       case 'getIssueReport':
         result = await getIssueReport(requestPayload);
+        break;
+      case 'getPurchasePlan':
+        result = await getPurchasePlan(requestPayload);
         break;
 
       case 'getDocumentUrl':
@@ -202,7 +217,20 @@ async function handler(req, res) {
         break;
 
       case 'returnItem':
-        result = await returnItem(requestPayload.loanId, actor, req.headers['x-idempotency-key']);
+        result = await returnItem(requestPayload, actor, req.headers['x-idempotency-key']);
+        break;
+
+      case 'listLoanAssets':
+        result = await listLoanAssets(requestPayload);
+        break;
+      case 'getLoanAssetQr':
+        result = await getLoanAssetQr(requestPayload);
+        break;
+      case 'getScannedLoanAsset':
+        result = await getScannedLoanAsset(requestPayload, auth);
+        break;
+      case 'mutateLoanAsset':
+        result = await mutateLoanAsset(requestPayload, actor, req.headers['x-idempotency-key']);
         break;
 
       case 'addReceiveTransaction':
@@ -374,9 +402,13 @@ async function runInventoryMutation(action, payload, actor, suppliedRequestId) {
     throw createHttpError(400, 'รหัสคำขอไม่ถูกต้อง');
   }
   const args = { p_payload: payload, p_actor: actor, p_request_id: requestId };
-  const { data, error } = action === 'savePpeItem'
-    ? await supabase.rpc('ppe_save_categorized_inventory', args)
-    : await supabase.rpc('ppe_apply_inventory', { p_action: action, ...args });
+  let rpc;
+  if (action === 'savePpeItem') rpc = supabase.rpc('ppe_save_categorized_inventory', args);
+  else if (action === 'stockCount') rpc = supabase.rpc('ppe_mutate_stock_count', { p_action: payload.operation, ...args });
+  else if (action === 'loanAsset') rpc = supabase.rpc('ppe_mutate_loan_asset', { p_action: payload.operation, ...args });
+  else if (action === 'borrowItem' || action === 'returnItem') rpc = supabase.rpc('ppe_apply_asset_loan', { p_action: action, ...args });
+  else rpc = supabase.rpc('ppe_apply_inventory', { p_action: action, ...args });
+  const { data, error } = await rpc;
   if (error) {
     if (action === 'addNewVoucher' && error.code === 'PT409' && error.details) {
       let details;
@@ -704,6 +736,17 @@ async function getIssueReport(payload) {
   return data;
 }
 
+async function getPurchasePlan({ historyDays = 90, coverageDays = 30 }) {
+  const history = parseWholeNumber(historyDays);
+  const coverage = parseWholeNumber(coverageDays);
+  if (![30, 60, 90].includes(history) || !Number.isInteger(coverage) || coverage < 1 || coverage > 365) {
+    throw createHttpError(400, 'กรุณาเลือกช่วงย้อนหลังและระบุจำนวนวันที่ต้องการให้สต็อกพอใช้ 1 ถึง 365 วัน');
+  }
+  const { data, error } = await supabase.rpc('ppe_purchase_plan', { p_history_days: history, p_coverage_days: coverage });
+  if (error) throw error;
+  return data;
+}
+
 async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   if (!auth.isAdmin && !auth.employee) {
     const registration = auth.lineUser ? await getEmployeeRegistration(auth) : null;
@@ -901,6 +944,71 @@ async function getAdminNotificationCounts() {
   ]);
   if (issues.error || employees.error) throw issues.error || employees.error;
   return { issues: issues.count, employees: employees.count, messages: messages.count };
+}
+
+const STOCK_COUNT_PAGE_SIZE = 20;
+const MAX_STOCK_COUNT_LINES = 1000;
+
+function stockCountId(value) {
+  const id = parseWholeNumber(value);
+  if (!Number.isSafeInteger(id) || id < 1) throw createHttpError(400, 'รหัสรอบหรือรหัสอุปกรณ์ไม่ถูกต้อง');
+  return id;
+}
+
+async function listStockCounts({ before }) {
+  let query = supabase.from('ppe_stock_counts').select('id,title,status,opened_at,closed_at')
+    .order('id', { ascending: false }).limit(STOCK_COUNT_PAGE_SIZE + 1);
+  if (before != null) query = query.lt('id', stockCountId(before));
+  const { data: rows, error } = await query;
+  if (error) throw error;
+  const rounds = rows.slice(0, STOCK_COUNT_PAGE_SIZE);
+  return { rounds, nextBefore: rows.length > STOCK_COUNT_PAGE_SIZE ? rounds.at(-1).id : null };
+}
+
+async function getStockCount({ id }) {
+  const { data, error } = await supabase.rpc('ppe_get_stock_count', { p_id: stockCountId(id) });
+  if (error) throw error;
+  if (!data) throw createHttpError(404, 'ไม่พบรอบตรวจนับ');
+  return data;
+}
+
+async function mutateStockCount(payload, actor, requestId) {
+  const { operation } = payload;
+  if (!['start', 'save', 'recount', 'apply', 'cancel'].includes(operation)) {
+    throw createHttpError(400, 'คำขอตรวจนับไม่ถูกต้อง');
+  }
+  const fields = { operation };
+  if (operation === 'start') {
+    const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+    if (!title || title.length > 120 || !Array.isArray(payload.itemIds)
+      || !payload.itemIds.length || payload.itemIds.length > MAX_STOCK_COUNT_LINES) {
+      throw createHttpError(400, 'กรุณาระบุชื่อรอบและเลือกอุปกรณ์ 1 ถึง 1,000 รายการ');
+    }
+    fields.title = title;
+    fields.itemIds = payload.itemIds.map(stockCountId).sort((a, b) => a - b);
+  } else {
+    fields.id = stockCountId(payload.id);
+    fields.revision = stockCountId(payload.revision);
+    if (fields.revision > 2147483647) throw createHttpError(400, 'ข้อมูลรอบตรวจนับไม่ถูกต้อง');
+    if (operation === 'save') {
+      if (!Array.isArray(payload.counts) || !payload.counts.length || payload.counts.length > MAX_STOCK_COUNT_LINES) {
+        throw createHttpError(400, 'กรุณาระบุยอดตรวจนับ');
+      }
+      fields.counts = payload.counts.map(line => {
+        const count = line?.counted_stock === null ? null : parseWholeNumber(line?.counted_stock);
+        if (count !== null && (!Number.isInteger(count) || count < 0 || count > 2147483647)) {
+          throw createHttpError(400, 'ยอดตรวจนับต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป');
+        }
+        return { item_id: stockCountId(line?.item_id), counted_stock: count };
+      }).sort((a, b) => a.item_id - b.item_id);
+    }
+    if (operation === 'recount') fields.itemId = stockCountId(payload.itemId);
+    if (operation === 'apply' || operation === 'cancel') {
+      fields.reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+      if (!fields.reason || fields.reason.length > 500) throw createHttpError(400, 'กรุณาระบุเหตุผลไม่เกิน 500 ตัวอักษร');
+    }
+  }
+  return runInventoryMutation('stockCount', fields, actor, requestId);
 }
 
 async function listEmployeeRegistrations() {
@@ -1152,6 +1260,67 @@ async function addReceiveTransactionAndUpdateStock(tx, actor, requestId) {
 }
 
 // ในไฟล์ ppe.js ค้นหาฟังก์ชัน borrowItem แล้วแก้เป็นแบบนี้
+function parseLoanAssetToken(value) {
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) {
+    throw createHttpError(400, 'รหัส QR ของอุปกรณ์ไม่ถูกต้อง');
+  }
+  return value.toLowerCase();
+}
+
+function loanAssetId(value) {
+  const id = parseWholeNumber(value);
+  if (!Number.isSafeInteger(id) || id < 1) throw createHttpError(400, 'รหัสอุปกรณ์ไม่ถูกต้อง');
+  return id;
+}
+
+async function listLoanAssets({ itemId, before }) {
+  let query = supabase.from('ppe_loan_assets').select('id,item_id,label,available,retired_at')
+    .eq('item_id', loanAssetId(itemId)).order('id', { ascending: false }).limit(21);
+  if (before != null) query = query.lt('id', loanAssetId(before));
+  const { data, error } = await query;
+  if (error) throw error;
+  const assets = data.slice(0, 20);
+  return { assets, nextBefore: data.length > 20 ? assets.at(-1).id : null };
+}
+
+async function mutateLoanAsset({ operation, itemId, id, label }, actor, requestId) {
+  if (operation === 'register') {
+    const normalized = typeof label === 'string' ? label.trim() : '';
+    if (!normalized || normalized.length > 80) throw createHttpError(400, 'กรุณากรอกรหัสประจำชิ้นไม่เกิน 80 ตัวอักษร');
+    return runInventoryMutation('loanAsset', { operation, itemId: loanAssetId(itemId), label: normalized }, actor, requestId);
+  }
+  if (operation === 'retire') return runInventoryMutation('loanAsset', { operation, id: loanAssetId(id) }, actor, requestId);
+  throw createHttpError(400, 'คำขอจัดการป้าย QR ไม่ถูกต้อง');
+}
+
+async function getLoanAssetQr({ id }) {
+  const { data, error } = await supabase.from('ppe_loan_assets').select('label,qr_token')
+    .eq('id', loanAssetId(id)).is('retired_at', null).maybeSingle();
+  if (error) throw error;
+  if (!data) throw createHttpError(404, 'ไม่พบป้าย QR ที่ใช้งานอยู่');
+  const url = notificationWorkflows.buildLiffLink('loan', { asset: data.qr_token });
+  const svg = renderSVG(url, { ecc: 'M', border: 4 });
+  return { label: data.label, url, image: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` };
+}
+
+async function getScannedLoanAsset({ token }, auth) {
+  const { data: asset, error } = await supabase.from('ppe_loan_assets').select('id,item_id,label,available,retired_at')
+    .eq('qr_token', parseLoanAssetToken(token)).maybeSingle();
+  if (error) throw error;
+  if (!asset || asset.retired_at) throw createHttpError(404, 'ไม่พบป้ายนี้หรือป้ายเลิกใช้งานแล้ว');
+
+  let loan = null;
+  if (!asset.available) {
+    let query = supabase.from('loan_transactions').select('loanId,dueDate')
+      .eq('loan_asset_id', asset.id).eq('status', 'on_loan');
+    if (!auth.isAdmin) query = query.eq('userid', auth.lineUser.userId);
+    const result = await query.maybeSingle();
+    if (result.error) throw result.error;
+    loan = result.data;
+  }
+  return { itemId: asset.item_id, label: asset.label, available: asset.available, loan };
+}
+
 async function borrowItem(borrowData, auth, actor, requestId) {
   const itemId = parseWholeNumber(borrowData?.itemId);
   const { name: borrowerName, employeeId, department } = await getEmployeeIdentity(borrowData, auth, 'borrowerName');
@@ -1173,8 +1342,10 @@ async function borrowItem(borrowData, auth, actor, requestId) {
   const ownerUserId = auth.isAdmin
     ? (LINE_USER_ID_PATTERN.test(String(borrowData.userId || '')) ? borrowData.userId : '')
     : auth.lineUser.userId;
+  const assetToken = borrowData.assetToken == null ? null : parseLoanAssetToken(borrowData.assetToken);
   const { loan: data, updatedItem } = await runInventoryMutation('borrowItem', {
     itemId, borrowerName, employeeId, userId: ownerUserId, department, dueDate, notes,
+    ...(assetToken ? { assetToken } : {}),
   }, actor, requestId);
 
   const dueText = new Date(`${dueDate}T00:00:00`).toLocaleDateString('th-TH', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' });
@@ -1226,10 +1397,12 @@ async function borrowItem(borrowData, auth, actor, requestId) {
   return { newLoan: data, updatedItem, notification: { user: userNotification, admin: adminNotification } };
 }
 
-async function returnItem(loanId, actor, requestId) {
+async function returnItem({ loanId, assetToken }, actor, requestId) {
   const normalizedLoanId = parseWholeNumber(loanId);
   if (!Number.isSafeInteger(normalizedLoanId) || normalizedLoanId <= 0) throw createHttpError(400, 'รหัสรายการยืมไม่ถูกต้อง');
-  const { loan, updatedItem } = await runInventoryMutation('returnItem', { loanId: normalizedLoanId }, actor, requestId);
+  const fields = { loanId: normalizedLoanId };
+  if (assetToken != null) fields.assetToken = parseLoanAssetToken(assetToken);
+  const { loan, updatedItem } = await runInventoryMutation('returnItem', fields, actor, requestId);
 
   const notification = await sendLinePush(
     loan.userid,
@@ -1414,27 +1587,43 @@ async function saveMatrixRule(payload) {
   if (remark.length > 1000) throw new Error('รายละเอียดงานยาวเกิน 1,000 ตัวอักษร');
   if (itemsJson.length < 1 || itemsJson.length > 50) throw new Error('กรุณาเลือกอุปกรณ์ 1-50 รายการ');
 
-  const normalizedItems = itemsJson.map(item => ({
-    id: Number(item?.id),
-    name: String(item?.name || '').trim().slice(0, 160),
-    props: String(item?.props || '').trim().slice(0, 500),
-    lifespan: String(item?.lifespan || '').trim().slice(0, 200),
-  }));
-  if (normalizedItems.some(item => !Number.isInteger(item.id) || item.id <= 0 || !item.name)) {
+  const normalizedItems = itemsJson.map(item => {
+    const quantity = item?.quantity === undefined ? 1 : parseWholeNumber(item.quantity);
+    const alternativeIds = item?.alternativeIds === undefined ? [] : item.alternativeIds;
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999999) {
+      throw createHttpError(400, 'จำนวนแนะนำต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 999,999');
+    }
+    if (!Array.isArray(alternativeIds) || alternativeIds.length > 50) {
+      throw createHttpError(400, 'เลือกอุปกรณ์ตัวเลือกได้ไม่เกิน 50 รายการต่ออุปกรณ์หนึ่งชนิด');
+    }
+    return {
+      id: parseWholeNumber(item?.id),
+      name: String(item?.name || '').trim().slice(0, 160),
+      props: String(item?.props || '').trim().slice(0, 500),
+      lifespan: String(item?.lifespan || '').trim().slice(0, 200),
+      quantity,
+      alternativeIds: alternativeIds.map(parseWholeNumber),
+    };
+  });
+  const itemIds = normalizedItems.flatMap(item => [item.id, ...item.alternativeIds]);
+  if (itemIds.some(itemId => !Number.isSafeInteger(itemId) || itemId <= 0) || normalizedItems.some(item => !item.name)) {
     throw new Error('กรุณาเลือกอุปกรณ์จากรายการในคลังให้ครบถ้วน');
   }
-  if (new Set(normalizedItems.map(item => item.id)).size !== normalizedItems.length) {
-    throw new Error('พบอุปกรณ์ซ้ำในมาตรฐาน');
+  if (new Set(itemIds).size !== itemIds.length) {
+    throw createHttpError(400, 'อุปกรณ์เดียวกันต้องอยู่เพียงหนึ่งรายการหรือตัวเลือกในชุดเบิก');
   }
 
-  const itemIds = normalizedItems.map(item => item.id);
-  const { data: linkedItems, error: linkedItemsError } = await supabase
+  const linkedItems = [];
+  for (let offset = 0; offset < itemIds.length; offset += 100) {
+    const { data, error } = await supabase
     .from('ppe_items')
     .select('id, name')
-    .in('id', itemIds)
+    .in('id', itemIds.slice(offset, offset + 100))
     .is('deleted_at', null);
-  if (linkedItemsError) throw linkedItemsError;
-  if ((linkedItems || []).length !== itemIds.length) {
+    if (error) throw error;
+    linkedItems.push(...data);
+  }
+  if (linkedItems.length !== itemIds.length) {
     throw new Error('มีอุปกรณ์บางรายการไม่อยู่ในคลังแล้ว กรุณาเลือกใหม่');
   }
   const linkedById = new Map(linkedItems.map(item => [Number(item.id), item]));
