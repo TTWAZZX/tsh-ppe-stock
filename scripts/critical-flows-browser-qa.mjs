@@ -132,7 +132,104 @@ try {
     assert.deepEqual(failedRequests, [], `${viewport.name} failed requests: ${failedRequests.join(' | ')}`);
     console.log(`PASS ${viewport.name}: critical user/admin navigation, controls, fallback, no overflow`);
     await page.close();
+
+    if (isLocalQa) await checkApprovalNotifications(viewport);
   }
 } finally {
   await browser.close();
+}
+
+async function checkApprovalNotifications(viewport) {
+  const page = await browser.newPage({ viewport });
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  const counts = { issues: 2, employees: 1, messages: 1 };
+  let admin = true;
+  const actions = [];
+  await page.clock.install();
+  await page.route(origin + '/api/ppe', async route => {
+    const { action } = route.request().postDataJSON();
+    actions.push(action);
+    const responses = {
+      getAdminSession: { authenticated: admin },
+      getInitialData: {
+        isAdmin: admin, accessStatus: 'authorized', nextPpeCode: 'PPE001',
+        issueVouchers: Array.from({ length: counts.issues }, (_, index) => ({
+          id: index + 1, status: 'pending', user: 'QA Employee', timestamp: '2025-06-01T10:00:00Z', itemsJson: [],
+        })),
+        dashboardMetrics: { notificationFailures: { available: true, count: counts.messages, recent: [] } },
+      },
+      getAdminNotificationCounts: counts,
+      getNotificationLogs: [],
+      getNotificationRecipients: { recipients: [] },
+      listEmployeeRegistrations: counts.employees
+        ? [{ id: 1, revision: 1, employee_name: 'QA Employee', employee_id: 'QA-1', department: 'QA' }]
+        : [],
+      reviewEmployeeRegistrations: { reviewed: 1 },
+    };
+    if (action === 'reviewEmployeeRegistrations') counts.employees = 0;
+    if (action === 'logoutAdmin') admin = false;
+    await route.fulfill({ json: { status: 'success', data: responses[action] ?? {} } });
+  });
+  const waitForCount = (id, value) => page.waitForFunction(
+    ([id, value]) => document.getElementById(id).textContent === value, [id, value]
+  );
+  try {
+    await page.goto(baseUrl + '#dashboard');
+    await page.waitForFunction(() => document.getElementById('splashScreen').classList.contains('hidden'));
+    const mobile = viewport.width < 768;
+    const issueBadge = mobile ? 'pendingBadge' : 'pendingBadgeDesktop';
+    const employeeBadge = mobile ? 'employeeBadgeMobile' : 'employeeBadgeDesktop';
+    const notificationBadge = mobile ? 'notificationBadgeMobile' : 'notificationBadgeDesktop';
+    await waitForCount(issueBadge, '2');
+    if (mobile) {
+      await waitForCount('adminMoreBadge', '2');
+      await page.locator('#adminMoreTrigger').click();
+    }
+    await waitForCount(employeeBadge, '1');
+    await waitForCount(notificationBadge, '4');
+    assert.equal(await page.locator('#' + employeeBadge).isVisible(), true);
+    await page.locator('#' + notificationBadge).locator('..').click();
+    await waitForCount('notificationPendingIssues', '2');
+    await waitForCount('notificationPendingEmployees', '1');
+
+    const widths = [];
+    for (const module of ['notifications', 'pending', 'stock']) {
+      await page.evaluate(name => showPage(name), module);
+      const shell = page.locator(`#${module}Page > .module-shell`);
+      assert.equal(await shell.isVisible(), true);
+      widths.push((await shell.boundingBox()).width);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+    }
+    assert.equal(widths.every(width => width === widths[0]), true, `Module widths ${widths.join(', ')}`);
+
+    await page.evaluate(() => showPage('notifications'));
+    await page.locator('#notificationPendingEmployees').locator('..').click();
+    await page.locator('#employeeApprovalsList input').check();
+    await page.locator('#employeeApprove').click();
+    await page.locator('#confirmProceedBtn').click();
+    await waitForCount(employeeBadge, '');
+    await waitForCount(notificationBadge, '3');
+    await waitForCount('notificationPendingEmployees', '0');
+
+    counts.issues = 0;
+    counts.messages = 0;
+    await page.clock.fastForward(31000);
+    await waitForCount(issueBadge, '');
+    await waitForCount(notificationBadge, '');
+    await page.evaluate(() => showPage('notifications'));
+    await page.locator('#notificationPendingIssues').locator('..').click();
+    await page.waitForFunction(() => !document.getElementById('pendingEmptyState').classList.contains('hidden'));
+    assert.equal(await page.locator('#pendingPage').isVisible(), true);
+
+    await page.evaluate(() => logout());
+    await page.waitForFunction(() => document.getElementById('adminMenu').classList.contains('hidden'));
+    const requestsBefore = actions.filter(action => action === 'getAdminNotificationCounts').length;
+    await page.clock.fastForward(31000);
+    assert.equal(actions.filter(action => action === 'getAdminNotificationCounts').length, requestsBefore);
+    assert.deepEqual(pageErrors, []);
+    console.log(`PASS ${viewport.name}: approval badges, summary links, review updates, polling, logout, module widths ${widths.join(', ')}`);
+  } finally {
+    await page.close();
+  }
 }

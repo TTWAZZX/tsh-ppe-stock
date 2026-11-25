@@ -168,7 +168,10 @@
     } finally {
       approving = false;
       syncSelection();
-      if (reloadAfterReview) await loadApprovals();
+      if (reloadAfterReview) {
+        refreshAdminNotificationCounts(true);
+        await loadApprovals();
+      }
     }
   }
 
@@ -187,6 +190,9 @@
   approvalsList.addEventListener('change', syncSelection);
   approve.addEventListener('click', () => review('approved'));
   reject.addEventListener('click', () => review('rejected'));
-  reload.addEventListener('click', loadApprovals);
+  reload.addEventListener('click', () => {
+    refreshAdminNotificationCounts(true);
+    loadApprovals();
+  });
   window.EmployeeRegistration = { render, loadApprovals, clearApprovals };
 })();

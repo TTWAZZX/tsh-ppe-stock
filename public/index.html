@@ -118,7 +118,7 @@
                     <i class="fa-solid fa-hourglass-half w-6 h-6 mr-3"></i><span>อนุมัติคำขอ</span><span id="pendingBadgeDesktop" class="nav-badge" aria-label="คำขอรออนุมัติ"></span>
                 </a>
                 <a href="#employeeApprovals" onclick="showPage('employeeApprovals')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
-                    <i class="fa-solid fa-user-check w-6 h-6 mr-3" aria-hidden="true"></i><span>อนุมัติพนักงาน</span>
+                    <i class="fa-solid fa-user-check w-6 h-6 mr-3" aria-hidden="true"></i><span>อนุมัติพนักงาน</span><span id="employeeBadgeDesktop" class="nav-badge"></span>
                 </a>
                 <a href="#manage" onclick="showPage('manage')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
                     <i class="fa-solid fa-gear w-6 h-6 mr-3"></i><span>จัดการอุปกรณ์</span>
@@ -1444,7 +1444,7 @@
                                 <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
                                     <i class="fa-solid fa-bell text-blue-600"></i> ศูนย์การแจ้งเตือน
                                 </h2>
-                                <p class="text-sm text-gray-500 mt-1">ติดตามผลการส่งข้อความ ตั้งค่าผู้รับแจ้งเตือน และประมวลผลข้อความที่รอส่งซ้ำ</p>
+                                <p class="text-sm text-gray-500 mt-1">ดูงานรออนุมัติและติดตามการส่งข้อความ LINE</p>
                             </div>
                             <div class="grid grid-cols-2 sm:flex gap-2 w-full lg:w-auto">
                                 <button id="loanReminderButton" type="button" onclick="runLoanDueReminders()" class="min-h-11 px-4 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 font-semibold text-sm hover:bg-orange-100 disabled:opacity-60 disabled:cursor-wait">
@@ -1455,6 +1455,22 @@
                                 </button>
                             </div>
                         </div>
+                    </section>
+
+                    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 space-y-3" aria-labelledby="notificationApprovalsHeading">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 id="notificationApprovalsHeading" class="font-bold text-gray-800">งานรออนุมัติ</h3>
+                            <button type="button" onclick="refreshAdminNotificationCounts(true)" class="min-h-11 px-4 rounded-lg border border-gray-300 text-sm font-semibold">อัปเดตยอด</button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <a href="#pending" onclick="showPage('pending')" class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 font-semibold text-blue-700 hover:bg-blue-50">
+                                <span>คำขอเบิกอุปกรณ์</span><span id="notificationPendingIssues" class="text-xl font-bold">—</span>
+                            </a>
+                            <a href="#employeeApprovals" onclick="showPage('employeeApprovals')" class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 font-semibold text-blue-700 hover:bg-blue-50">
+                                <span>คำขอลงทะเบียนพนักงาน</span><span id="notificationPendingEmployees" class="text-xl font-bold">—</span>
+                            </a>
+                        </div>
+                        <p id="notificationApprovalStatus" class="hidden text-sm text-orange-700" role="status"></p>
                     </section>
 
                     <section class="grid grid-cols-2 xl:grid-cols-4 gap-3" aria-label="สรุปสถานะข้อความ">
@@ -1890,12 +1906,13 @@
             </a>
             <!-- เมนูเพิ่มเติม Admin -->
             <div class="relative">
-                <a id="adminMoreTrigger" href="#" onclick="toggleAdminMoreMenu()" aria-haspopup="menu" aria-expanded="false" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer">
-                    <i class="fa-solid fa-bars text-xl mb-1"></i><span>เพิ่มเติม</span>
-                </a>
+                <button id="adminMoreTrigger" type="button" onclick="toggleAdminMoreMenu()" aria-controls="adminMoreMenu" aria-expanded="false" class="nav-item-mobile flex flex-col items-center w-16 p-1 cursor-pointer">
+                    <span class="relative"><i class="fa-solid fa-bars text-xl mb-1" aria-hidden="true"></i><span id="adminMoreBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span></span>
+                    <span>เพิ่มเติม</span>
+                </button>
                 <div id="adminMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
                     <a href="#employeeApprovals" onclick="showPage('employeeApprovals'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
-                        <i class="fa-solid fa-user-check mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i> อนุมัติพนักงาน
+                        <i class="fa-solid fa-user-check mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i><span>อนุมัติพนักงาน</span><span id="employeeBadgeMobile" class="nav-badge"></span>
                     </a>
                     <a onclick="showPage('stock'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-boxes-stacked mr-3 text-blue-500 w-5 text-center"></i> สต็อกทั้งหมด
@@ -1903,7 +1920,7 @@
                     <a onclick="showPage('report'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-chart-line mr-3 text-purple-500 w-5 text-center"></i> รายงาน
                     </a>
-                    <a onclick="showPage('notifications'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
+                    <a href="#notifications" onclick="showPage('notifications'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-bell mr-3 text-orange-500 w-5 text-center"></i><span>การแจ้งเตือน</span><span id="notificationBadgeMobile" class="nav-badge" aria-label="ข้อความที่ต้องตรวจสอบ"></span>
                     </a>
                     <a onclick="showPage('allHistory'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
@@ -2788,9 +2805,17 @@
         // สร้างตัวเลือกแผนก
         renderDepartmentSelect();
 
-        // ✅ หัวใจสำคัญ: สั่งให้หน้าจออัปเดตข้อมูลทันทีหลังจากโหลดเสร็จ
+        if (isAdmin) {
+            adminNotificationCounts.issues = currentData.issueVouchers.filter(voucher => voucher.status === 'pending').length;
+            const failures = currentData.dashboardMetrics.notificationFailures;
+            if (failures?.available) adminNotificationCounts.messages = failures.count;
+            renderAdminNotificationCounts();
+            refreshAdminNotificationCounts(true);
+        } else {
+            clearAdminNotificationCounts();
+            EmployeeRegistration.clearApprovals();
+        }
         updateUI();
-        if (!isAdmin) EmployeeRegistration.clearApprovals();
         if (registrationRequired()) {
             EmployeeRegistration.render(data.registration);
             showPage('employeeRegistration', { restoring: true });
@@ -2886,11 +2911,8 @@
         if(typeof renderCategoryList === 'function') renderCategoryList();
 
         renderFeedbackSection();
-        updatePendingBadge();
         if (isAdmin && typeof loadNotificationCenter === 'function' && !notificationCenterHasLoaded) {
             loadNotificationCenter().catch(() => {});
-        } else {
-            updateNotificationMenuBadges(0);
         }
         sidebar?.querySelector('nav')?.classList.toggle('hidden', registrationRequired());
         if (registrationRequired()) userMobileNav?.classList.add('hidden');
@@ -2898,27 +2920,68 @@
 
     function setNavigationBadge(element, count, label) {
         if (!element) return;
-        const value = Math.max(0, Number(count || 0));
+        const value = isAdmin ? Number(count || 0) : 0;
         const visible = isAdmin && value > 0;
-        element.textContent = element.id === 'pendingBadge' && value > 9
-            ? '9+'
-            : value > 99 ? '99+' : String(value);
-        element.setAttribute('aria-label', `${label} ${value} รายการ`);
-        element.classList.toggle('hidden', !visible && element.id === 'pendingBadge');
-        element.classList.toggle('is-visible', visible && element.id !== 'pendingBadge');
+        const inset = !element.classList.contains('nav-badge');
+        const max = inset ? 9 : 99;
+        element.textContent = visible ? (value > max ? `${max}+` : String(value)) : '';
+        if (visible) element.setAttribute('aria-label', `${label} ${value} รายการ`);
+        else element.removeAttribute('aria-label');
+        if (inset) element.classList.toggle('hidden', !visible);
+        else element.classList.toggle('is-visible', visible);
     }
 
-    // แสดงจำนวนคำขอรออนุมัติทั้งเมนู Desktop และ Mobile
-    function updatePendingBadge() {
-        const count = (currentData.issueVouchers || []).filter(v => v.status === 'pending').length;
-        setNavigationBadge(document.getElementById('pendingBadge'), count, 'คำขอรออนุมัติ');
-        setNavigationBadge(document.getElementById('pendingBadgeDesktop'), count, 'คำขอรออนุมัติ');
+    let adminNotificationCounts = {};
+    let adminNotificationCountsRequest = null;
+
+    function renderAdminNotificationCounts() {
+        const { issues, employees, messages } = adminNotificationCounts;
+        const total = (issues ?? 0) + (employees ?? 0) + (messages ?? 0);
+        for (const [ids, count, label] of [
+            [['pendingBadge', 'pendingBadgeDesktop'], issues, 'คำขอเบิกรออนุมัติ'],
+            [['employeeBadgeDesktop', 'employeeBadgeMobile'], employees, 'คำขอลงทะเบียนรออนุมัติ'],
+            [['notificationBadgeDesktop', 'notificationBadgeMobile'], total, 'รายการที่ต้องตรวจสอบ'],
+            [['adminMoreBadge'], (employees ?? 0) + (messages ?? 0), 'รายการที่ต้องตรวจสอบในเมนูเพิ่มเติม'],
+        ]) {
+            ids.forEach(id => setNavigationBadge(document.getElementById(id), count, label));
+        }
+        document.getElementById('notificationPendingIssues').textContent = issues?.toLocaleString('th-TH') ?? '—';
+        document.getElementById('notificationPendingEmployees').textContent = employees?.toLocaleString('th-TH') ?? '—';
     }
 
-    function updateNotificationMenuBadges(count = 0) {
-        setNavigationBadge(document.getElementById('notificationBadgeDesktop'), count, 'ข้อความที่ต้องตรวจสอบ');
-        setNavigationBadge(document.getElementById('notificationBadgeMobile'), count, 'ข้อความที่ต้องตรวจสอบ');
+    function clearAdminNotificationCounts() {
+        adminNotificationCountsRequest = null;
+        adminNotificationCounts = {};
+        renderAdminNotificationCounts();
+        document.getElementById('notificationApprovalStatus').classList.add('hidden');
     }
+
+    function refreshAdminNotificationCounts(force = false) {
+        if (!isAdmin || document.hidden || navigator.onLine === false) return;
+        if (adminNotificationCountsRequest && !force) return adminNotificationCountsRequest;
+        const status = document.getElementById('notificationApprovalStatus');
+        const request = apiCall('getAdminNotificationCounts', null, { silent: true })
+            .then(({ issues, employees, messages }) => {
+                if (adminNotificationCountsRequest !== request || !isAdmin) return;
+                adminNotificationCounts = { issues, employees, messages: messages ?? adminNotificationCounts.messages };
+                renderAdminNotificationCounts();
+                status.classList.add('hidden');
+            })
+            .catch(error => {
+                if (adminNotificationCountsRequest !== request || !isAdmin || error.authenticationRedirected) return;
+                status.textContent = 'อัปเดตยอดรออนุมัติไม่สำเร็จ กรุณาลองอีกครั้ง';
+                status.classList.remove('hidden');
+            })
+            .finally(() => {
+                if (adminNotificationCountsRequest === request) adminNotificationCountsRequest = null;
+            });
+        adminNotificationCountsRequest = request;
+        return request;
+    }
+
+    setInterval(refreshAdminNotificationCounts, 30000);
+    document.addEventListener('visibilitychange', () => refreshAdminNotificationCounts());
+    window.addEventListener('online', () => refreshAdminNotificationCounts());
 
     // แทนที่ฟังก์ชัน showPage เดิม
     function showPage(pageName, options = {}) {
@@ -2938,6 +3001,7 @@
             LoadingManager.cancel('widget.matrix');
         }
 
+        const pageChanged = _activePage !== pageName;
         _activePage = pageName;
         document.querySelectorAll('.page-container > .page').forEach(page => {
             if (page.id !== `${pageName}Page`) page.classList.add('hidden');
@@ -3054,6 +3118,7 @@
         if (pageName === 'notifications' && typeof loadNotificationCenter === 'function') {
             loadNotificationCenter();
         }
+        if (pageName === 'pending' && pageChanged && !options.restoring) refreshData('pending');
         if (pageName === 'employeeApprovals') EmployeeRegistration.loadApprovals();
 
         persistActiveModule(pageName);
@@ -9417,6 +9482,7 @@
 
     function loadNotificationCenter(force = false) {
         if (!isAdmin) return Promise.resolve();
+        refreshAdminNotificationCounts(force);
         if (notificationCenterLoadPromise && !force) return notificationCenterLoadPromise;
         const requestSequence = ++notificationCenterLoadSequence;
         const logList = document.getElementById('notificationLogList');
@@ -9438,7 +9504,6 @@
                 renderNotificationRecipients();
             } catch (error) {
                 if (requestSequence !== notificationCenterLoadSequence) return;
-                updateNotificationMenuBadges(0);
                 if (logList) logList.innerHTML = `${createEmptyState('โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'fa-solid fa-triangle-exclamation')}<div class="px-5 pb-6 text-center"><button type="button" onclick="loadNotificationCenter(true)" class="min-h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-bold"><i class="fa-solid fa-rotate mr-1"></i>ลองโหลดอีกครั้ง</button></div>`;
                 if (recipientList) recipientList.innerHTML = '<div class="p-5 text-center text-sm text-red-500">โหลดผู้รับแจ้งเตือนไม่สำเร็จ</div>';
                 if (!error.authenticationRedirected) showToast(error.message || 'โหลดข้อมูลการแจ้งเตือนไม่สำเร็จ', 'error');
@@ -9474,7 +9539,6 @@
         setMetric('notificationMetricSent', (countByStatus.sent || 0) + (countByStatus.duplicate || 0));
         setMetric('notificationMetricRetry', (countByStatus.retry_scheduled || 0) + (countByStatus.pending || 0) + (countByStatus.processing || 0));
         setMetric('notificationMetricFailed', countByStatus.failed || 0);
-        updateNotificationMenuBadges((countByStatus.failed || 0) + (countByStatus.retry_scheduled || 0));
         const resultCount = document.getElementById('notificationResultCount');
         if (resultCount) resultCount.textContent = `แสดง ${rows.length.toLocaleString('th-TH')} จาก ${notificationLogs.length.toLocaleString('th-TH')} ข้อความล่าสุด`;
         if (!rows.length) {

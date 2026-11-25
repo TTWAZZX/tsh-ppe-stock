@@ -54,6 +54,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'checkLineStatus', 'getNotificationLogs', 'retryNotification', 'retryDueNotifications',
   'getNotificationRecipients', 'saveNotificationRecipient', 'toggleNotificationRecipient',
   'runLoanDueReminders', 'getIssueReport', 'listEmployeeRegistrations', 'reviewEmployeeRegistrations',
+  'getAdminNotificationCounts',
 ]);
 
 const LINE_OR_ADMIN_ACTIONS = new Set([
@@ -149,6 +150,9 @@ async function handler(req, res) {
         break;
       case 'reviewEmployeeRegistrations':
         result = await reviewEmployeeRegistrations(requestPayload, actor);
+        break;
+      case 'getAdminNotificationCounts':
+        result = await getAdminNotificationCounts();
         break;
 
       case 'getIssueReport':
@@ -884,6 +888,19 @@ async function submitEmployeeRegistration(auth, payload) {
   return registrationRpc('ppe_submit_employee_registration', {
     p_line_user_id: auth.lineUser.userId, p_employee_id: employeeId, p_employee_name: name, p_department_id: departmentId,
   });
+}
+
+async function getAdminNotificationCounts() {
+  const [issues, employees, messages] = await Promise.all([
+    supabase.from('issue_vouchers').select('id', { head: true, count: 'exact' })
+      .eq('status', 'pending').is('voided_at', null),
+    supabase.from('ppe_employee_registrations').select('id', { head: true, count: 'exact' })
+      .eq('status', 'pending'),
+    supabase.from('notification_log').select('id', { head: true, count: 'exact' })
+      .in('status', ['failed', 'retry_scheduled']),
+  ]);
+  if (issues.error || employees.error) throw issues.error || employees.error;
+  return { issues: issues.count, employees: employees.count, messages: messages.count };
 }
 
 async function listEmployeeRegistrations() {
