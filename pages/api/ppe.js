@@ -53,7 +53,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'uploadDocument', 'deleteDocument', 'deleteVoucher', 'reverseVoucher', 'returnItem',
   'checkLineStatus', 'getNotificationLogs', 'retryNotification', 'retryDueNotifications',
   'getNotificationRecipients', 'saveNotificationRecipient', 'toggleNotificationRecipient',
-  'runLoanDueReminders', 'getIssueReport',
+  'runLoanDueReminders', 'getIssueReport', 'listEmployeeRegistrations', 'reviewEmployeeRegistrations',
 ]);
 
 const LINE_OR_ADMIN_ACTIONS = new Set([
@@ -140,6 +140,15 @@ async function handler(req, res) {
     switch (action) {
       case 'getInitialData':
         result = await getInitialData(auth);
+        break;
+      case 'submitEmployeeRegistration':
+        result = await submitEmployeeRegistration(auth, requestPayload);
+        break;
+      case 'listEmployeeRegistrations':
+        result = await listEmployeeRegistrations();
+        break;
+      case 'reviewEmployeeRegistrations':
+        result = await reviewEmployeeRegistrations(requestPayload, actor);
         break;
 
       case 'getIssueReport':
@@ -304,11 +313,11 @@ async function authenticateRequest(payload, adminUsername) {
 
   const lineUser = await verifyLineAccessToken(lineAccessToken);
   const { data, error } = await supabase.from('ppe_employee_access')
-    .select('employee_id, employee_name, department')
-    .eq('line_user_id', lineUser.userId).eq('active', true).maybeSingle();
+    .select('employee_id, employee_name, department, active')
+    .eq('line_user_id', lineUser.userId).maybeSingle();
   if (error) throw error;
-  const employee = data ? { employeeId: data.employee_id, name: data.employee_name, department: data.department } : null;
-  return { isAdmin: false, adminUsername: null, lineUser, employee };
+  const employee = data?.active ? { employeeId: data.employee_id, name: data.employee_name, department: data.department } : null;
+  return { isAdmin: false, adminUsername: null, lineUser, employee, employeeDisabled: data?.active === false };
 }
 
 async function verifyLineAccessToken(accessToken) {
@@ -693,9 +702,10 @@ async function getIssueReport(payload) {
 
 async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   if (!auth.isAdmin && !auth.employee) {
+    const registration = auth.lineUser ? await getEmployeeRegistration(auth) : null;
     return {
       isAdmin: false, employee: null, accessStatus: auth.lineUser ? 'employee_required' : 'login_required',
-      enrollmentId: auth.lineUser?.userId || null,
+      registration,
       ppeItems: [], categories: [], departments: [], issueVouchers: [], receiveTransactions: [],
       loanTransactions: [], feedbackData: [], ppeMatrix: [], ppeDocuments: [], nextPpeCode: null, dashboardMetrics: {},
     };
@@ -832,6 +842,73 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
       notificationFailures,
     },
   };
+}
+
+async function getEmployeeRegistration(auth) {
+  if (auth.employeeDisabled) return { status: 'disabled' };
+  const { data: row, error } = await supabase.from('ppe_employee_registrations')
+    .select('employee_id,employee_name,department,status,rejection_reason')
+    .eq('line_user_id', auth.lineUser.userId).maybeSingle();
+  if (error) throw error;
+  const status = row?.status || 'unregistered';
+  const selectable = ['unregistered', 'rejected'].includes(status);
+  const departments = selectable ? await readInventoryPages(() => supabase.from('departments').select('id,name')) : [];
+  return {
+    status, departments: departments.sort((a, b) => a.name.localeCompare(b.name, 'th')),
+    employeeId: row?.employee_id,
+    name: row?.employee_name || auth.lineUser.displayName,
+    department: row?.department,
+    reason: status === 'rejected' ? row.rejection_reason : undefined,
+  };
+}
+
+async function registrationRpc(name, payload) {
+  const { data, error } = await supabase.rpc(name, payload);
+  if (error) {
+    if (/^PT4[0-9]{2}$/.test(error.code)) throw createHttpError(Number(error.code.slice(2)), error.message);
+    throw error;
+  }
+  return data;
+}
+
+async function submitEmployeeRegistration(auth, payload) {
+  if (auth.isAdmin) throw createHttpError(403, 'กรุณาลงทะเบียนด้วยบัญชี LINE ของพนักงาน');
+  if (!auth.lineUser) throw createHttpError(401, 'กรุณาเข้าสู่ระบบผ่าน LINE');
+  if (auth.employee || auth.employeeDisabled) throw createHttpError(409, 'บัญชีนี้มีทะเบียนพนักงานแล้ว');
+  const departmentId = parseWholeNumber(payload.departmentId);
+  const employeeId = typeof payload.employeeId === 'string' ? payload.employeeId.trim() : '';
+  const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+  if (!employeeId || employeeId.length > 50 || !name || name.length > 150 || !Number.isSafeInteger(departmentId) || departmentId < 1) {
+    throw createHttpError(400, 'กรุณากรอกรหัสพนักงาน ชื่อ และเลือกแผนก');
+  }
+  return registrationRpc('ppe_submit_employee_registration', {
+    p_line_user_id: auth.lineUser.userId, p_employee_id: employeeId, p_employee_name: name, p_department_id: departmentId,
+  });
+}
+
+async function listEmployeeRegistrations() {
+  const { data, error } = await supabase.from('ppe_employee_registrations')
+    .select('id,revision,employee_id,employee_name,department,submitted_at')
+    .eq('status', 'pending').order('submitted_at').order('id').limit(100);
+  if (error) throw error;
+  return data || [];
+}
+
+async function reviewEmployeeRegistrations(payload, actor) {
+  const { requests, decision } = payload;
+  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+  if (!Array.isArray(requests) || requests.length < 1 || requests.length > 100
+    || !['approved', 'rejected'].includes(decision) || (decision === 'rejected' && (!reason || reason.length > 500))) {
+    throw createHttpError(400, 'กรุณาเลือกรายการและระบุข้อมูลการพิจารณาให้ครบ');
+  }
+  const selections = requests.map(row => ({ id: parseWholeNumber(row?.id), revision: parseWholeNumber(row?.revision) }));
+  if (selections.some(row => !Number.isSafeInteger(row.id) || row.id < 1 || !Number.isInteger(row.revision) || row.revision < 1 || row.revision > 2147483647)
+    || new Set(selections.map(row => row.id)).size !== selections.length) {
+    throw createHttpError(400, 'รายการคำขอไม่ถูกต้องหรือมีรายการซ้ำ');
+  }
+  return registrationRpc('ppe_review_employee_registrations', {
+    p_requests: selections, p_decision: decision, p_reviewer: actor, p_reason: decision === 'rejected' ? reason : null,
+  });
 }
 
 function visibleVoucherStatus(voucher) {

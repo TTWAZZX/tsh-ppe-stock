@@ -25,7 +25,6 @@
 <body class="antialiased">
 
 <section id="reportPrintDocument" aria-hidden="true"></section>
-<p id="employeeAccessNotice" class="hidden fixed z-40 bottom-24 md:bottom-5 right-4 left-4 md:left-auto rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status"></p>
 
 <a href="#mainContent" class="skip-link rounded-lg bg-gray-900 px-4 py-2 font-semibold text-white shadow-xl">ข้ามไปยังเนื้อหาหลัก</a>
 <div id="appStatusAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -117,6 +116,9 @@
                  <p class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">การจัดการระบบ</p>
                 <a href="#pending" onclick="showPage('pending')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
                     <i class="fa-solid fa-hourglass-half w-6 h-6 mr-3"></i><span>อนุมัติคำขอ</span><span id="pendingBadgeDesktop" class="nav-badge" aria-label="คำขอรออนุมัติ"></span>
+                </a>
+                <a href="#employeeApprovals" onclick="showPage('employeeApprovals')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
+                    <i class="fa-solid fa-user-check w-6 h-6 mr-3" aria-hidden="true"></i><span>อนุมัติพนักงาน</span>
                 </a>
                 <a href="#manage" onclick="showPage('manage')" class="nav-item group flex items-center px-4 py-2.5 text-sm font-medium rounded-lg">
                     <i class="fa-solid fa-gear w-6 h-6 mr-3"></i><span>จัดการอุปกรณ์</span>
@@ -1776,6 +1778,58 @@
                 </div>
             </div>
 
+            <div id="employeeRegistrationPage" class="page hidden">
+                <div class="module-shell">
+                    <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 space-y-5">
+                        <div>
+                            <h2 class="ui-page-title text-2xl font-bold text-gray-900">ลงทะเบียนพนักงาน</h2>
+                            <p id="employeeRegistrationMessage" class="mt-2 text-sm text-gray-600" role="status"></p>
+                            <p id="employeeRegistrationReason" class="hidden mt-2 text-sm text-red-700"></p>
+                        </div>
+                        <form id="employeeRegistrationForm" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="registrationEmployeeId" class="block text-sm font-semibold mb-1">รหัสพนักงาน</label>
+                                <input id="registrationEmployeeId" type="text" maxlength="50" required class="w-full min-h-11 rounded-lg border border-gray-300 p-2.5">
+                            </div>
+                            <div>
+                                <label for="registrationName" class="block text-sm font-semibold mb-1">ชื่อ–นามสกุลตามทะเบียน</label>
+                                <input id="registrationName" type="text" autocomplete="name" maxlength="150" required class="w-full min-h-11 rounded-lg border border-gray-300 p-2.5">
+                            </div>
+                            <div>
+                                <label for="registrationDepartment" class="block text-sm font-semibold mb-1">แผนก</label>
+                                <select id="registrationDepartment" required class="w-full min-h-11 rounded-lg border border-gray-300 p-2.5"><option value="">เลือกแผนก</option></select>
+                            </div>
+                            <button id="registrationSubmit" type="submit" class="min-h-11 rounded-lg bg-blue-700 px-4 py-2 text-white font-semibold">ส่งคำขอลงทะเบียน</button>
+                        </form>
+                        <p id="registrationFormError" class="hidden text-sm text-red-700" role="alert"></p>
+                        <div class="flex flex-wrap gap-3">
+                            <button id="registrationRefresh" type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2 font-semibold">ตรวจสถานะ</button>
+                            <button type="button" onclick="showLoginModal()" class="min-h-11 rounded-lg px-4 py-2 text-blue-700 font-semibold">เข้าสู่ระบบผู้ดูแล</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="employeeApprovalsPage" class="page hidden">
+                <div class="module-shell space-y-4">
+                    <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="ui-page-title text-2xl font-bold text-gray-900">อนุมัติพนักงาน</h2>
+                                <p class="mt-2 text-sm text-gray-600">ตรวจสอบข้อมูลกับทะเบียนพนักงานก่อนเปิดสิทธิ์</p>
+                            </div>
+                            <button id="employeeApprovalsRefresh" type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2 font-semibold">โหลดใหม่</button>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <label class="flex min-h-11 items-center gap-2"><input id="employeeApprovalSelectAll" type="checkbox">เลือกทั้งหมดในรายการ</label>
+                            <button id="employeeApprove" type="button" disabled class="min-h-11 rounded-lg bg-blue-700 px-4 py-2 text-white font-semibold disabled:opacity-50">อนุมัติที่เลือก</button>
+                            <button id="employeeReject" type="button" disabled class="min-h-11 rounded-lg border border-red-200 px-4 py-2 text-red-700 font-semibold disabled:opacity-50">ปฏิเสธที่เลือก</button>
+                        </div>
+                        <p id="employeeApprovalsStatus" class="text-sm text-gray-600" role="status"></p>
+                        <div id="employeeApprovalsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+                    </section>
+                </div>
+            </div>
         </main>
 
         <!-- ─── User Mobile Nav (แสดงเมื่อไม่ได้ login เป็น Admin) ──────────────── -->
@@ -1840,6 +1894,9 @@
                     <i class="fa-solid fa-bars text-xl mb-1"></i><span>เพิ่มเติม</span>
                 </a>
                 <div id="adminMoreMenu" class="hidden absolute bottom-16 right-2 mb-safe bg-white border border-gray-200 rounded-xl shadow-2xl w-56 p-2 space-y-1 z-50 animate-fade-in-up">
+                    <a href="#employeeApprovals" onclick="showPage('employeeApprovals'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center">
+                        <i class="fa-solid fa-user-check mr-3 text-blue-500 w-5 text-center" aria-hidden="true"></i> อนุมัติพนักงาน
+                    </a>
                     <a onclick="showPage('stock'); toggleAdminMoreMenu()" class="block px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700 font-medium flex items-center cursor-pointer">
                         <i class="fa-solid fa-boxes-stacked mr-3 text-blue-500 w-5 text-center"></i> สต็อกทั้งหมด
                     </a>
@@ -2300,7 +2357,9 @@
         manage: { adminOnly: true },
         receive: { adminOnly: true },
         report: { adminOnly: true },
-        notifications: { adminOnly: true }
+        notifications: { adminOnly: true },
+        employeeRegistration: { adminOnly: false },
+        employeeApprovals: { adminOnly: true },
     });
 
     function setLiveStatus(message = '') {
@@ -2425,8 +2484,14 @@
 
     function canAccessModule(pageName) {
         const route = MODULE_ROUTES[pageName];
-        const restricted = ['employee_required', 'login_required'].includes(currentData?.accessStatus);
-        return Boolean(route && (isAdmin || (!route.adminOnly && (!restricted || pageName === 'dashboard'))));
+        if (!route) return false;
+        if (registrationRequired()) return pageName === 'employeeRegistration';
+        if (pageName === 'employeeRegistration') return false;
+        return isAdmin || (!route.adminOnly && (currentData?.accessStatus !== 'login_required' || pageName === 'dashboard'));
+    }
+
+    function registrationRequired() {
+        return !isAdmin && currentData?.accessStatus === 'employee_required';
     }
 
     function getRestorableModule() {
@@ -2434,11 +2499,11 @@
         const fromHash = normalizeModuleName(window.location.hash);
         const fromSession = normalizeModuleName(sessionStorage.getItem(MODULE_STATE_KEY));
         const requested = fromQuery || fromHash || fromSession || 'dashboard';
-        return canAccessModule(requested) ? requested : 'dashboard';
+        return canAccessModule(requested) ? requested : registrationRequired() ? 'employeeRegistration' : 'dashboard';
     }
 
     function applyDeepLinkFocus() {
-        if (_deepLinkHandled) return;
+        if (_deepLinkHandled || registrationRequired()) return;
         const params = new URLSearchParams(window.location.search);
         const requestedModule = normalizeModuleName(params.get('module'));
         const voucherId = Number(params.get('voucherId'));
@@ -2705,11 +2770,6 @@
     function onDataLoaded(data) {
         isAdmin = data.isAdmin === true;
         currentData = data;
-        const accessNotice = document.getElementById('employeeAccessNotice');
-        accessNotice.textContent = data.accessStatus === 'employee_required'
-            ? 'บัญชี LINE นี้ยังไม่ได้รับสิทธิ์พนักงาน กรุณาแจ้งผู้ดูแลระบบพร้อม LINE ID ' + data.enrollmentId
-            : data.accessStatus === 'login_required' ? 'กรุณาเข้าสู่ระบบผ่าน LINE เพื่อใช้งานคลัง PPE' : '';
-        accessNotice.classList.toggle('hidden', !accessNotice.textContent);
 
         // ป้องกัน Error กรณี Backend ลืมส่งค่าบางอย่างมา
         if (!currentData.dashboardMetrics) currentData.dashboardMetrics = {};
@@ -2730,6 +2790,13 @@
 
         // ✅ หัวใจสำคัญ: สั่งให้หน้าจออัปเดตข้อมูลทันทีหลังจากโหลดเสร็จ
         updateUI();
+        if (!isAdmin) EmployeeRegistration.clearApprovals();
+        if (registrationRequired()) {
+            EmployeeRegistration.render(data.registration);
+            showPage('employeeRegistration', { restoring: true });
+        } else if (_activePage === 'employeeRegistration') {
+            showPage(getRestorableModule(), { restoring: true });
+        }
         syncManageItemCode();
         if (_activePage === 'issue') restoreIssueDraft();
         syncEmployeeFields();
@@ -2825,6 +2892,8 @@
         } else {
             updateNotificationMenuBadges(0);
         }
+        sidebar?.querySelector('nav')?.classList.toggle('hidden', registrationRequired());
+        if (registrationRequired()) userMobileNav?.classList.add('hidden');
     }
 
     function setNavigationBadge(element, count, label) {
@@ -2855,8 +2924,11 @@
     function showPage(pageName, options = {}) {
         pageName = normalizeModuleName(pageName) || 'dashboard';
         if (!canAccessModule(pageName)) {
-            if (!options.restoring) showToast('เฉพาะผู้ดูแลระบบเท่านั้น', 'error');
-            pageName = 'dashboard';
+            if (registrationRequired()) pageName = 'employeeRegistration';
+            else {
+                if (!options.restoring && MODULE_ROUTES[pageName]?.adminOnly) showToast('เฉพาะผู้ดูแลระบบเท่านั้น', 'error');
+                pageName = 'dashboard';
+            }
         }
 
         // ── Cancel widget-level loading จากหน้าก่อนหน้า (ป้องกัน ghost loading)
@@ -2891,7 +2963,7 @@
             }
         });
         const userMorePages = new Set(['allHistory', 'matrix']);
-        const adminMorePages = new Set(['stock', 'report', 'notifications', 'allHistory', 'matrix', 'loan', 'issue']);
+        const adminMorePages = new Set(['stock', 'report', 'notifications', 'allHistory', 'matrix', 'loan', 'issue', 'employeeApprovals']);
         const moreTrigger = document.getElementById(isAdmin ? 'adminMoreTrigger' : 'userMoreTrigger');
         if (moreTrigger && (isAdmin ? adminMorePages : userMorePages).has(pageName)) {
             moreTrigger.classList.add('active');
@@ -2982,6 +3054,7 @@
         if (pageName === 'notifications' && typeof loadNotificationCenter === 'function') {
             loadNotificationCenter();
         }
+        if (pageName === 'employeeApprovals') EmployeeRegistration.loadApprovals();
 
         persistActiveModule(pageName);
         applySharedComponentStyles(pageElement || document);
@@ -6508,6 +6581,7 @@
     let isConfirmingReceive = false;
 
     async function handleLiffConfirmReceive() {
+        if (registrationRequired()) return;
         // 1. อ่านค่าจาก URL และเก็บลง Session (กรณีเปิดลิงก์ครั้งแรก)
         const params = new URLSearchParams(window.location.search);
         const modeFromUrl = params.get('mode');
@@ -7039,7 +7113,7 @@
         }
     }
 
-    function showConfirmationModal(title, message, { requestReason = false } = {}) {
+    function showConfirmationModal(title, message, { requestReason = false, reasonLabel = 'เหตุผลที่ยกเลิก' } = {}) {
         return new Promise(resolve => {
             const modal = document.getElementById('confirmationModal');
             rememberDialogTrigger();
@@ -7049,8 +7123,8 @@
             let reasonInput = null;
             if (requestReason) {
                 reasonInput = document.createElement('textarea');
-                reasonInput.setAttribute('aria-label', 'เหตุผลที่ยกเลิก');
-                reasonInput.placeholder = 'ระบุเหตุผลที่ยกเลิก';
+                reasonInput.setAttribute('aria-label', reasonLabel);
+                reasonInput.placeholder = reasonLabel;
                 reasonInput.required = true;
                 reasonInput.maxLength = 500;
                 reasonInput.className = 'mt-3 w-full rounded-lg border border-gray-300 p-2 text-sm';
@@ -9589,6 +9663,7 @@
 <script src="/js/loading-manager.js"></script>
 <script src="/js/skeleton-registry.js"></script>
 <script src="/js/api-client.js"></script>
+<script src="/js/employee-registration.js"></script>
 
 </body>
 </html>

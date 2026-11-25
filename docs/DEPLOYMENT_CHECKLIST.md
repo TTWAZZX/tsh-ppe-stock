@@ -15,7 +15,7 @@
 
 - [ ] Use a staging copy of the Supabase schema and representative historical records to verify the migration order. Apply `supabase/migrations.sql` first if the existing installation has not applied it, then apply `002_inventory_integrity.sql`, `003_issue_reporting.sql`, `004_legacy_issue_reconciliation.sql`, and `005_issue_feedback.sql` in that order.
 - [ ] Back up the production database and schedule a maintenance window. Pause inventory writes while applying the migrations and switching to the updated app so older application instances cannot allocate conflicting IDs or bypass inventory transactions.
-- [ ] Populate `ppe_employee_access` from the verified employee roster and verified LINE identities before granting access. The roster row needs `line_user_id`, `employee_id`, `employee_name`, `department`, and `active = true`. The department must match the master department name. Employees can see their own verified LINE ID on the access screen. Confirm the mapping through the organization's identity verification process before creating or reactivating the row.
+- [ ] For pre-approved staff, optionally populate `ppe_employee_access` from the verified employee roster and verified LINE identities. The row needs `line_user_id`, `employee_id`, `employee_name`, `department`, and `active = true`. The department must match the master department name. Other employees can use self-registration after migration `008` and the app update.
 - [ ] Confirm the anon and authenticated database roles cannot read the inventory or employee tables directly. Confirm the `documents` bucket is private, old public URLs fail, and authorized staff receive five-minute signed links. Legacy documents with same-project public URLs reuse their existing objects. Copy externally hosted documents into the private bucket and set their `storage_path` to the verified object path.
 - [ ] Review historical approved rows with `approved_items IS NULL`, and review old vouchers still marked `processing`. Partial approvals with a single matching audit record are backfilled. For the remaining records, compare receipts, audit evidence, and physical inventory before filling quantities or changing statuses. The migration only backfills documented quantities and does not change existing balances. Keep unresolved vouchers flagged until evidence is available.
 - [ ] Verify a partial approval with a zero-approved line, receipt confirmation, rating the delivered line, and the same figures in the report, CSV, and PDF. Verify cancellation returns the exact approved quantities once for an unreceived voucher and retains the original voucher and movement history.
@@ -27,6 +27,13 @@
 - [ ] Upload a private PDF just under 3 MiB and open it through a signed link. Try a file over the limit and confirm rejection. Delete a test document and verify it is removed from Storage. A deferred deletion is hidden from the catalog immediately and retried by the maintenance job.
 - [ ] Confirm the CI job **Release checks** passes. Require that job in the protected `main` branch settings before merging deployment changes. CI runs on Node.js 24 with offline Supabase placeholders, Chromium, and the existing release gate.
 - [ ] Confirm the scheduled maintenance job has `CRON_SECRET` and an enabled LINE recipient for the `system` topic. Configure alerts on the structured event names in [Production observability](OBSERVABILITY.md) so incidents remain visible when Supabase or LINE is unavailable.
+
+## Employee self-registration rollout
+
+- [ ] Apply `008_employee_registration.sql` after the prior migrations and before deploying the self-registration UI. Existing employee access rows remain in use, and the migration leaves voucher, loan, and feedback history in place.
+- [ ] Use a verified LINE account without employee access to submit a request. Confirm the department list comes from the master and the employee can only register or check status until approval.
+- [ ] In **อนุมัติพนักงาน**, confirm each applicant against the employee roster and the organization's identity verification process. Select the verified requests and approve them together. For an incorrect request, reject with a reason so the employee can correct and resubmit.
+- [ ] Check that the employee can reopen their own history with the same LINE account. Resolve legacy history without a LINE UID or accounts that changed LINE separately after verifying identity.
 
 ## Deployment
 
