@@ -20,14 +20,14 @@ test('offline state fails visibly while preserving read-only and export guidance
   assert.match(html, /function setupConnectivityStatus\(\)/);
   assert.match(html, /window\.addEventListener\('offline'/);
   assert.match(html, /window\.addEventListener\('online'/);
-  assert.match(html, /ยังดูข้อมูลที่เปิดไว้และ Export ได้/);
+  assert.match(html, /ส่งออกประวัติที่เปิดไว้ได้/);
 });
 
 test('history and report exports lock duplicate actions and announce progress', () => {
   assert.match(html, /let isHistoryExporting = false;/);
   assert.match(html, /if \(isHistoryExporting\) return;/);
   assert.match(html, /let reportExportAction = '';/);
-  assert.match(html, /if \(reportExportAction\) return;/);
+  assert.match(html, /if \(reportExportAction \|\| reportLoading \|\| !reportQuery\) return;/);
   assert.match(html, /function downloadCsvFile\(content, fileName\)/);
   assert.match(html, /กำลังสร้างไฟล์…/);
   assert.match(html, /กำลังเตรียม…/);

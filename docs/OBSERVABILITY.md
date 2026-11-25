@@ -21,4 +21,15 @@ In Vercel logs, filter JSON records by:
 - `event=api_request` and high `durationMs` for slow endpoints.
 - `event=client_telemetry_batch` then inspect only the allowlisted `events` fields.
 
-No alert threshold is hard-coded. A practical starting point is: error rate above 2% for five minutes, p95 API latency above 3 seconds, or poor LCP/INP above 10% of samples.
+Operational alerts write JSON warnings and attempt LINE delivery to recipients with the `system` topic. Each event key is sent at most once per UTC hour per recipient. Database or LINE failures can prevent delivery. Use the structured logs as the independent alert source.
+
+| Event | Trigger |
+| --- | --- |
+| `notification_queue_delayed` | The worker recovered a row left processing for over 10 minutes, or due work is still more than 15 minutes overdue after the batch. |
+| `notification_retry_job_failed` | The scheduled notification retry or loan reminder job failed. |
+| `audit_log_write_failed` | A supplementary audit insert failed. Check the database error code and action to trace the missing log. |
+| `document_cleanup_deferred` | An upload or delete needs a later cleanup attempt. |
+| `document_cleanup_failed` | A scheduled attempt to remove a hidden document or an abandoned upload failed. |
+| `operational_alert_delivery_unavailable` | No configured LINE recipient accepted the alert or the alert worker failed. |
+
+The maintenance endpoint retries pending LINE work and processes up to 10 document cleanup rows per run. It picks up documents that have been uploading or deleting for at least 30 minutes. It runs on the configured Vercel cron schedule. A practical starting point for additional log alerts is an error rate above 2% for five minutes or p95 API latency above 3 seconds.

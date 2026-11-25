@@ -25,6 +25,7 @@
 <body class="antialiased">
 
 <section id="reportPrintDocument" aria-hidden="true"></section>
+<p id="employeeAccessNotice" class="hidden fixed z-40 bottom-24 md:bottom-5 right-4 left-4 md:left-auto rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status"></p>
 
 <a href="#mainContent" class="skip-link rounded-lg bg-gray-900 px-4 py-2 font-semibold text-white shadow-xl">ข้ามไปยังเนื้อหาหลัก</a>
 <div id="appStatusAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -1355,6 +1356,7 @@
                         <button id="reportTabFeedback" type="button" onclick="showReportView('feedback')" class="report-view-tab min-h-11 flex-1 min-w-32 px-4 rounded-lg text-sm font-bold transition-colors"><i class="fa-solid fa-comments mr-2"></i>เสียงตอบรับ</button>
                     </nav>
 
+                    <p id="reportDataStatus" class="hidden text-sm text-amber-800" role="status" aria-live="polite"></p>
                     <section id="reportOverviewPanel" class="no-print grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5">
                             <div class="flex items-center justify-between gap-3 mb-4"><div><h3 class="font-bold text-gray-800">อุปกรณ์ที่เบิกสูงสุด</h3><p class="text-xs text-gray-500 mt-1">จัดอันดับตามจำนวนหน่วยในช่วงที่เลือก</p></div><i class="fa-solid fa-ranking-star text-blue-600 text-xl"></i></div>
@@ -2222,7 +2224,7 @@
             <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1">ไฟล์ PDF <span class="text-red-500">*</span></label>
                 <input type="file" id="docFile" accept=".pdf" required class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                <p class="text-[10px] text-gray-400 mt-1">รองรับเฉพาะไฟล์ PDF ขนาดไม่เกิน 4 MB</p>
+                <p class="text-[10px] text-gray-400 mt-1">รองรับเฉพาะไฟล์ PDF ขนาดไม่เกิน 3 MiB</p>
             </div>
             <p id="docUploadStatus" class="hidden text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2" aria-live="polite"></p>
             <button id="uploadDocSubmitButton" type="submit" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-all active:scale-95 disabled:bg-blue-400 disabled:cursor-wait disabled:active:scale-100">
@@ -2263,9 +2265,6 @@
     // เก็บไว้เพื่อ backward-compat กับ call sites ที่ยังไม่ได้ migrate
     // ใหม่: ใช้ apiCall() จาก api-client.js โดยตรง
     async function callServerFunction(action, payload = null, options = {}) {
-        // sync admin token ให้ api-client.js อ่านได้
-        window._adminToken = (isAdmin && adminSessionToken) ? adminSessionToken : null;
-
         try {
             return await apiCall(action, payload, options);
         } catch (error) {
@@ -2280,7 +2279,6 @@
     // State & Initialization
     // ===========================================
     let isAdmin = false;
-    let adminSessionToken = null;   // HMAC token จาก server หลัง login สำเร็จ
     window._lineAccessToken = null; // ส่งให้ server ตรวจตัวตนกับ LINE; ไม่ใช้ userId จาก browser เป็นหลักฐาน
     // _apiCallInProgress ถูกแทนที่ด้วย LoadingManager แล้ว — ลบออกได้
     let _activePage = 'dashboard';  // จำหน้าปัจจุบัน
@@ -2326,7 +2324,7 @@
         icon.className = `flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${online ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`;
         icon.innerHTML = `<i class="fa-solid ${online ? 'fa-wifi' : 'fa-triangle-exclamation'}"></i>`;
         title.textContent = online ? 'กลับมาออนไลน์แล้ว' : 'ขณะนี้ออฟไลน์';
-        message.textContent = online ? 'สามารถรีเฟรชและบันทึกข้อมูลได้ตามปกติ' : 'ยังดูข้อมูลที่เปิดไว้และ Export ได้ แต่การบันทึกต้องรออินเทอร์เน็ต';
+        message.textContent = online ? 'สามารถรีเฟรชและบันทึกข้อมูลได้ตามปกติ' : 'ยังดูข้อมูลและส่งออกประวัติที่เปิดไว้ได้ การโหลดรายงานและบันทึกข้อมูลต้องรออินเทอร์เน็ต';
         retry.classList.toggle('hidden', online);
         banner.classList.remove('hidden');
         setLiveStatus(`${title.textContent} ${message.textContent}`);
@@ -2427,7 +2425,8 @@
 
     function canAccessModule(pageName) {
         const route = MODULE_ROUTES[pageName];
-        return Boolean(route && (!route.adminOnly || isAdmin));
+        const restricted = ['employee_required', 'login_required'].includes(currentData?.accessStatus);
+        return Boolean(route && (isAdmin || (!route.adminOnly && (!restricted || pageName === 'dashboard'))));
     }
 
     function getRestorableModule() {
@@ -2535,17 +2534,29 @@
         }
     };
 
+    function clearLegacyAdminSession() {
+        for (const storageName of ['localStorage', 'sessionStorage']) {
+            try {
+                for (const key of ['ppe_admin_session', 'ppe_admin_name', 'ppe_admin_token']) {
+                    window[storageName].removeItem(key);
+                }
+            } catch {
+                // The session cookie also works when storage is unavailable.
+            }
+        }
+    }
+
     window.handleAdminSessionExpired = function() {
-        if (!isAdmin && !window._adminToken) return false;
+        if (!isAdmin) return false;
         isAdmin = false;
-        adminSessionToken = null;
-        window._adminToken = null;
-        localStorage.removeItem('ppe_admin_session');
-        localStorage.removeItem('ppe_admin_name');
-        localStorage.removeItem('ppe_admin_token');
-        sessionStorage.removeItem('ppe_admin_session');
-        sessionStorage.removeItem('ppe_admin_token');
         LoadingManager.cancelAll();
+        notificationLogs = [];
+        notificationRecipients = [];
+        notificationCenterHasLoaded = false;
+        ++notificationCenterLoadSequence;
+        notificationCenterLoadPromise = null;
+        onDataLoaded({});
+        showPage('dashboard');
         showToast('เซสชันผู้ดูแลระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warning');
         showLoginModal();
         return true;
@@ -2567,13 +2578,7 @@
     // ✅ แก้ไข initializeApp (เวอร์ชันถูกต้อง)
     async function initializeApp(isFirstLoad = false) {
         let initializedSuccessfully = false;
-        const storedSession = localStorage.getItem('ppe_admin_session') || sessionStorage.getItem('ppe_admin_session');
-        const storedToken   = localStorage.getItem('ppe_admin_token') || sessionStorage.getItem('ppe_admin_token');
-        if (storedSession === 'true' && storedToken) {
-            isAdmin          = true;
-            adminSessionToken = storedToken;
-            window._adminToken = storedToken;
-        }
+        clearLegacyAdminSession();
 
         const params        = new URLSearchParams(window.location.search);
         const isConfirmMode = params.get('mode') === 'confirmReceive';
@@ -2586,6 +2591,8 @@
         }
 
         try {
+            const session = await apiCall('getAdminSession', null, { silent: true });
+            isAdmin = session?.authenticated === true;
             // Local preview must not call liff.login(): LINE always returns to the
             // configured LIFF endpoint (production), not back to localhost.
             if (IS_LOCAL_DEVELOPMENT) {
@@ -2646,19 +2653,6 @@
             if (!isFirstLoad || err?.authenticationRedirected) {
                 window.PpeObservability?.captureError(err, { kind: 'app-initialization', source: 'initializeApp' });
             }
-            if (err?.statusCode === 403 && isAdmin) {
-                isAdmin = false;
-                adminSessionToken = null;
-                window._adminToken = null;
-                localStorage.removeItem('ppe_admin_session');
-                localStorage.removeItem('ppe_admin_name');
-                localStorage.removeItem('ppe_admin_token');
-                sessionStorage.removeItem('ppe_admin_session');
-                sessionStorage.removeItem('ppe_admin_token');
-                showToast('เซสชันผู้ดูแลระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warning');
-                await initializeApp(false);
-                return;
-            }
             setupUserInterface();
             if (isFirstLoad && !err?.authenticationRedirected) window.PpeObservability?.showFatal(err);
         } finally {
@@ -2709,7 +2703,13 @@
 
     // ค้นหา function onDataLoaded(data) { ... } แล้วเปลี่ยนไส้ในเป็นแบบนี้ครับ
     function onDataLoaded(data) {
+        isAdmin = data.isAdmin === true;
         currentData = data;
+        const accessNotice = document.getElementById('employeeAccessNotice');
+        accessNotice.textContent = data.accessStatus === 'employee_required'
+            ? 'บัญชี LINE นี้ยังไม่ได้รับสิทธิ์พนักงาน กรุณาแจ้งผู้ดูแลระบบพร้อม LINE ID ' + data.enrollmentId
+            : data.accessStatus === 'login_required' ? 'กรุณาเข้าสู่ระบบผ่าน LINE เพื่อใช้งานคลัง PPE' : '';
+        accessNotice.classList.toggle('hidden', !accessNotice.textContent);
 
         // ป้องกัน Error กรณี Backend ลืมส่งค่าบางอย่างมา
         if (!currentData.dashboardMetrics) currentData.dashboardMetrics = {};
@@ -2732,6 +2732,7 @@
         updateUI();
         syncManageItemCode();
         if (_activePage === 'issue') restoreIssueDraft();
+        syncEmployeeFields();
         // หน้า Matrix อาจถูกเปิดจาก URL hash ก่อนคำขอข้อมูลจะเสร็จ
         // จึงต้องวาดซ้ำหลัง currentData ได้รับข้อมูลจริงจาก API
         if (_activePage === 'matrix') initMatrixPage();
@@ -3286,17 +3287,29 @@
     }
 
     function getVoucherItems(voucher) {
-        if (Array.isArray(voucher?.itemsJson)) return voucher.itemsJson;
         try {
-            const parsed = JSON.parse(voucher?.itemsJson || '[]');
-            return Array.isArray(parsed) ? parsed : [];
+            const parsed = Array.isArray(voucher?.itemsJson) ? voucher.itemsJson : JSON.parse(voucher?.itemsJson || '[]');
+            return Array.isArray(parsed) ? parsed.filter(item => item && typeof item === 'object') : [];
         } catch (error) {
             return [];
         }
     }
 
+    function hasApprovedStatus(voucher) {
+        return ['approved', 'partially_approved', 'completed'].includes(voucher?.status);
+    }
+
+    function getApprovedItems(voucher) {
+        if (!hasApprovedStatus(voucher) || voucher.approved_items == null) return null;
+        return getVoucherItems({ itemsJson: voucher.approved_items });
+    }
+
+    function getDisplayedVoucherItems(voucher) {
+        return hasApprovedStatus(voucher) ? (getApprovedItems(voucher) || []) : getVoucherItems(voucher);
+    }
+
     function getVoucherFeedbackState(voucher) {
-        const itemIds = [...new Set(getVoucherItems(voucher)
+        const itemIds = [...new Set((getApprovedItems(voucher) || [])
             .map(item => Number(item.itemId))
             .filter(itemId => Number.isInteger(itemId) && itemId > 0))];
         const latestByItem = new Map();
@@ -3325,9 +3338,12 @@
     function getOutstandingFeedbackVoucher() {
         if (isAdmin) return null;
         return getVisibleIssueHistory()
-            .filter(voucher => ['approved', 'partially_approved'].includes(voucher.status) && voucher.status_received === 'received')
+            .filter(voucher => hasApprovedStatus(voucher) && voucher.status_received === 'received')
             .sort((a, b) => new Date(a.received_at || a.timestamp) - new Date(b.received_at || b.timestamp))
-            .find(voucher => !getVoucherFeedbackState(voucher).complete) || null;
+            .find(voucher => {
+                const feedback = getVoucherFeedbackState(voucher);
+                return feedback.total > 0 && !feedback.complete;
+            }) || null;
     }
 
     function getVisibleIssueHistory() {
@@ -3494,7 +3510,7 @@
                     return [loan.loanId, item?.code || '', item?.name || '', loan.borrowerName || '', loan.employeeid || loan.employeeId || '', loan.department || '', loan.borrowDate || '', loan.dueDate || '', loan.returnDate || '', getStatusInfo(loan.status).text];
                 })
                 : getFilteredIssueHistory().map(voucher => {
-                    const items = getVoucherItems(voucher);
+                    const items = getDisplayedVoucherItems(voucher);
                     const names = items.map(entry => currentData.ppeItems.find(item => Number(item.id) === Number(entry.itemId))?.name || `ID ${entry.itemId}`).join(', ');
                     return [voucher.id, voucher.user || '', voucher.employeeid || voucher.employeeId || '', voucher.department || '', names, voucher.timestamp || '', getStatusInfo(voucher.status).text, voucher.status_received === 'received' ? 'รับแล้ว' : ''];
                 });
@@ -3553,32 +3569,20 @@
 
         setAdminLoginBusy(true);
         try {
-            const token = await callServerFunction(
+            const session = await callServerFunction(
                 'checkAdminCredentials',
-                { username, password },
+                { username, password, remember },
                 { suppressFailure: true }
             );
-            if (token) {
+            if (session?.authenticated === true) {
                 isAdmin = true;
-                adminSessionToken = token;
                 hideLoginModal();
 
-                if (remember) {
-                    localStorage.setItem('ppe_admin_session', 'true');
-                    localStorage.setItem('ppe_admin_token', token);
-                    localStorage.setItem('ppe_admin_name', username);
-                    sessionStorage.removeItem('ppe_admin_session');
-                    sessionStorage.removeItem('ppe_admin_token');
-                } else {
-                    sessionStorage.setItem('ppe_admin_session', 'true');
-                    sessionStorage.setItem('ppe_admin_token', token);
-                    localStorage.removeItem('ppe_admin_session');
-                    localStorage.removeItem('ppe_admin_token');
-                    localStorage.removeItem('ppe_admin_name');
-                }
-
                 const requestedModule = getRestorableModule();
-                await refreshData(canAccessModule(requestedModule) ? requestedModule : (canAccessModule(_activePage) ? _activePage : 'dashboard'));
+                const data = await apiCall('getInitialData', null, { silent: true });
+                onDataLoaded(data);
+                if (!isAdmin) throw new Error('เบราว์เซอร์ไม่ได้บันทึกเซสชันผู้ดูแล');
+                showPage(canAccessModule(requestedModule) ? requestedModule : 'dashboard', { restoring: true });
                 showToast('เข้าสู่ระบบ Admin สำเร็จ');
             } else {
                 showFormErrorSummary('loginForm', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', '#loginUsername');
@@ -3593,16 +3597,13 @@
     }
 
     async function logout() {
-        isAdmin = false;
-        adminSessionToken = null;
-        localStorage.removeItem('ppe_admin_session');
-        localStorage.removeItem('ppe_admin_name');
-        localStorage.removeItem('ppe_admin_token');
-        sessionStorage.removeItem('ppe_admin_session');
-        sessionStorage.removeItem('ppe_admin_token');
-        window._adminToken = null;
-        await refreshData('dashboard');
-        showToast('ออกจากระบบแล้ว');
+        try {
+            await apiCall('logoutAdmin', null, { silent: true });
+            window.history.replaceState(null, '', '#dashboard');
+            window.location.reload();
+        } catch (error) {
+            showToast(error.message || 'ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง', 'error');
+        }
     }
 
     function updateAdminUI() {
@@ -3636,16 +3637,21 @@
         renderReceiveOverview();
     }
     function populateAllDropdowns() {
-        const categoryOptions = [...currentData.categories]
-            .sort((a,b) => a.name.localeCompare(b.name))
-            .map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('');
+        const sortedCategories = [...currentData.categories].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+        const categoryOptions = sortedCategories
+            .map(cat => `<option value="${escapeLoanText(cat.name)}">${escapeLoanText(cat.name)}</option>`).join('');
 
         // อัปเดต Dropdown หมวดหมู่ (ยังใช้อยู่)
         const catFilter = document.getElementById('categoryFilter');
         if (catFilter) catFilter.innerHTML = '<option value="">ทุกหมวดหมู่</option>' + categoryOptions;
 
         const itemCat = document.getElementById('itemCategory');
-        if (itemCat) itemCat.innerHTML = '<option value="">เลือกหมวดหมู่</option>' + categoryOptions;
+        if (itemCat) {
+            const selected = itemCat.value;
+            itemCat.innerHTML = '<option value="">เลือกหมวดหมู่</option>' + sortedCategories
+                .map(cat => `<option value="${Number(cat.id)}">${escapeLoanText(cat.name)}</option>`).join('');
+            if (sortedCategories.some(cat => String(cat.id) === selected)) itemCat.value = selected;
+        }
 
         // เตรียมตัวเลือกสินค้า
         const allItemOptions = currentData.ppeItems
@@ -4174,6 +4180,7 @@
             case 'approved': return { text: 'อนุมัติแล้ว', color: 'bg-emerald-100 text-emerald-800' };
             case 'partially_approved': return { text: 'อนุมัติบางส่วน', color: 'bg-green-100 text-green-800' };
             case 'rejected': return { text: 'ถูกปฏิเสธ', color: 'bg-red-100 text-red-800' };
+            case 'cancelled': return { text: 'ยกเลิกแล้ว', color: 'bg-gray-200 text-gray-800' };
             case 'completed': return { text: 'สำเร็จ', color: 'bg-purple-100 text-purple-800' };
             case 'on_loan': return { text: 'กำลังยืม', color: 'bg-blue-100 text-blue-800' };
             case 'returned': return { text: 'คืนแล้ว', color: 'bg-gray-200 text-gray-800' };
@@ -4218,7 +4225,7 @@
         container.innerHTML = sortedVouchers.map(v => {
             const status = getStatusInfo(v.status);
             const dateStr = new Date(v.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute:'2-digit' });
-            const items = getVoucherItems(v);
+            const items = getDisplayedVoucherItems(v);
             const itemCount = items.length;
             const firstItemData = items[0] || {};
 
@@ -4231,7 +4238,7 @@
             const safeUser = escapeLoanText(v.user || '-');
             const safeDepartment = escapeLoanText(v.department || '-');
 
-            const reviewBtn = (isOwner && isReceived) ? `
+            const reviewBtn = (isOwner && isReceived && feedbackState.total > 0) ? `
                 <button type="button" onclick="openRatingSelector('${v.id}')"
                         class="min-h-8 px-2.5 rounded-full ${feedbackState.complete ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'} flex items-center gap-1.5 justify-center hover:brightness-95 transition-colors border shadow-sm text-xs font-bold"
                         title="${feedbackState.complete ? `ให้คะแนนแล้ว ${feedbackState.average} ดาว` : `รอให้คะแนน ${feedbackState.ratedCount}/${feedbackState.total} รายการ`}"
@@ -4291,10 +4298,10 @@
                         <button type="button" onclick="showVoucherSlip(${v.id})" class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors" title="ดูใบเบิก" aria-label="ดูใบเบิก #${v.id}" data-history-action="slip" data-voucher-id="${v.id}">
                             <i class="fa-solid fa-receipt"></i>
                         </button>
-                        ${isAdmin ? `
-                        <button type="button" onclick="deleteVoucherById(${v.id})" ${isDeletingVoucher ? 'disabled aria-busy="true"' : ''} class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-wait" title="${isDeletingVoucher ? 'กำลังลบใบเบิก' : 'ลบใบเบิก'}" aria-label="${isDeletingVoucher ? 'กำลังลบใบเบิก' : `ลบใบเบิก #${v.id}`}" data-history-action="delete" data-voucher-id="${v.id}" data-delete-voucher-id="${v.id}">
+                        ${isAdmin && getVoucherCorrectionAction(v) ? `
+                        <button type="button" onclick="deleteVoucherById(${Number(v.id)})" ${isDeletingVoucher ? 'disabled aria-busy="true"' : ''} class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-wait" title="${getVoucherCorrectionAction(v) === 'reverseVoucher' ? 'ยกเลิกและกลับยอด' : 'ยกเลิกใบเบิก'}" aria-label="${getVoucherCorrectionAction(v) === 'reverseVoucher' ? 'ยกเลิกและกลับยอด' : 'ยกเลิกใบเบิก'} #${v.id}" data-history-action="delete" data-voucher-id="${v.id}" data-delete-voucher-id="${v.id}">
                             <i class="fa-solid ${isDeletingVoucher ? 'fa-circle-notch fa-spin' : 'fa-trash'} text-xs"></i>
-                            <span class="sr-only">${isDeletingVoucher ? 'กำลังลบใบเบิก' : 'ลบใบเบิก'}</span>
+                            <span class="sr-only">${isDeletingVoucher ? 'กำลังบันทึก' : 'ยกเลิกใบเบิก'}</span>
                         </button>` : ''}
                         <button type="button" onclick="showVoucherDetails(${v.id})" class="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors" title="ดูรายละเอียด" aria-label="ดูรายละเอียดใบเบิก #${v.id}" data-history-action="details" data-voucher-id="${v.id}">
                             <i class="fa-solid fa-chevron-right"></i>
@@ -4305,21 +4312,32 @@
         }).join('');
     }
 
+    function getVoucherCorrectionAction(voucher) {
+        if (['pending', 'rejected'].includes(voucher?.status)) return 'deleteVoucher';
+        if (['approved', 'partially_approved'].includes(voucher?.status) && voucher.status_received !== 'received'
+            && getApprovedItems(voucher)?.length) return 'reverseVoucher';
+        return null;
+    }
+
     async function deleteVoucherById(voucherId) {
+        if (!isAdmin) return;
+        const voucher = currentData.issueVouchers.find(entry => Number(entry.id) === Number(voucherId));
+        const action = getVoucherCorrectionAction(voucher);
+        if (!action) return showToast('ใบเบิกนี้ไม่สามารถยกเลิกหรือกลับยอดได้', 'warning');
         const pendingKey = String(voucherId);
         if (deletingVoucherIds.has(pendingKey)) return;
         deletingVoucherIds.add(pendingKey);
 
         try {
-            const confirmed = await showConfirmationModal(
-                'ลบใบเบิก',
-                `ยืนยันการลบใบเบิก #${voucherId}?\nการลบจะไม่สามารถกู้คืนได้`
-            );
-            if (!confirmed) return;
+            const reverse = action === 'reverseVoucher';
+            const reason = await showConfirmationModal(reverse ? 'ยกเลิกและกลับยอดสต็อก' : 'ยกเลิกใบเบิก',
+                reverse ? `ยืนยันยกเลิกใบเบิก #${voucherId} และคืนจำนวนที่อนุมัติสู่คลัง`
+                    : `ยืนยันยกเลิกใบเบิก #${voucherId}`, { requestReason: true });
+            if (!reason) return;
 
             updateHistoryTable();
-            await callServerFunction('deleteVoucher', { voucherId }, { suppressFailure: true });
-            showToast('ลบใบเบิกเรียบร้อยแล้ว', 'success');
+            await callServerFunction(action, { voucherId, reason }, { suppressFailure: true });
+            showToast(reverse ? 'ยกเลิกใบเบิกและกลับยอดแล้ว' : 'ยกเลิกใบเบิกแล้ว', 'success');
             await refreshData('allHistory');
         } catch (err) {
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
@@ -4551,6 +4569,7 @@
             const code = escapeLoanText(item.code || '-');
             const unit = escapeLoanText(item.unit || 'หน่วย');
             const itemCategory = escapeLoanText(item.category || 'ไม่ระบุหมวดหมู่');
+            const categoryNeedsReview = item.category_id === null;
             const img = escapeLoanText(item.image_url || 'https://placehold.co/100?text=NoImg');
             const itemId = Number(item.id);
 
@@ -4565,7 +4584,7 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center flex-wrap gap-2 mb-1">
                         <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${itemState.color}">${itemState.label}</span>
-                        <span class="text-[10px] text-gray-500 border px-1.5 py-0.5 rounded bg-gray-50">${itemCategory}</span>
+                        <span class="text-[10px] border px-1.5 py-0.5 rounded ${categoryNeedsReview ? 'bg-amber-50 text-amber-900' : 'text-gray-500 bg-gray-50'}">${itemCategory}${categoryNeedsReview ? ' · ยังไม่ได้จับคู่' : ''}</span>
                     </div>
                     <h4 class="font-bold text-gray-800 text-sm sm:text-base break-words">${name}</h4>
                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-1">
@@ -5063,6 +5082,7 @@
         if (savedDepartment) document.getElementById('loanDepartment').value = savedDepartment;
         setLoanDueDateConstraints();
         autoFillUserIdentity();
+        syncEmployeeFields();
         updateLoanFormState();
     }
 
@@ -5393,6 +5413,7 @@
             if (quantityInput) quantityInput.value = Math.min(Number(item.stock), Math.max(1, Number(saved.quantity) || 1));
         });
         issueDraftRestoreInProgress = false;
+        syncEmployeeFields();
         updateIssueFormSummary();
         const status = document.getElementById('issueDraftStatus');
         if (status) status.innerHTML = '<i class="fa-solid fa-clock-rotate-left mr-1 text-blue-500"></i>กู้คืนร่างล่าสุดแล้ว';
@@ -5412,6 +5433,7 @@
         if(typeof autoFillUserIdentity === 'function') autoFillUserIdentity();
         bindIssueUserModeRadios();
         syncIssueUserMode(false);
+        syncEmployeeFields();
         updateIssueFormSummary();
     }
 
@@ -5794,19 +5816,13 @@
         }
 
         // 2. แปลงรายการสินค้า
-        let items = [];
-        const rawItems = voucher.itemsJson || voucher.items;
-
-        if (typeof rawItems === 'string') {
-            try { items = JSON.parse(rawItems); } catch(e) { items = []; }
-        } else if (Array.isArray(rawItems)) {
-            items = rawItems;
-        }
+        const items = getDisplayedVoucherItems(voucher);
 
         const listContainer = document.getElementById('timelineItemsList');
         if (!listContainer) return;
 
-        listContainer.innerHTML = items.map((item, index) => {
+        listContainer.innerHTML = !items.length && hasApprovedStatus(voucher)
+            ? '<p class="text-sm text-amber-800">ยอดอนุมัติเดิมยังต้องตรวจสอบ</p>' : items.map((item, index) => {
             const targetId = String(item.itemId).trim();
 
             // ค้นหาใน Stock
@@ -5823,7 +5839,7 @@
             const fallbackImage = 'https://cdn-icons-png.flaticon.com/512/2829/2829824.png'; // รูปหมวก Safety สำรอง
 
             const pImgHtml = (imgLink && imgLink !== "")
-                ? `<img src="${imgLink}" class="w-full h-full object-cover" onerror="this.src='${fallbackImage}'">`
+                ? `<img src="${escapeLoanText(imgLink)}" class="w-full h-full object-cover" onerror="this.src='${fallbackImage}'">`
                 : `<div class="w-full h-full bg-gray-50 flex items-center justify-center p-2"><img src="${fallbackImage}" class="opacity-50 w-full h-full object-contain"></div>`;
             // ----------------------------------------
 
@@ -5833,11 +5849,11 @@
                     ${pImgHtml}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold text-gray-800 truncate">${pName}</p>
-                    <p class="text-xs text-gray-500">รหัส: ${pCode}</p>
+                    <p class="text-sm font-bold text-gray-800 truncate">${escapeLoanText(pName)}</p>
+                    <p class="text-xs text-gray-500">รหัส: ${escapeLoanText(pCode)}</p>
                 </div>
                 <div class="bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
-                    <span class="text-sm font-bold text-blue-700">x${item.quantity}</span>
+                    <span class="text-sm font-bold text-blue-700">x${Number(item.quantity) || 0}</span>
                 </div>
             </div>`;
         }).join('');
@@ -5942,24 +5958,23 @@
         const voucher = currentData.issueVouchers.find(v => v.id == voucherId);
         if (!voucher) return;
 
-        let items = [];
-        try {
-            items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]');
-        } catch (e) {
-            items = [];
-        }
+        const items = getVoucherItems(voucher);
+        const approvedItems = getApprovedItems(voucher);
+        const approvedById = new Map((approvedItems || []).map(item => [Number(item.itemId), Number(item.quantity)]));
 
         const itemsHtml = items.map(item => {
             const ppeItem = currentData.ppeItems.find(p => p.id == item.itemId);
+            const requested = Number(item.quantity) || 0;
+            const actual = approvedItems === null ? 'รอตรวจสอบ' : (approvedById.get(Number(item.itemId)) || 0);
             return `<li class="flex justify-between">
-                        <span>${escapeLoanText(ppeItem ? ppeItem.name : 'N/A')}</span>
-                        <span class="font-medium">${Number(item.quantity) || 0} ${escapeLoanText(ppeItem ? ppeItem.unit : '')}</span>
+                        <span>${escapeLoanText(item.itemName || ppeItem?.name || 'อุปกรณ์')}</span>
+                        <span class="font-medium">ขอ ${requested}${hasApprovedStatus(voucher) ? ' · อนุมัติ ' + actual : ''} ${escapeLoanText(item.unit || ppeItem?.unit || '')}</span>
                     </li>`;
         }).join('');
 
         const status = getStatusInfo(voucher.status);
         const feedbackState = getVoucherFeedbackState(voucher);
-        const feedbackRows = items.map(item => {
+        const feedbackRows = (approvedItems || []).map(item => {
             const ppeItem = currentData.ppeItems.find(p => Number(p.id) === Number(item.itemId));
             const feedback = feedbackState.latestByItem.get(Number(item.itemId));
             return `<div class="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-0">
@@ -5970,12 +5985,12 @@
             </div>`;
         }).join('');
         const canAdminConfirm = isAdmin
-            && (voucher.status === 'approved' || voucher.status === 'partially_approved')
+            && Boolean(approvedItems?.length)
             && voucher.status_received !== 'received';
         const receivedInfo = voucher.status_received === 'received'
             ? `<div class="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
                    <i class="fa-solid fa-circle-check"></i>
-                   <span>รับของแล้วโดย <strong>${voucher.received_by || '-'}</strong>
+                   <span>รับของแล้วโดย <strong>${escapeLoanText(voucher.received_by || '-')}</strong>
                    · ${voucher.received_at ? new Date(voucher.received_at).toLocaleDateString('th-TH', { dateStyle: 'medium' }) : ''}</span>
                </div>` : '';
 
@@ -6003,8 +6018,9 @@
                         <ul class="space-y-1 bg-gray-50 p-4 rounded-lg">${itemsHtml}</ul>
                     </div>
                     ${voucher.adminNotes ? `<div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800"><p class="text-xs font-bold mb-0.5"><i class="fa-solid fa-comment-dots mr-1"></i>หมายเหตุจากผู้อนุมัติ</p><p>${escapeLoanText(voucher.adminNotes)}</p></div>` : ''}
+                    ${voucher.void_reason ? `<p class="text-sm text-gray-600">เหตุผลที่ยกเลิก: ${escapeLoanText(voucher.void_reason)}</p>` : ''}
                     ${receivedInfo}
-                    ${voucher.status_received === 'received' ? `<div class="rounded-lg border ${feedbackState.complete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'} px-3 py-2">
+                    ${voucher.status_received === 'received' && feedbackState.total > 0 ? `<div class="rounded-lg border ${feedbackState.complete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'} px-3 py-2">
                         <div class="flex items-center justify-between gap-3 mb-1">
                             <p class="text-sm font-bold ${feedbackState.complete ? 'text-green-800' : 'text-amber-800'}"><i class="fa-solid fa-star mr-1"></i>สถานะการประเมิน</p>
                             <span class="text-xs font-bold ${feedbackState.complete ? 'text-green-700' : 'text-amber-700'}">${feedbackState.complete ? `ครบแล้ว · เฉลี่ย ${feedbackState.average} ดาว` : `${feedbackState.ratedCount}/${feedbackState.total} รายการ`}</span>
@@ -6014,7 +6030,7 @@
                 </div>
                 <div class="mt-6 flex flex-col gap-3">
                     ${canAdminConfirm ? `
-                    <button onclick="adminConfirmReceive(${voucher.id}, '${voucher.user}')" class="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform font-bold">
+                    <button onclick="adminConfirmReceive(${Number(voucher.id)})" class="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform font-bold">
                         <i class="fa-solid fa-box-open"></i> กดรับของแทนผู้ใช้
                     </button>` : ''}
                     <div class="flex gap-3">
@@ -6029,10 +6045,12 @@
     }
     function hideVoucherModal() { document.getElementById('voucherModal').classList.add('hidden'); }
 
-    async function adminConfirmReceive(voucherId, userName) {
+    async function adminConfirmReceive(voucherId) {
+        const voucher = currentData.issueVouchers.find(entry => Number(entry.id) === voucherId);
+        if (!voucher) return;
         const confirmed = await showConfirmationModal(
             'กดรับของแทนผู้ใช้',
-            `ยืนยันการรับของแทน "${userName}" สำหรับใบเบิก #${voucherId}?`
+            `ยืนยันการรับของแทน "${voucher.user || '-'}" สำหรับใบเบิก #${voucherId}?`
         );
         if (!confirmed) return;
 
@@ -6639,14 +6657,16 @@
         const editId = Number(document.getElementById('editItemId').value) || null;
         const code = document.getElementById('itemCode').value.trim().toUpperCase();
         const name = document.getElementById('itemName').value.trim();
-        const category = document.getElementById('itemCategory').value.trim();
+        const categoryId = Number(document.getElementById('itemCategory').value);
         const unit = document.getElementById('itemUnit').value.trim();
-        const stock = Number(document.getElementById('itemStock').value);
+        const stockInput = document.getElementById('itemStock');
+        const stock = Number(stockInput.value);
+        const expectedStock = editId && stockInput.dataset.initialStock ? Number(stockInput.dataset.initialStock) : null;
         const reorderPoint = Number(document.getElementById('itemReorderPoint').value);
         const price = Number(document.getElementById('itemPrice').value || 0);
         const imageUrl = document.getElementById('itemImage').value.trim();
 
-        if (!name || !code || !category || !unit) {
+        if (!name || !code || !categoryId || !unit) {
             showFormErrorSummary('manageForm', 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ', '#manageForm input:invalid, #manageForm select:invalid');
             return showToast('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ', 'error');
         }
@@ -6664,10 +6684,10 @@
         }
 
         const originalItem = editId ? currentData.ppeItems.find(item => Number(item.id) === editId) : null;
-        if (originalItem && Number(originalItem.stock) !== stock) {
+        if (originalItem && expectedStock !== stock) {
             const confirmed = await showConfirmationModal(
                 'ยืนยันการปรับยอดคงเหลือ',
-                `${originalItem.name}\nยอดเดิม: ${Number(originalItem.stock).toLocaleString('th-TH')} ${originalItem.unit || 'หน่วย'}\nยอดใหม่: ${stock.toLocaleString('th-TH')} ${unit}\n\nการแก้ไขนี้จะส่งผลต่อจำนวนที่ผู้ใช้เห็นทันที ยืนยันหรือไม่?`
+                `${originalItem.name}\nยอดเดิม: ${Number(expectedStock).toLocaleString('th-TH')} ${originalItem.unit || 'หน่วย'}\nยอดใหม่: ${stock.toLocaleString('th-TH')} ${unit}\n\nการแก้ไขนี้จะส่งผลต่อจำนวนที่ผู้ใช้เห็นทันที ยืนยันหรือไม่?`
             );
             if (!confirmed) return;
         }
@@ -6676,10 +6696,11 @@
             id: editId,
             code,
             name,
-            category,
+            categoryId,
             unit,
             reorderPoint,
             stock,
+            expectedStock,
             onLoanQuantity: Number(document.getElementById('onLoanQuantity').value || 0),
             price,
             imageUrl
@@ -6715,10 +6736,11 @@
             document.getElementById('itemCode').value = item.code;
             syncManageItemCode();
             document.getElementById('itemName').value = item.name;
-            document.getElementById('itemCategory').value = item.category;
+            document.getElementById('itemCategory').value = item.category_id == null ? '' : String(item.category_id);
             document.getElementById('itemUnit').value = item.unit;
             document.getElementById('itemReorderPoint').value = item.reorderPoint;
-            document.getElementById('itemStock').value = item.stock;
+            document.getElementById('itemStock').value = Number(item.stock) || 0;
+            document.getElementById('itemStock').dataset.initialStock = String(Number(item.stock) || 0);
             document.getElementById('onLoanQuantity').value = item.onLoanQuantity || 0;
             document.getElementById('itemPrice').value = item.price || 0;
             document.getElementById('itemImage').value = item.image_url || '';
@@ -7017,12 +7039,23 @@
         }
     }
 
-    function showConfirmationModal(title, message) {
+    function showConfirmationModal(title, message, { requestReason = false } = {}) {
         return new Promise(resolve => {
             const modal = document.getElementById('confirmationModal');
             rememberDialogTrigger();
             document.getElementById('confirmationTitle').textContent = title;
-            document.getElementById('confirmationMessage').textContent = message;
+            const messageNode = document.getElementById('confirmationMessage');
+            messageNode.textContent = message;
+            let reasonInput = null;
+            if (requestReason) {
+                reasonInput = document.createElement('textarea');
+                reasonInput.setAttribute('aria-label', 'เหตุผลที่ยกเลิก');
+                reasonInput.placeholder = 'ระบุเหตุผลที่ยกเลิก';
+                reasonInput.required = true;
+                reasonInput.maxLength = 500;
+                reasonInput.className = 'mt-3 w-full rounded-lg border border-gray-300 p-2 text-sm';
+                messageNode.after(reasonInput);
+            }
             modal.classList.remove('hidden');
             const confirmBtn = document.getElementById('confirmProceedBtn');
             const cancelBtn = document.getElementById('confirmCancelBtn');
@@ -7033,10 +7066,20 @@
             const cleanup = () => {
                 modal.classList.add('hidden');
                 modal._cancelAction = null;
+                reasonInput?.remove();
                 newConfirmBtn.removeEventListener('click', handleConfirm);
                 newCancelBtn.removeEventListener('click', handleCancel);
             };
-            const handleConfirm = () => { cleanup(); resolve(true); };
+            const handleConfirm = () => {
+                const reason = reasonInput?.value.trim();
+                if (reasonInput && !reason) {
+                    reasonInput.value = '';
+                    reasonInput.reportValidity();
+                    return;
+                }
+                cleanup();
+                resolve(reason || true);
+            };
             const handleCancel = () => { cleanup(); resolve(false); };
             modal._cancelAction = handleCancel;
             newConfirmBtn.addEventListener('click', handleConfirm);
@@ -7049,8 +7092,38 @@
     // USER DASHBOARD LOGIC (ส่วนที่เพิ่มใหม่)
     // ===========================================
 
+    function syncEmployeeFields() {
+        const employee = !isAdmin && currentData?.employee;
+        document.querySelectorAll('input[name="issueUserMode"], input[name="loanUserMode"]').forEach(radio => {
+            radio.disabled = Boolean(employee);
+            if (employee) radio.checked = radio.value === 'line';
+        });
+        for (const id of ['issueUser', 'loanUser', 'employeeId', 'loanEmployeeId']) {
+            const input = document.getElementById(id);
+            if (employee) {
+                input.value = id.endsWith('User') ? employee.name : employee.employeeId;
+                input.readOnly = true;
+                input.dataset.verifiedEmployee = 'true';
+            } else if (input.dataset.verifiedEmployee) {
+                delete input.dataset.verifiedEmployee;
+                input.value = '';
+                input.readOnly = false;
+            }
+        }
+        for (const id of ['issueDepartment', 'loanDepartment', 'issueDepartmentSearch', 'deptFilterInput']) {
+            const control = document.getElementById(id);
+            if (!control) continue;
+            control.disabled = Boolean(employee);
+            if (employee && control.tagName === 'SELECT') control.value = employee.department;
+        }
+    }
+
     // แก้ไขฟังก์ชัน autoFillUserIdentity
     function autoFillUserIdentity() {
+        if (!isAdmin && currentData?.employee) {
+            syncEmployeeFields();
+            return;
+        }
         if(liffProfile) {
             // หน้าเบิก
             const u = document.getElementById('issueUser');
@@ -7140,14 +7213,7 @@
                 return;
             }
 
-            // 2. รับค่าจากฟอร์ม (รองรับ LINE / พิมพ์เอง)
-            const nameMode =
-                document.querySelector('input[name="issueUserMode"]:checked')?.value || 'line';
-
-            const userName =
-                nameMode === 'custom'
-                    ? document.getElementById('issueUser').value.trim()
-                    : (liffProfile?.displayName || '');
+            const userName = document.getElementById('issueUser').value.trim();
 
             const empId = document.getElementById('employeeId').value.trim();
             const dept = document.getElementById('issueDepartment').value;
@@ -7163,7 +7229,7 @@
                 return;
             }
 
-            if (nameMode === 'custom' && !userName) {
+            if (!userName) {
                 showFormErrorSummary('issueForm', 'กรุณากรอกชื่อผู้เบิก', '#issueUser');
                 showToast('กรุณากรอกชื่อผู้เบิก', 'error');
                 return;
@@ -7249,6 +7315,10 @@
         const input = document.getElementById('issueUser');
         const mode = document.querySelector('input[name="issueUserMode"]:checked')?.value || 'line';
         if (!input) return;
+        if (!isAdmin && currentData?.employee) {
+            syncEmployeeFields();
+            return;
+        }
 
         input.disabled = false;
         if (mode === 'custom') {
@@ -7421,8 +7491,7 @@
         if (!voucher) return showToast('ไม่พบข้อมูลใบเบิก', 'error');
 
         // 1. Prepare Data
-        let items = [];
-        try { items = Array.isArray(voucher.itemsJson) ? voucher.itemsJson : JSON.parse(voucher.itemsJson || '[]'); } catch (e) { items = []; }
+        const items = getDisplayedVoucherItems(voucher);
 
         // 2. Fill Data to HTML
         document.getElementById('slipUser').textContent = voucher.user;
@@ -7434,13 +7503,14 @@
 
         // 3. Render Items
         const listContainer = document.getElementById('slipItemsList');
-        listContainer.innerHTML = items.map(item => {
+        listContainer.innerHTML = voucher.status === 'cancelled' ? '<p>ใบเบิกนี้ถูกยกเลิกแล้ว</p>'
+            : !items.length && hasApprovedStatus(voucher) ? '<p>ยอดอนุมัติเดิมยังต้องตรวจสอบ</p>' : items.map(item => {
             const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
-            const itemName = ppe ? ppe.name : 'ไม่พบชื่ออุปกรณ์';
+            const itemName = item.itemName || ppe?.name || 'ไม่พบชื่ออุปกรณ์';
             return `
             <div class="flex justify-between text-sm">
-                <span class="text-gray-700 truncate w-3/4">• ${itemName}</span>
-                <span class="font-bold text-gray-900">x${item.quantity}</span>
+                <span class="text-gray-700 truncate w-3/4">• ${escapeLoanText(itemName)}</span>
+                <span class="font-bold text-gray-900">x${Number(item.quantity) || 0}</span>
             </div>`;
         }).join('');
 
@@ -7480,6 +7550,11 @@
     // ==========================================
     let currentReportData = [];
     let reportCurrentPage = 1;
+    let reportSummary = null;
+    let reportQuery = null;
+    let reportRequestSequence = 0;
+    let reportLoading = false;
+    let reportLoadError = '';
     const REPORT_PAGE_SIZE = 10;
     const REPORT_VIEW_STATE_KEY = 'ppe_report_view';
     let reportTableRenderTimer;
@@ -7549,6 +7624,10 @@
     }
 
     function filterReports() {
+        void loadReportPage(1);
+    }
+
+    async function loadReportPage(page) {
         const startStr = document.getElementById('reportStartDate').value;
         const endStr = document.getElementById('reportEndDate').value;
         const deptFilter = document.getElementById('reportDeptFilter').value;
@@ -7559,73 +7638,56 @@
             return;
         }
 
-        const startDate = startStr ? new Date(`${startStr}T00:00:00`) : new Date('2000-01-01T00:00:00');
-        startDate.setHours(0,0,0,0);
-        const endDate = endStr ? new Date(`${endStr}T23:59:59.999`) : new Date();
-        endDate.setHours(23,59,59,999);
-
-        const filteredVouchers = (currentData.issueVouchers || []).filter(v => {
-            const vDate = new Date(v.timestamp);
-            const matchDate = vDate >= startDate && vDate <= endDate;
-            const matchDept = deptFilter === '' || v.department === deptFilter;
-            const matchStatus = statusFilter === 'all'
-                || (statusFilter === 'issued' && ['approved', 'partially_approved', 'completed'].includes(v.status))
-                || (statusFilter === 'pending' && ['pending', 'processing'].includes(v.status))
-                || (statusFilter === 'rejected' && v.status === 'rejected');
-            return !Number.isNaN(vDate.getTime()) && matchDate && matchDept && matchStatus;
-        });
-
-        const flatData = [];
-        let totalItemsCount = 0;
-        const deptCounts = {};
-
-        filteredVouchers.forEach(v => {
-            const d = v.department || 'ไม่ระบุ';
-            const items = getVoucherItems(v);
-
-            items.forEach(item => {
-                const ppe = currentData.ppeItems.find(p => p.id == item.itemId);
-                const quantity = Math.max(0, Number.parseInt(item.quantity, 10) || 0);
-                if (!quantity) return;
-                flatData.push({
-                    date: v.timestamp,
-                    voucherId: v.id,
-                    user: v.user || '-',
-                    department: v.department || '-',
-                    itemName: ppe ? ppe.name : 'ไม่พบชื่ออุปกรณ์',
-                    itemCode: ppe ? ppe.code : '-',
-                    quantity,
-                    status: v.status || '-',
-                });
-                totalItemsCount += quantity;
-                deptCounts[d] = (deptCounts[d] || 0) + quantity;
-            });
-        });
-
-        flatData.sort((a, b) => new Date(b.date) - new Date(a.date));
-        currentReportData = flatData;
-
-        document.getElementById('rptTotalVouchers').innerText = filteredVouchers.length;
-        document.getElementById('rptTotalItems').innerText = totalItemsCount.toLocaleString('th-TH');
-        document.getElementById('rptAverageItems').innerText = filteredVouchers.length ? (totalItemsCount / filteredVouchers.length).toLocaleString('th-TH', { maximumFractionDigits: 1 }) : '0';
-
-        let topDept = '-';
-        let maxCount = 0;
-        for (const [d, c] of Object.entries(deptCounts)) {
-            if (c > maxCount) { maxCount = c; topDept = d; }
-        }
-        document.getElementById('rptTopDept').innerText = topDept;
-        reportCurrentPage = 1;
-        renderReportAnalytics(flatData, deptCounts);
+        const filters = { startDate: startStr, endDate: endStr, department: deptFilter, status: statusFilter,
+            search: (document.getElementById('reportTableSearch')?.value || '').trim().slice(0, 150) };
+        const sequence = ++reportRequestSequence;
+        reportLoading = true;
+        reportLoadError = '';
         renderReportTable();
+        syncReportExportState();
+        try {
+            const summary = await apiCall('getIssueReport', { ...filters, page, pageSize: REPORT_PAGE_SIZE }, { silent: true });
+            if (sequence !== reportRequestSequence || !isAdmin) return;
+            const lastPage = Math.max(1, Math.ceil(summary.totalRows / REPORT_PAGE_SIZE));
+            if (page > lastPage) {
+                void loadReportPage(lastPage);
+                return;
+            }
+            reportQuery = filters;
+            reportSummary = summary;
+            currentReportData = summary.rows;
+            reportCurrentPage = page;
+        } catch (error) {
+            if (sequence !== reportRequestSequence) return;
+            reportQuery = null;
+            reportSummary = null;
+            currentReportData = [];
+            reportLoadError = 'โหลดรายงานไม่สำเร็จ กรุณาลองใหม่';
+            if (!error.authenticationRedirected) showToast(reportLoadError, 'error');
+        } finally {
+            if (sequence === reportRequestSequence) {
+                reportLoading = false;
+                updateReportSummary();
+                renderReportTable();
+                syncReportExportState();
+            }
+        }
     }
 
-    function renderReportAnalytics(rows, departmentCounts) {
-        const itemCounts = rows.reduce((counts, row) => {
-            const key = `${row.itemCode}|||${row.itemName}`;
-            counts[key] = (counts[key] || 0) + row.quantity;
-            return counts;
-        }, {});
+    function updateReportSummary() {
+        const summary = reportSummary;
+        document.getElementById('rptTotalVouchers').innerText = summary ? Number(summary.voucherCount).toLocaleString('th-TH') : '–';
+        document.getElementById('rptTotalItems').innerText = summary ? Number(summary.totalQuantity).toLocaleString('th-TH') : '–';
+        document.getElementById('rptAverageItems').innerText = summary ? (summary.confirmedVoucherCount ? summary.totalQuantity / summary.confirmedVoucherCount : 0).toLocaleString('th-TH', { maximumFractionDigits: 1 }) : '–';
+        document.getElementById('rptTopDept').innerText = summary?.departments[0]?.label || '–';
+        const status = document.getElementById('reportDataStatus');
+        status.textContent = reportLoadError || (summary?.unreconciledCount
+            ? `มี ${summary.unreconciledCount} ใบเบิกที่ยังต้องตรวจสอบยอดอนุมัติ ยอดรวมด้านล่างรวมเฉพาะจำนวนที่ยืนยันได้` : '');
+        status.classList.toggle('hidden', !status.textContent);
+        renderReportAnalytics(summary);
+    }
+
+    function renderReportAnalytics(summary) {
         const renderBars = (targetId, entries, emptyMessage) => {
             const target = document.getElementById(targetId);
             if (!target) return;
@@ -7636,50 +7698,42 @@
             const max = Math.max(...entries.map(([, value]) => value), 1);
             target.innerHTML = entries.slice(0, 5).map(([label, value], index) => `<div><div class="flex items-center justify-between gap-3 text-sm mb-1"><span class="font-medium text-gray-700 truncate"><span class="inline-flex w-5 h-5 items-center justify-center rounded-full bg-gray-100 text-[10px] mr-2">${index + 1}</span>${escapeLoanText(label.replace('|||', ' · '))}</span><strong class="text-gray-800">${Number(value).toLocaleString('th-TH')}</strong></div><div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" style="width:${Math.max(4, value / max * 100)}%"></div></div></div>`).join('');
         };
-        renderBars('reportTopItems', Object.entries(itemCounts).sort((a, b) => b[1] - a[1]), 'ไม่มีข้อมูลอุปกรณ์ในช่วงนี้');
-        renderBars('reportDepartmentBreakdown', Object.entries(departmentCounts).sort((a, b) => b[1] - a[1]), 'ไม่มีข้อมูลแผนกในช่วงนี้');
+        renderBars('reportTopItems', (summary?.items || []).map(item => [`${item.item_code}|||${item.item_name}`, item.quantity]), reportLoadError || 'ไม่มีข้อมูลอุปกรณ์ในช่วงนี้');
+        renderBars('reportDepartmentBreakdown', (summary?.departments || []).map(entry => [entry.label, entry.quantity]), reportLoadError || 'ไม่มีข้อมูลแผนกในช่วงนี้');
     }
 
     function scheduleReportTableRender() {
         clearTimeout(reportTableRenderTimer);
-        reportTableRenderTimer = setTimeout(() => { reportCurrentPage = 1; renderReportTable(); }, 160);
-    }
-
-    function getVisibleReportRows() {
-        const search = (document.getElementById('reportTableSearch')?.value || '').trim().toLocaleLowerCase('th-TH');
-        return currentReportData.filter(row => !search || `${row.voucherId} ${row.user} ${row.department} ${row.itemCode} ${row.itemName}`.toLocaleLowerCase('th-TH').includes(search));
+        reportTableRenderTimer = setTimeout(filterReports, 160);
     }
 
     function changeReportPage(page) {
-        const totalPages = Math.max(1, Math.ceil(getVisibleReportRows().length / REPORT_PAGE_SIZE));
-        reportCurrentPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
-        renderReportTable();
+        const totalPages = Math.max(1, Math.ceil((reportSummary?.totalRows || 0) / REPORT_PAGE_SIZE));
+        if (!reportLoading && page >= 1 && page <= totalPages) void loadReportPage(page);
         document.getElementById('reportTransactionsPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function renderReportTable(showAll = false) {
+    function renderReportTable() {
         const tbody = document.getElementById('reportTableBody');
         const emptyState = document.getElementById('reportEmptyState');
         if (!tbody || !emptyState) return;
-        const visibleRows = getVisibleReportRows();
-        const totalPages = Math.max(1, Math.ceil(visibleRows.length / REPORT_PAGE_SIZE));
-        reportCurrentPage = Math.min(reportCurrentPage, totalPages);
-        const startIndex = (reportCurrentPage - 1) * REPORT_PAGE_SIZE;
-        const pageRows = showAll ? visibleRows : visibleRows.slice(startIndex, startIndex + REPORT_PAGE_SIZE);
+        const rowCount = Number(reportSummary?.totalRows || 0);
+        const totalPages = Math.max(1, Math.ceil(rowCount / REPORT_PAGE_SIZE));
+        const pageRows = reportLoading || reportLoadError ? [] : currentReportData;
         tbody.innerHTML = '';
 
         const count = document.getElementById('reportResultCount');
-        if (count) count.textContent = `แสดง ${visibleRows.length.toLocaleString('th-TH')} รายการย่อย จาก ${new Set(visibleRows.map(row => row.voucherId)).size.toLocaleString('th-TH')} ใบเบิก`;
+        if (count) count.textContent = reportLoading ? 'กำลังโหลดรายงาน…' : reportLoadError || `พบ ${rowCount.toLocaleString('th-TH')} รายการย่อย จาก ${Number(reportSummary?.voucherCount || 0).toLocaleString('th-TH')} ใบเบิก`;
 
-        if (visibleRows.length === 0) {
+        if (pageRows.length === 0 && !reportLoading && !reportLoadError) {
             emptyState.classList.remove('hidden');
         } else {
             emptyState.classList.add('hidden');
             tbody.innerHTML = pageRows.map(row => `
                 <tr class="bg-white border-b hover:bg-gray-50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap align-top">
-                        <div class="font-medium text-gray-900">${new Date(row.date).toLocaleDateString('th-TH', {day:'2-digit', month:'short', year:'2-digit'})}</div>
-                        <div class="text-xs text-gray-400">${new Date(row.date).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}</div>
+                        <div class="font-medium text-gray-900">${new Date(row.date).toLocaleDateString('th-TH', {timeZone:'Asia/Bangkok', day:'2-digit', month:'short', year:'2-digit'})}</div>
+                        <div class="text-xs text-gray-400">${new Date(row.date).toLocaleTimeString('th-TH', {timeZone:'Asia/Bangkok', hour:'2-digit', minute:'2-digit'})}</div>
                     </td>
                     <td class="px-6 py-4 align-top font-mono text-xs text-blue-600 font-bold">#${row.voucherId}</td>
                     <td class="px-6 py-4 align-top">
@@ -7690,7 +7744,7 @@
                         ${escapeLoanText(row.itemName)} <span class="text-xs text-gray-400">(${escapeLoanText(row.itemCode)})</span>
                     </td>
                     <td class="px-6 py-4 align-top text-center font-bold text-gray-800">
-                        ${row.quantity}
+                        ${row.unknownQuantity ? 'รอตรวจสอบ' : (row.quantity ?? '–')}
                     </td>
                 </tr>
             `).join('');
@@ -7698,14 +7752,14 @@
 
         const pagination = document.getElementById('reportPagination');
         if (pagination) {
-            pagination.innerHTML = visibleRows.length > REPORT_PAGE_SIZE && !showAll
+            pagination.innerHTML = reportLoading || reportLoadError ? '' : rowCount > REPORT_PAGE_SIZE
                 ? `<span class="text-xs text-gray-500">หน้า ${reportCurrentPage.toLocaleString('th-TH')} จาก ${totalPages.toLocaleString('th-TH')}</span><div class="flex gap-2"><button type="button" onclick="changeReportPage(${reportCurrentPage - 1})" ${reportCurrentPage <= 1 ? 'disabled' : ''} class="min-h-10 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"><i class="fa-solid fa-chevron-left mr-1"></i>ก่อนหน้า</button><button type="button" onclick="changeReportPage(${reportCurrentPage + 1})" ${reportCurrentPage >= totalPages ? 'disabled' : ''} class="min-h-10 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">ถัดไป<i class="fa-solid fa-chevron-right ml-1"></i></button></div>`
-                : `<span class="text-xs text-gray-500">แสดงทั้งหมด ${visibleRows.length.toLocaleString('th-TH')} รายการ</span>`;
+                : `<span class="text-xs text-gray-500">แสดงทั้งหมด ${rowCount.toLocaleString('th-TH')} รายการ</span>`;
         }
     }
 
     function syncReportExportState() {
-        const busy = Boolean(reportExportAction);
+        const busy = Boolean(reportExportAction) || reportLoading || !reportQuery;
         const csvButton = document.getElementById('reportExportButton');
         const printButton = document.getElementById('reportPrintButton');
         const csvContent = document.getElementById('reportExportContent');
@@ -7730,18 +7784,32 @@
             : reportExportAction === 'print' ? 'กำลังเตรียมเอกสารสำหรับพิมพ์' : '';
     }
 
+    async function loadReportExportRows(filters) {
+        const pageSize = 250;
+        const first = await apiCall('getIssueReport', { ...filters, page: 1, pageSize }, { silent: true });
+        const rows = [...first.rows];
+        for (let page = 2; page <= Math.ceil(first.totalRows / pageSize); page++) {
+            const result = await apiCall('getIssueReport', { ...filters, page, pageSize }, { silent: true });
+            if (result.totalRows !== first.totalRows) throw new Error('ข้อมูลรายงานเปลี่ยนระหว่างส่งออก');
+            rows.push(...result.rows);
+        }
+        if (rows.length !== first.totalRows) throw new Error('โหลดข้อมูลรายงานไม่ครบ');
+        return rows;
+    }
+
     // ฟังก์ชัน Export Excel (CSV)
     async function exportReportToCSV() {
-        if (reportExportAction) return;
-        if (!currentReportData || currentReportData.length === 0) return showToast('ไม่มีข้อมูลให้ Export', 'warning');
+        if (reportExportAction || reportLoading || !reportQuery) return;
+        if (!reportSummary?.totalRows) return showToast('ไม่มีข้อมูลให้ Export', 'warning');
+        const filters = { ...reportQuery };
         reportExportAction = 'csv';
         syncReportExportState();
         setLiveStatus('กำลังสร้างไฟล์รายงาน CSV');
         await waitForUiPaint();
         try {
-            const rows = currentReportData.map(row => {
+            const rows = (await loadReportExportRows(filters)).map(row => {
                 const d = new Date(row.date);
-                return [d.toLocaleDateString('th-TH'), d.toLocaleTimeString('th-TH'), row.voucherId, row.user, row.department, row.itemCode, row.itemName, row.quantity, row.status];
+                return [d.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), d.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }), row.voucherId, row.user, row.department, row.itemCode, row.itemName, row.unknownQuantity ? 'รอตรวจสอบ' : row.quantity, row.status];
             });
             const headers = ['Date', 'Time', 'Voucher ID', 'User', 'Department', 'Item Code', 'Item Name', 'Quantity', 'Status'];
             const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
@@ -7779,33 +7847,29 @@
     }
 
     function buildReportPrintRanking(rows, keyBuilder) {
-        const totals = rows.reduce((result, row) => {
+        const totals = rows.filter(row => row.quantity != null).reduce((result, row) => {
             const key = keyBuilder(row);
             result[key] = (result[key] || 0) + Number(row.quantity || 0);
             return result;
-        }, {});
+        }, Object.create(null));
         return Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 5);
     }
 
-    function buildReportPrintDocument() {
+    function buildReportPrintDocument(rows, filters) {
         const target = document.getElementById('reportPrintDocument');
         if (!target) throw new Error('ไม่พบแม่แบบเอกสาร PDF');
 
-        const rows = Array.isArray(currentReportData) ? currentReportData : [];
         const voucherCount = new Set(rows.map(row => row.voucherId)).size;
         const totalQuantity = rows.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
         const departmentTotals = buildReportPrintRanking(rows, row => row.department || 'ไม่ระบุแผนก');
         const itemTotals = buildReportPrintRanking(rows, row => `${row.itemCode || '-'}|||${row.itemName || 'ไม่ระบุอุปกรณ์'}`);
         const topDepartment = departmentTotals[0]?.[0] || '-';
-        const averageQuantity = voucherCount ? totalQuantity / voucherCount : 0;
-        const startValue = document.getElementById('reportStartDate')?.value || '';
-        const endValue = document.getElementById('reportEndDate')?.value || '';
-        const departmentSelect = document.getElementById('reportDeptFilter');
-        const statusSelect = document.getElementById('reportStatusFilter');
-        const departmentLabel = departmentSelect?.selectedOptions?.[0]?.textContent?.trim() || 'ทุกแผนก';
-        const statusLabel = statusSelect?.selectedOptions?.[0]?.textContent?.trim() || 'ทุกสถานะ';
-        const startLabel = formatReportPrintDate(startValue, 'เริ่มต้นข้อมูล');
-        const endLabel = formatReportPrintDate(endValue, 'ปัจจุบัน');
+        const confirmedVoucherCount = new Set(rows.filter(row => row.quantity != null).map(row => row.voucherId)).size;
+        const averageQuantity = confirmedVoucherCount ? totalQuantity / confirmedVoucherCount : 0;
+        const departmentLabel = filters.department || 'ทุกแผนก';
+        const statusLabel = document.querySelector(`#reportStatusFilter option[value="${filters.status}"]`)?.textContent?.trim() || 'ทุกสถานะ';
+        const startLabel = formatReportPrintDate(filters.startDate, 'เริ่มต้นข้อมูล');
+        const endLabel = formatReportPrintDate(filters.endDate, 'ปัจจุบัน');
         const generatedLabel = new Date().toLocaleString('th-TH', {
             dateStyle: 'long',
             timeStyle: 'short',
@@ -7816,13 +7880,13 @@
         const detailRows = rows.length
             ? rows.map(row => {
                 const date = new Date(row.date);
-                const dateLabel = Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+                const dateLabel = Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'short', timeStyle: 'short' });
                 return `<tr>
                     <td>${escapeLoanText(dateLabel)}</td>
                     <td>#${escapeLoanText(row.voucherId)}</td>
                     <td>${escapeLoanText(row.user)}<br><small>${escapeLoanText(row.department)}</small></td>
                     <td>${escapeLoanText(row.itemName)}<br><small>${escapeLoanText(row.itemCode)}</small></td>
-                    <td class="print-center">${Number(row.quantity || 0).toLocaleString('th-TH')}</td>
+                    <td class="print-center">${row.unknownQuantity ? 'รอตรวจสอบ' : Number(row.quantity || 0).toLocaleString('th-TH')}</td>
                     <td>${escapeLoanText(getReportPrintStatusLabel(row.status))}</td>
                 </tr>`;
             }).join('')
@@ -7869,14 +7933,16 @@
 
     // ฟังก์ชัน Print / PDF
     async function printReport() {
-        if (reportExportAction) return;
-        if (!currentReportData || currentReportData.length === 0) return showToast('ไม่มีข้อมูลสำหรับพิมพ์', 'warning');
+        if (reportExportAction || reportLoading || !reportQuery) return;
+        if (!reportSummary?.totalRows) return showToast('ไม่มีข้อมูลสำหรับพิมพ์', 'warning');
+        const filters = { ...reportQuery };
         reportExportAction = 'print';
         syncReportExportState();
         setLiveStatus('กำลังเตรียมเอกสารสำหรับพิมพ์');
         await waitForUiPaint();
         try {
-            const printDocument = buildReportPrintDocument();
+            const rows = await loadReportExportRows(filters);
+            const printDocument = buildReportPrintDocument(rows, filters);
             if (document.fonts?.ready) await document.fonts.ready;
             await waitForUiPaint();
             window.addEventListener('afterprint', () => printDocument.setAttribute('aria-hidden', 'true'), { once: true });
@@ -8077,7 +8143,8 @@
         if (!isAdmin && !isOwner) return showToast('คุณไม่ใช่เจ้าของรายการนี้ ไม่สามารถประเมินได้', 'error');
         if (voucher.status_received !== 'received') return showToast('ให้คะแนนได้หลังจากยืนยันรับอุปกรณ์แล้ว', 'warning');
 
-        const items = getVoucherItems(voucher);
+        const items = getApprovedItems(voucher);
+        if (!items?.length) return showToast('ยอดอนุมัติเดิมยังต้องตรวจสอบ', 'warning');
         const feedbackState = getVoucherFeedbackState(voucher);
         const canSubmitRating = isOwner;
         activeRatingVoucherId = voucher.id;
@@ -8109,14 +8176,14 @@
                 ? `<div class="text-right"><div class="text-yellow-500 whitespace-nowrap">${'<i class="fa-solid fa-star"></i>'.repeat(Number(feedback.rating) || 0)}</div><p class="text-[11px] font-bold text-green-700">${Number(feedback.rating).toFixed(1)} / 5</p></div>`
                 : `<div class="text-right"><div class="w-8 h-8 ml-auto rounded-full bg-orange-100 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i class="fa-regular fa-star text-lg"></i></div><p class="text-[11px] font-bold text-amber-700 mt-1">ยังไม่ให้คะแนน</p></div>`;
 
-            const onClick = (!isRated && canSubmitRating) ? `onclick="openFeedbackForVoucherItem('${voucherId}', '${item.itemId}')"` : '';
+            const onClick = (!isRated && canSubmitRating) ? `onclick="openFeedbackForVoucherItem(${Number(voucherId)}, ${Number(item.itemId)})"` : '';
 
             const html = `
             <div ${onClick} class="flex items-center gap-3 p-3 rounded-xl border ${cardClass} transition-all group relative overflow-hidden">
                 <img src="${escapeLoanText(imgUrl)}" alt="${escapeLoanText(itemName)}" class="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100">
                 <div class="flex-1 min-w-0">
                     <h4 class="font-bold text-gray-800 text-sm truncate">${escapeLoanText(itemName)}</h4>
-                    <p class="text-xs text-gray-500">จำนวน: ${item.quantity}</p>
+                    <p class="text-xs text-gray-500">จำนวน: ${Number(item.quantity) || 0}</p>
                 </div>
                 <div>${iconHtml}</div>
                 ${!isRated ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-orange-400"></div>' : ''}
@@ -8187,7 +8254,7 @@
         if (!container) return;
 
         // --- ส่วนที่ 1: คำนวณคะแนนแยกตามอุปกรณ์ (Group by Item) ---
-        const itemStats = {};
+        const itemStats = Object.create(null);
         feedbacks.forEach(f => {
             const name = f.item_name || 'ไม่พบชื่ออุปกรณ์';
             if (!itemStats[name]) {
@@ -8236,9 +8303,9 @@
 
                     rankingHtml += `
                     <div class="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-blue-100">
-                        <img src="${img}" class="w-8 h-8 rounded object-cover bg-gray-50">
+                        <img src="${escapeLoanText(img)}" class="w-8 h-8 rounded object-cover bg-gray-50">
                         <div class="flex-1 min-w-0 text-left">
-                            <p class="text-xs font-bold text-gray-700 truncate">${item.name}</p>
+                            <p class="text-xs font-bold text-gray-700 truncate">${escapeLoanText(item.name)}</p>
                             <div class="flex items-center gap-1">${stars} <span class="text-[10px] text-gray-400">(${item.count})</span></div>
                         </div>
                         <div class="text-sm font-bold text-blue-600 bg-blue-50 px-1.5 rounded">${item.avg}</div>
@@ -8265,20 +8332,16 @@
             for(let i=1; i<=5; i++) {
                 userStars += i <= f.rating ? '<i class="fa-solid fa-star text-yellow-400 text-xs"></i>' : '<i class="fa-regular fa-star text-gray-300 text-xs"></i>';
             }
-            const commentHtml = f.comment ? `<p class="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded-lg border border-gray-100 italic">"${f.comment}"</p>` : '';
+            const commentHtml = f.comment ? '<p data-feedback-comment class="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded-lg border border-gray-100 italic"></p>' : '';
 
             return `
-                <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-3 hover:border-blue-200 transition-colors">
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 text-xs">
-                        ${f.user_name ? f.user_name.charAt(0).toUpperCase() : '?'}
-                    </div>
+                <div data-feedback-entry class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-3 hover:border-blue-200 transition-colors">
+                    <div data-feedback-initial class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 text-xs"></div>
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-start">
                             <div>
-                                <p class="text-xs text-gray-500 font-bold">${f.user_name || 'Guest'}</p>
-                                <p class="text-xs text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
-                                    ${f.item_name || 'อุปกรณ์'}
-                                </p>
+                                <p data-feedback-user class="text-xs text-gray-500 font-bold"></p>
+                                <p data-feedback-item class="text-xs text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block mt-0.5"></p>
                             </div>
                             <div class="text-right">
                                 <div class="flex gap-0.5">${userStars}</div>
@@ -8290,6 +8353,15 @@
                 </div>
             `;
         }).join('');
+        container.querySelectorAll('[data-feedback-entry]').forEach((entry, index) => {
+            const feedback = feedbacks[index];
+            const userName = String(feedback.user_name || '');
+            entry.querySelector('[data-feedback-initial]').textContent = userName.charAt(0).toUpperCase() || '?';
+            entry.querySelector('[data-feedback-user]').textContent = userName || 'Guest';
+            entry.querySelector('[data-feedback-item]').textContent = feedback.item_name || 'อุปกรณ์';
+            const comment = entry.querySelector('[data-feedback-comment]');
+            if (comment) comment.textContent = `"${feedback.comment}"`;
+        });
     }
 
     // ==========================================
@@ -9039,10 +9111,15 @@
         restoreDialogTrigger();
     }
 
-    function openMatrixDocument(id) {
+    async function openMatrixDocument(id) {
         const doc = (currentData.ppeDocuments || []).find(item => Number(item.id) === Number(id));
         if (!doc) return showToast('ไม่พบเอกสารนี้', 'error');
-        openPdf(doc.file_url, doc.title || 'เอกสาร');
+        try {
+            const { url } = await apiCall('getDocumentUrl', { id }, { silent: true });
+            openPdf(url, doc.title || 'เอกสาร');
+        } catch (error) {
+            if (!error.authenticationRedirected) showToast(error.message || 'เปิดเอกสารไม่สำเร็จ', 'error');
+        }
     }
 
     async function handleUploadDoc(e) {
@@ -9058,12 +9135,12 @@
         if (!file) {
             return showToast('กรุณาเลือกไฟล์ PDF', 'warning');
         }
-        const isPdf = file.type === 'application/pdf' || file.name.toLocaleLowerCase().endsWith('.pdf');
+        const isPdf = file.name.toLowerCase().endsWith('.pdf');
         if (!isPdf) {
             return showToast('รองรับเฉพาะไฟล์ PDF', 'error');
         }
-        if (file.size > 4 * 1024 * 1024) {
-            return showToast('ไฟล์ใหญ่เกิน 4MB', 'error');
+        if (file.size > 3 * 1024 * 1024) {
+            return showToast('ไฟล์ PDF ใหญ่เกิน 3 MiB', 'error');
         }
 
         isUploadingDocument = true;
@@ -9078,7 +9155,6 @@
                 title,
                 fileName: file.name,
                 fileBase64: base64,
-                user: (liffProfile?.displayName || 'Admin')
             }, { suppressFailure: true, timeoutMs: 90000 });
             showToast('อัปโหลดเอกสารสำเร็จ', 'success');
             document.getElementById('uploadDocModal').classList.add('hidden');
@@ -9106,9 +9182,12 @@
         syncDocumentUploadState();
         renderDocumentsList();
         try {
-            const doc = (currentData.ppeDocuments || []).find(item => Number(item.id) === Number(id));
-            await callServerFunction('deleteDocument', { id, fileUrl: doc?.file_url || '' }, { suppressFailure: true });
-            showToast('ลบเอกสารสำเร็จ', 'success');
+            const result = await callServerFunction('deleteDocument', { id }, { suppressFailure: true });
+            if (result?.status === 'cleanup_pending') {
+                showToast('นำเอกสารออกจากรายการแล้ว ระบบจะลองล้างไฟล์อีกครั้ง', 'warning');
+            } else {
+                showToast('ลบเอกสารสำเร็จ', 'success');
+            }
             currentData.ppeDocuments = (currentData.ppeDocuments || []).filter(item => Number(item.id) !== Number(id));
             renderDocumentsList();
             await refreshMatrixDataAfterMutation();
@@ -9271,8 +9350,6 @@
         if (!notificationLogs.length && logList) logList.innerHTML = '<div class="p-10 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>กำลังโหลดสถานะข้อความ...</p></div>';
         if (!notificationRecipients.length && recipientList) recipientList.innerHTML = '<div class="p-8 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i><p class="text-sm">กำลังโหลดผู้รับแจ้งเตือน...</p></div>';
         setNotificationCenterLoading(true);
-        window._adminToken = adminSessionToken;
-
         const loadTask = (async () => {
             try {
                 const [logs, recipientState] = await Promise.all([

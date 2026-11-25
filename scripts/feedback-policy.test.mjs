@@ -38,3 +38,15 @@ test('returns no blocker after every item is rated', () => {
   assert.equal(findIncompleteReceivedVoucher([voucher], feedback), null);
   assert.equal(getVoucherFeedbackProgress(voucher, feedback).average, 4.5);
 });
+
+test('requires ratings only for approved items on partial vouchers', () => {
+  const partial = { ...voucher, status: 'partially_approved', approved_items: [{ itemId: 2, quantity: 1 }] };
+  assert.deepEqual(getVoucherFeedbackProgress(partial).missingItemIds, [2]);
+  assert.equal(findIncompleteReceivedVoucher([partial], [{ transaction_id: 117, item_id: 2, rating: 5 }]), null);
+});
+
+test('does not treat an unreconciled legacy voucher as received stock', () => {
+  const unreconciled = { ...voucher, status: 'partially_approved', approved_items: null };
+  assert.equal(getVoucherFeedbackProgress(unreconciled).total, 0);
+  assert.equal(findIncompleteReceivedVoucher([unreconciled]), null);
+});

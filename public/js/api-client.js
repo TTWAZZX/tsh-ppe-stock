@@ -62,6 +62,35 @@ const ACTION_LOADING_KEYS = {
 const DEFAULT_CONFIG = { key: 'action.generic', overlay: true };
 const DEFAULT_READ_TIMEOUT_MS = 30000;
 const DEFAULT_ACTION_TIMEOUT_MS = 45000;
+const INVENTORY_WRITES = new Set([
+  'saveCategory', 'savePpeItem', 'deletePpeItem', 'addNewVoucher', 'approveVoucher',
+  'approvePartialVoucher', 'rejectVoucher', 'deleteVoucher', 'reverseVoucher', 'confirmReceive',
+  'borrowItem', 'returnItem', 'addReceiveTransaction', 'saveFeedback',
+]);
+const pendingInventoryWrites = new Map();
+
+async function inventoryRetryKey(action, payload) {
+  if (!INVENTORY_WRITES.has(action) || !globalThis.crypto?.subtle || !globalThis.crypto.randomUUID) return null;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload ?? {})));
+  const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  const storageKey = `ppe_inventory_retry:${action}:${fingerprint}`;
+  let requestId = pendingInventoryWrites.get(storageKey);
+  if (!requestId) {
+    try { requestId = window.sessionStorage.getItem(storageKey); } catch {}
+  }
+  if (!requestId) {
+    requestId = crypto.randomUUID();
+    try { window.sessionStorage.setItem(storageKey, requestId); } catch {}
+  }
+  pendingInventoryWrites.set(storageKey, requestId);
+  return { requestId, storageKey };
+}
+
+function clearInventoryRetryKey(retry) {
+  if (!retry || pendingInventoryWrites.get(retry.storageKey) !== retry.requestId) return;
+  pendingInventoryWrites.delete(retry.storageKey);
+  try { window.sessionStorage.removeItem(retry.storageKey); } catch {}
+}
 
 // ─── Main API Call Function ──────────────────────────────────────────────────
 
@@ -94,7 +123,7 @@ async function apiCall(action, payload = null, options = {}) {
   // SDK when page state was restored without rerunning our assignment code.
   // LINE can resume a recent LIFF view with its SDK session still available.
   let lineAccessToken = String(window._lineAccessToken || '').trim();
-  if (!lineAccessToken && !window._adminToken) {
+  if (!lineAccessToken) {
     try {
       if (window.liff?.isLoggedIn?.()) {
         lineAccessToken = String(window.liff.getAccessToken?.() || '').trim();
@@ -110,7 +139,6 @@ async function apiCall(action, payload = null, options = {}) {
     action,
     payload: {
       ...(payload ?? {}),
-      ...(window._adminToken ? { adminToken: window._adminToken } : {}),
       ...(lineAccessToken ? { lineAccessToken } : {}),
     }
   };
@@ -121,13 +149,12 @@ async function apiCall(action, payload = null, options = {}) {
     key.startsWith('action.') ? DEFAULT_ACTION_TIMEOUT_MS : DEFAULT_READ_TIMEOUT_MS
   );
 
-  if (options.silent) {
-    return _doFetch(body, null, timeoutMs);
-  }
+  const retry = await inventoryRetryKey(action, payload);
+  if (options.silent) return _doFetch(body, null, timeoutMs, retry);
 
   return LoadingManager.wrap(
     key,
-    async (signal) => _doFetch(body, signal, timeoutMs),
+    async (signal) => _doFetch(body, signal, timeoutMs, retry),
     {
       deduplicate: config.deduplicate ?? false,
       message,
@@ -149,7 +176,7 @@ async function apiRefresh(action, payload = null) {
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
-async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
+async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS, retry = null) {
   const requestController = new AbortController();
   const now = () => globalThis.performance?.now?.() ?? Date.now();
   const requestStartedAt = now();
@@ -174,7 +201,11 @@ async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
   try {
     const response = await fetch('/api/ppe', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Request-Id': requestId },
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json', 'X-Request-Id': requestId, 'X-PPE-Request': '1',
+        ...(retry ? { 'X-Idempotency-Key': retry.requestId } : {}),
+      },
       body:    JSON.stringify(body),
       signal:  requestController.signal,
     });
@@ -185,6 +216,9 @@ async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
     if (signal?.aborted) return null;
 
     const result = await response.json();
+    if (response.ok || (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status))) {
+      clearInventoryRetryKey(retry);
+    }
 
     if (!response.ok) {
       const error = new Error(result.message || `API Error: ${response.status}`);
@@ -198,7 +232,7 @@ async function _doFetch(body, signal, timeoutMs = DEFAULT_ACTION_TIMEOUT_MS) {
           console.error('LINE re-authentication failed:', reauthError);
         }
       }
-      if (response.status === 403 && typeof window.handleAdminSessionExpired === 'function') {
+      if (response.status === 403 && error.code === 'ADMIN_SESSION_REQUIRED' && typeof window.handleAdminSessionExpired === 'function') {
         try {
           error.authenticationRedirected = Boolean(window.handleAdminSessionExpired(error.message));
         } catch (reauthError) {

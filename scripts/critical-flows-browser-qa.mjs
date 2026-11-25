@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 
 const baseUrl = process.env.PPE_QA_URL || 'http://127.0.0.1:3000/index.html';
 const origin = new URL(baseUrl).origin;
+const isLocalQa = ['localhost', '127.0.0.1'].includes(new URL(baseUrl).hostname);
 const userModules = ['dashboard', 'stock', 'issue', 'loan', 'allHistory', 'matrix'];
 const adminModules = ['pending', 'manage', 'receive', 'report', 'notifications'];
 const browser = await chromium.launch({ headless: true });
@@ -16,6 +17,23 @@ try {
     const pageErrors = [];
     const consoleErrors = [];
     const failedRequests = [];
+    if (isLocalQa) {
+      await page.route(origin + '/api/ppe', async route => {
+        const { action } = route.request().postDataJSON();
+        if (action !== 'getInitialData') return route.continue();
+        // Local browser QA has no LINE login. Supply a verified employee fixture
+        // at the browser boundary without enabling an authorization bypass in the app.
+        await route.fulfill({ json: { status: 'success', data: {
+          isAdmin: false,
+          accessStatus: 'authorized',
+          employee: { employeeId: 'QA-001', name: 'QA Employee', department: 'QA' },
+          ppeItems: [{ id: 1, code: 'PPE001', name: 'QA Helmet', stock: 5, reorderPoint: 1, unit: 'unit', category: 'Safety' }],
+          categories: [{ id: 1, name: 'Safety' }],
+          departments: [{ id: 1, name: 'QA' }],
+          nextPpeCode: 'PPE002',
+        } } });
+      });
+    }
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('console', message => {
       if (message.type() === 'error' && (!message.location().url || message.location().url.startsWith(origin))) {

@@ -14,10 +14,11 @@ test('history rows keep details and action controls in separate interactive elem
   assert.match(html, /data-history-action="details"/);
 });
 
-test('voucher delete has its own explicit target and handler', () => {
-  assert.match(html, /onclick="deleteVoucherById\(\$\{v\.id\}\)"/);
+test('voucher cancellation and reversal have an explicit target and require a reason', () => {
+  assert.match(html, /onclick="deleteVoucherById\(\$\{Number\(v\.id\)\}\)"/);
   assert.match(html, /data-delete-voucher-id="\$\{v\.id\}"/);
   assert.match(html, /data-history-action="delete"/);
-  assert.match(html, /aria-label="\$\{isDeletingVoucher \? 'กำลังลบใบเบิก' : `ลบใบเบิก #\$\{v\.id\}`\}"/);
+  assert.match(html, /aria-label="\$\{getVoucherCorrectionAction\(v\) === 'reverseVoucher'/);
+  assert.match(html, /callServerFunction\(action, \{ voucherId, reason \}/);
 });
 

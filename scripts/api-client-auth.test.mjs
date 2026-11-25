@@ -2,17 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 
 function loadApiClient(fetchImpl, windowOverrides = {}, navigatorOverrides = {}) {
   const context = {
     console,
     fetch: fetchImpl,
+    crypto: webcrypto,
+    TextEncoder,
     AbortController,
     setTimeout,
     clearTimeout,
     navigator: { onLine: true, ...navigatorOverrides },
     CustomEvent: class CustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
-    window: { _adminToken: null, _lineAccessToken: 'expired-token', dispatchEvent: () => true, ...windowOverrides },
+    window: { _lineAccessToken: 'expired-token', dispatchEvent: () => true, ...windowOverrides },
     LoadingManager: { wrap: async (_key, fn) => fn(null) },
   };
   vm.createContext(context);
@@ -64,12 +67,12 @@ test('recovers a missing cached token from an initialized LIFF session', async (
   assert.equal(browser._lineAccessToken, 'fresh-liff-token');
 });
 
-test('invokes centralized Admin login handler on API 403', async () => {
+test('invokes centralized Admin login handler on an expired Admin session', async () => {
   let called = false;
   const browser = loadApiClient(async () => ({
     ok: false,
     status: 403,
-    json: async () => ({ message: 'เซสชัน Admin หมดอายุ กรุณาเข้าสู่ระบบใหม่' }),
+    json: async () => ({ message: 'เซสชัน Admin หมดอายุ กรุณาเข้าสู่ระบบใหม่', code: 'ADMIN_SESSION_REQUIRED' }),
   }), {
     handleAdminSessionExpired: () => {
       called = true;
@@ -82,6 +85,33 @@ test('invokes centralized Admin login handler on API 403', async () => {
     error => error.statusCode === 403 && error.authenticationRedirected === true,
   );
   assert.equal(called, true);
+});
+
+test('uses a same-origin cookie and the CSRF header for Admin actions', async () => {
+  const browser = loadApiClient(async (_url, options) => {
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.headers['X-PPE-Request'], '1');
+    assert.equal(Object.hasOwn(JSON.parse(options.body).payload, 'adminToken'), false);
+    return { ok: true, status: 200, json: async () => ({ data: null }) };
+  }, { _adminToken: 'legacy-storage-value' });
+
+  await browser.apiCall('returnItem', { loanId: 1 }, { silent: true });
+});
+
+test('reuses the inventory request key after an uncertain failure and releases it after success', async () => {
+  const keys = [];
+  const browser = loadApiClient(async (_url, options) => {
+    keys.push(options.headers['X-Idempotency-Key']);
+    if (keys.length === 1) return { ok: false, status: 503, json: async () => ({ message: 'Fixture outage' }) };
+    return { ok: true, status: 200, json: async () => ({ data: { saved: true } }) };
+  });
+  const send = () => browser.apiCall('addReceiveTransaction', { itemId: 1, quantity: 2 }, { silent: true });
+  await assert.rejects(send(), /Fixture outage/);
+  assert.equal((await send()).saved, true);
+  assert.equal((await send()).saved, true);
+  assert.match(keys[0], /^[a-f0-9-]{36}$/i);
+  assert.equal(keys[0], keys[1]);
+  assert.notEqual(keys[1], keys[2]);
 });
 
 test('preserves feedback-required code and voucher details on API 409', async () => {

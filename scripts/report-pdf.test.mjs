@@ -9,8 +9,8 @@ const source = `${html}\n${designSystem}`;
 test('report PDF uses a dedicated A4 document instead of printing the live dashboard', () => {
   assert.match(source, /@page\s*{[\s\S]*?size:\s*A4 landscape/);
   assert.match(html, /<section id="reportPrintDocument" aria-hidden="true"><\/section>/);
-  assert.match(html, /function buildReportPrintDocument\(\)/);
-  assert.match(html, /const printDocument = buildReportPrintDocument\(\)/);
+  assert.match(html, /function buildReportPrintDocument\(rows, filters\)/);
+  assert.match(html, /const rows = await loadReportExportRows\(filters\);\s*const printDocument = buildReportPrintDocument\(rows, filters\)/);
   assert.doesNotMatch(html, /renderReportTable\(true\)/);
 });
 

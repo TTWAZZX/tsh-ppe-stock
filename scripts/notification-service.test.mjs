@@ -11,26 +11,30 @@ class Query {
     this.values = values;
     this.filters = [];
     this.ignoreDuplicates = false;
+    this.returnRows = false;
+    this.head = false;
+    this.rowLimit = Infinity;
   }
 
-  select() { return this; }
+  select(_columns, options = {}) { this.returnRows = true; this.head = options.head === true; return this; }
   eq(column, value) { this.filters.push(row => row[column] === value); return this; }
   in(column, values) { this.filters.push(row => values.includes(row[column])); return this; }
   lte(column, value) { this.filters.push(row => row[column] != null && row[column] <= value); return this; }
   lt(column, value) { this.filters.push(row => row[column] != null && row[column] < value); return this; }
+  is(column, value) { this.filters.push(row => row[column] === value); return this; }
   order() { return this; }
-  limit() { return this; }
+  limit(value) { this.rowLimit = value; return this; }
   upsert(values, options = {}) { this.operation = 'upsert'; this.values = values; this.ignoreDuplicates = options.ignoreDuplicates; return this; }
   update(values) { this.operation = 'update'; this.values = values; return this; }
-  single() { return this.execute(true); }
-  maybeSingle() { return this.execute(false); }
+  single() { return this.execute(true, true); }
+  maybeSingle() { return this.execute(true, false); }
   then(resolve, reject) { return this.execute(false).then(resolve, reject); }
 
   matching() {
     return this.store.rows.filter(row => this.filters.every(filter => filter(row)));
   }
 
-  async execute(requireSingle) {
+  async execute(single, required = false) {
     if (this.operation === 'upsert') {
       const duplicate = this.store.rows.find(row => row.channel === this.values.channel && row.event_key === this.values.event_key && row.recipient === this.values.recipient);
       if (duplicate && this.ignoreDuplicates) return { data: null, error: null };
@@ -39,14 +43,16 @@ class Query {
       return { data: structuredClone(row), error: null };
     }
     if (this.operation === 'update') {
+      if (this.store.failUpdates) return { data: null, error: new Error('Update unavailable') };
       const rows = this.matching();
       for (const row of rows) Object.assign(row, structuredClone(this.values));
-      const data = rows[0] ? structuredClone(rows[0]) : null;
-      return requireSingle && !data ? { data: null, error: new Error('Expected one row') } : { data, error: null };
+      const data = single ? (rows[0] || null) : this.returnRows ? rows : null;
+      return required && !data ? { data: null, error: new Error('Expected one row') } : { data: structuredClone(data), error: null };
     }
-    const rows = this.matching().map(row => structuredClone(row));
-    const data = requireSingle || this.filters.length ? (rows[0] || null) : rows;
-    return requireSingle && !data ? { data: null, error: new Error('Expected one row') } : { data, error: null };
+    const rows = this.matching().slice(0, this.rowLimit).map(row => structuredClone(row));
+    if (this.head) return { data: null, count: rows.length, error: null };
+    const data = single ? (rows[0] || null) : rows;
+    return required && !data ? { data: null, error: new Error('Expected one row') } : { data, error: null };
   }
 }
 
@@ -72,7 +78,7 @@ function serviceWith(responses, options = {}) {
     const current = responses[Math.min(calls, responses.length - 1)];
     calls += 1;
     if (current instanceof Error) throw current;
-    return current;
+    return current.clone();
   };
   const service = createLineNotificationService({
     supabase,
@@ -88,6 +94,33 @@ function serviceWith(responses, options = {}) {
 function messageInput(eventKey = 'issue-approved:101') {
   return { recipient: RECIPIENT, messages: [{ type: 'text', text: 'test' }], eventKey };
 }
+
+test('cron delivers due pending and stale processing entries and keeps future entries queued', async () => {
+  const fixture = serviceWith([response(200)]);
+  for (const key of ['pending-due', 'pending-unscheduled', 'stale', 'future']) {
+    await fixture.service.send(messageInput(key));
+  }
+  const [pending, unscheduled, stale, future] = fixture.supabase.rows;
+  const longAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+  Object.assign(pending, { status: 'pending', next_attempt_at: longAgo, attempt_count: 0 });
+  Object.assign(unscheduled, { status: 'pending', next_attempt_at: null, attempt_count: 0 });
+  Object.assign(stale, { status: 'processing', updated_at: longAgo });
+  Object.assign(future, { status: 'retry_scheduled', next_attempt_at: new Date(Date.now() + 60_000).toISOString() });
+
+  const result = await fixture.service.retryDue();
+  assert.equal(result.recovered, 1);
+  assert.equal(result.processed, 3);
+  assert.equal(result.sent, 3);
+  assert.equal(result.overdue, 0);
+  assert.equal(future.status, 'retry_scheduled');
+  assert.equal((await fixture.service.retryDue()).processed, 0);
+});
+
+test('cron surfaces a failed recovery write', async () => {
+  const fixture = serviceWith([response(200)]);
+  fixture.supabase.failUpdates = true;
+  await assert.rejects(fixture.service.retryDue(), /Update unavailable/);
+});
 
 test('retries retryable LINE response and records the accepted request', async () => {
   const fixture = serviceWith([

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const api = readFileSync(new URL('../pages/api/ppe.js', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../supabase/002_inventory_integrity.sql', import.meta.url), 'utf8');
 
 test('admin manage form exposes the next automatic PPE code as read-only', () => {
   assert.match(html, /id="itemCode"[^>]*readonly[^>]*aria-readonly="true"/);
@@ -14,7 +15,8 @@ test('admin manage form exposes the next automatic PPE code as read-only', () =>
 
 test('server owns PPE code allocation and includes soft-deleted history', () => {
   assert.match(api, /function getNextAvailablePpeCode\(\)/);
-  assert.match(api, /\.from\('ppe_items'\)[\s\S]*?\.select\('code'\)[\s\S]*?\.ilike\('code', 'PPE%'\)/);
-  assert.doesNotMatch(api, /\.select\('code'\)[\s\S]{0,160}\.is\('deleted_at', null\)/);
-  assert.match(api, /existingItem[\s\S]*?await getNextAvailablePpeCode\(\)/);
+  assert.match(api, /supabase\.rpc\('ppe_next_code'\)/);
+  assert.match(migration, /SELECT max\(substring\(upper\(trim\(code\)\)[\s\S]{0,100}INTO max_value FROM public\.ppe_items;/);
+  assert.match(migration, /code_number := nextval\('public\.ppe_code_seq'\)/);
+  assert.doesNotMatch(migration, /UPDATE public\.ppe_items p SET code/);
 });

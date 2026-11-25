@@ -6,22 +6,28 @@ import crypto from 'crypto';
 import { createLineNotificationService } from '../../lib/notification-service.js';
 import { createNotificationWorkflows } from '../../lib/notification-workflows.js';
 import { createPpeFlexMessage } from '../../lib/line-flex.js';
-import { findIncompleteReceivedVoucher, parseVoucherItems } from '../../lib/feedback-policy.js';
+import { getApprovedVoucherItems, parseVoucherItems } from '../../lib/feedback-policy.js';
 import { withApiObservability } from '../../lib/api-observability.js';
-import { getNextPpeCode } from '../../lib/ppe-code.js';
+import { readInventoryPages } from '../../lib/inventory-read.js';
+import { reportNotificationQueue, reportOperationalAlert } from '../../lib/operational-alerts.js';
+import { createDocumentStorage, decodePdfUpload, MAX_PPE_REQUEST_BYTES } from '../../lib/document-storage.js';
+import { ADMIN_SESSION_COOKIE, adminSessionCookie, createAdminSession } from '../../lib/admin-session.js';
 
 // สร้าง client ไปยัง Supabase ของคุณ
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+const documentStorage = createDocumentStorage(supabase, process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 // ตั้งค่า admin จาก env (แทน ScriptProperties)
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD_BASE64 = process.env.ADMIN_PASSWORD_BASE64 || null;
-const ADMIN_PASSWORD_SCRYPT = process.env.ADMIN_PASSWORD_SCRYPT || null; // ใหม่: scrypt hash
-// SESSION_SECRET ต้องตั้งค่าใน Vercel Environment Variables ด้วย (สุ่ม string ยาวๆ)
-const SESSION_SECRET = process.env.SESSION_SECRET || '';
+const adminSession = createAdminSession({
+  username: ADMIN_USERNAME,
+  secret: process.env.SESSION_SECRET,
+  passwordHash: process.env.ADMIN_PASSWORD_SCRYPT,
+});
+const secureAdminCookie = process.env.NODE_ENV === 'production';
 const LINE_LOGIN_CHANNEL_ID = process.env.LINE_LOGIN_CHANNEL_ID || '2007053300';
 const LIFF_ID = process.env.LIFF_ID || '2007053300-JTSerFbF';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -44,10 +50,10 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'saveCategory', 'deleteCategory', 'savePpeItem', 'deletePpeItem',
   'approveVoucher', 'approvePartialVoucher', 'rejectVoucher',
   'addReceiveTransaction', 'saveMatrixRule', 'deleteMatrixRule',
-  'uploadDocument', 'deleteDocument', 'deleteVoucher', 'returnItem',
+  'uploadDocument', 'deleteDocument', 'deleteVoucher', 'reverseVoucher', 'returnItem',
   'checkLineStatus', 'getNotificationLogs', 'retryNotification', 'retryDueNotifications',
   'getNotificationRecipients', 'saveNotificationRecipient', 'toggleNotificationRecipient',
-  'runLoanDueReminders',
+  'runLoanDueReminders', 'getIssueReport',
 ]);
 
 const LINE_OR_ADMIN_ACTIONS = new Set([
@@ -76,17 +82,55 @@ async function handler(req, res) {
 
   try {
     const rawBody = await getRawBody(req);
-    const { action, payload } = JSON.parse(rawBody || '{}');
-    const requestPayload = payload && typeof payload === 'object' ? payload : {};
-    const auth = action === 'checkAdminCredentials'
-      ? { isAdmin: false, adminUsername: null, lineUser: null }
-      : await authenticateRequest(requestPayload);
+    let body;
+    try { body = JSON.parse(rawBody || '{}'); }
+    catch { throw createHttpError(400, 'ข้อมูลคำขอไม่ใช่ JSON ที่ถูกต้อง'); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw createHttpError(400, 'รูปแบบคำขอไม่ถูกต้อง');
+    const { action, payload } = body;
+    const requestPayload = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+    // A cross-origin browser request cannot send this header without CORS approval.
+    // This API does not grant CORS access.
+    const sameOriginRequest = req.headers['x-ppe-request'] === '1'
+      && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin');
+    if (['checkAdminCredentials', 'getAdminSession', 'logoutAdmin'].includes(action)) {
+      if (!sameOriginRequest) throw createHttpError(403, 'คำขอนี้ต้องมาจากหน้า PPE Stock');
 
-    if (ADMIN_ONLY_ACTIONS.has(action) && !auth.isAdmin) {
-      return res.status(403).json({ status: 'error', message: 'Unauthorized' });
+      const cookieOptions = { secure: secureAdminCookie };
+      if (action === 'logoutAdmin') {
+        res.setHeader('Set-Cookie', adminSessionCookie(null, cookieOptions));
+        return res.status(200).json({ status: 'success', data: { authenticated: false } });
+      }
+      if (action === 'getAdminSession') {
+        const token = req.cookies[ADMIN_SESSION_COOKIE];
+        const authenticated = Boolean(adminSession.verify(token));
+        if (token && !authenticated) res.setHeader('Set-Cookie', adminSessionCookie(null, cookieOptions));
+        return res.status(200).json({ status: 'success', data: { authenticated } });
+      }
+
+      if (!adminSession.configured) {
+        console.error('Admin authentication requires a valid SESSION_SECRET and ADMIN_PASSWORD_SCRYPT.');
+        throw createHttpError(503, 'ระบบเข้าสู่ระบบผู้ดูแลยังไม่พร้อมใช้งาน');
+      }
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? 'unknown';
+      const { username, password, remember } = requestPayload;
+      const authenticated = await handleLoginWithLockout(username, password, ip);
+      if (authenticated) {
+        res.setHeader('Set-Cookie', adminSessionCookie(adminSession.issue(), { ...cookieOptions, remember: remember === true }));
+      }
+      return res.status(200).json({ status: 'success', data: { authenticated } });
     }
+
+    const adminUsername = sameOriginRequest ? adminSession.verify(req.cookies[ADMIN_SESSION_COOKIE]) : null;
+    if (ADMIN_ONLY_ACTIONS.has(action) && !adminUsername) {
+      throw createHttpError(403, 'กรุณาเข้าสู่ระบบผู้ดูแลใหม่อีกครั้ง', 'ADMIN_SESSION_REQUIRED');
+    }
+    const auth = await authenticateRequest(requestPayload, adminUsername);
+
     if (LINE_OR_ADMIN_ACTIONS.has(action) && !auth.isAdmin && !auth.lineUser) {
       return res.status(401).json({ status: 'error', message: 'กรุณาเข้าสู่ระบบผ่าน LINE ใหม่อีกครั้ง' });
+    }
+    if (LINE_OR_ADMIN_ACTIONS.has(action) && !auth.isAdmin && !auth.employee) {
+      throw createHttpError(403, 'บัญชี LINE นี้ยังไม่ได้รับสิทธิ์พนักงาน กรุณาติดต่อผู้ดูแลระบบ', 'EMPLOYEE_ACCESS_REQUIRED');
     }
 
     const actor = auth.isAdmin ? `admin:${auth.adminUsername}` : (auth.lineUser?.userId || 'anonymous');
@@ -98,8 +142,16 @@ async function handler(req, res) {
         result = await getInitialData(auth);
         break;
 
+      case 'getIssueReport':
+        result = await getIssueReport(requestPayload);
+        break;
+
+      case 'getDocumentUrl':
+        result = await getDocumentUrl(requestPayload.id, auth);
+        break;
+
       case 'saveCategory':
-        result = await saveCategory(payload);
+        result = await saveCategory(payload, actor, req.headers['x-idempotency-key']);
         await writeAuditLog(actor, 'saveCategory', 'categories', result?.id, { name: payload.name });
         break;
 
@@ -109,64 +161,43 @@ async function handler(req, res) {
         break;
 
       case 'savePpeItem':
-        result = await savePpeItem(payload);
+        result = await savePpeItem(requestPayload, actor, req.headers['x-idempotency-key']);
         await writeAuditLog(actor, 'savePpeItem', 'ppe_items', result?.item?.id, { name: payload.name, isNew: result?.isNew });
         break;
 
       case 'addNewVoucher':
-        result = await addNewVoucher(requestPayload, auth);
+        result = await addNewVoucher(requestPayload, auth, actor, req.headers['x-idempotency-key']);
         await writeAuditLog(actor, 'addNewVoucher', 'issue_vouchers', result?.id, { department: requestPayload.department, itemCount: requestPayload.items?.length });
         break;
 
       case 'approveVoucher':
-        result = await approveVoucher(requestPayload);
-        await writeAuditLog(actor, 'approveVoucher', 'issue_vouchers', requestPayload.voucherId);
-        break;
-
       case 'approvePartialVoucher':
-        result = await approvePartialVoucher(requestPayload);
-        await writeAuditLog(actor, 'approvePartialVoucher', 'issue_vouchers', requestPayload.voucherId, { items: requestPayload.items });
-        break;
-
       case 'rejectVoucher':
-        result = await rejectVoucher(requestPayload);
-        await writeAuditLog(actor, 'rejectVoucher', 'issue_vouchers', requestPayload.voucherId);
+        result = await changeVoucherStatus(action, requestPayload, actor, req.headers['x-idempotency-key']);
+        await writeAuditLog(actor, action, 'issue_vouchers', requestPayload.voucherId, {
+          status: result.status, items: result.updatedStockItems,
+        });
         break;
 
       case 'confirmReceive':
-        result = await confirmReceive(requestPayload, auth);
+        result = await confirmReceive(requestPayload, auth, actor, req.headers['x-idempotency-key']);
         await writeAuditLog(actor, auth.isAdmin ? 'adminConfirmReceive' : 'confirmReceive', 'issue_vouchers', requestPayload.voucherId, { receivedBy: result?.receivedBy });
         break;
 
       case 'borrowItem':
-        result = await borrowItem(requestPayload, auth);
-        await writeAuditLog(actor, 'borrowItem', 'loan_transactions', result?.newLoan?.loanId, { itemId: requestPayload.itemId, department: requestPayload.department });
+        result = await borrowItem(requestPayload, auth, actor, req.headers['x-idempotency-key']);
         break;
 
       case 'returnItem':
-        result = await returnItem(requestPayload.loanId);
-        await writeAuditLog(actor, 'returnItem', 'loan_transactions', requestPayload.loanId);
+        result = await returnItem(requestPayload.loanId, actor, req.headers['x-idempotency-key']);
         break;
 
       case 'addReceiveTransaction':
-        result = await addReceiveTransactionAndUpdateStock(payload);
-        await writeAuditLog(actor, 'addReceiveTransaction', 'receive_transactions', result?.transaction?.id, {
-          itemId: payload.itemId,
-          quantity: payload.quantity,
-          type: payload.type,
-          department: payload.department,
-          receiver: payload.user,
-        });
+        result = await addReceiveTransactionAndUpdateStock(requestPayload, actor, req.headers['x-idempotency-key']);
         break;
-
-      case 'checkAdminCredentials': {
-        const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? 'unknown';
-        result = await handleLoginWithLockout(payload.username, payload.password, ip);
-        break;
-      }
 
       case 'deletePpeItem':
-        result = await deletePpeItem(payload);
+        result = await deletePpeItem(requestPayload, actor, req.headers['x-idempotency-key']);
         await writeAuditLog(actor, 'deletePpeItem', 'ppe_items', payload.id);
         break;
 
@@ -185,18 +216,21 @@ async function handler(req, res) {
         break;
 
       case 'uploadDocument':
-        result = await uploadDocument(payload);
-        await writeAuditLog(actor, 'uploadDocument', 'ppe_documents', result?.id, { title: payload.title });
+        result = await uploadDocument(requestPayload, auth.adminUsername);
+        await writeAuditLog(actor, 'uploadDocument', 'ppe_documents', result?.id, { title: result.title });
         break;
 
       case 'deleteDocument':
-        result = await deleteDocument(payload);
-        await writeAuditLog(actor, 'deleteDocument', 'ppe_documents', payload.id);
+        result = await documentStorage.remove(documentId(requestPayload.id));
+        await writeAuditLog(actor, 'deleteDocument', 'ppe_documents', requestPayload.id, { status: result.status });
         break;
 
       case 'deleteVoucher':
-        result = await deleteVoucher(payload.voucherId);
-        await writeAuditLog(actor, 'deleteVoucher', 'issue_vouchers', payload.voucherId);
+      case 'reverseVoucher':
+        result = await changeVoucherStatus(action, requestPayload, actor, req.headers['x-idempotency-key']);
+        await writeAuditLog(actor, action, 'issue_vouchers', requestPayload.voucherId, {
+          reason: normalizeAdminNote(requestPayload.reason), status: result.status, items: result.updatedStockItems,
+        });
         break;
 
       case 'checkLineStatus':
@@ -214,6 +248,7 @@ async function handler(req, res) {
 
       case 'retryDueNotifications':
         result = await notificationService.retryDue({ limit: requestPayload.limit });
+        await reportNotificationQueue(notificationWorkflows, result);
         await writeAuditLog(actor, 'retryDueNotifications', 'notification_log', '', { processed: result?.processed, sent: result?.sent });
         break;
 
@@ -261,19 +296,19 @@ export default withApiObservability('/api/ppe', handler);
 
 // ------------------------- Enterprise Helper Functions -------------------------
 
-async function authenticateRequest(payload) {
-  const providedAdminToken = String(payload?.adminToken || '').trim();
-  const adminUsername = providedAdminToken && verifyAdminToken(providedAdminToken)
-    ? extractUsernameFromToken(providedAdminToken)
-    : null;
+async function authenticateRequest(payload, adminUsername) {
   if (adminUsername) return { isAdmin: true, adminUsername, lineUser: null };
-  if (providedAdminToken) throw createHttpError(403, 'เซสชัน Admin หมดอายุ กรุณาเข้าสู่ระบบใหม่');
 
   const lineAccessToken = String(payload?.lineAccessToken || '').trim();
   if (!lineAccessToken) return { isAdmin: false, adminUsername: null, lineUser: null };
 
   const lineUser = await verifyLineAccessToken(lineAccessToken);
-  return { isAdmin: false, adminUsername: null, lineUser };
+  const { data, error } = await supabase.from('ppe_employee_access')
+    .select('employee_id, employee_name, department')
+    .eq('line_user_id', lineUser.userId).eq('active', true).maybeSingle();
+  if (error) throw error;
+  const employee = data ? { employeeId: data.employee_id, name: data.employee_name, department: data.department } : null;
+  return { isAdmin: false, adminUsername: null, lineUser, employee };
 }
 
 async function verifyLineAccessToken(accessToken) {
@@ -318,6 +353,29 @@ function createHttpError(statusCode, message, code = '', details = null) {
   if (code) error.code = code;
   if (details) error.details = details;
   return error;
+}
+
+async function runInventoryMutation(action, payload, actor, suppliedRequestId) {
+  const requestId = suppliedRequestId || crypto.randomUUID();
+  if (typeof requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+    throw createHttpError(400, 'รหัสคำขอไม่ถูกต้อง');
+  }
+  const args = { p_payload: payload, p_actor: actor, p_request_id: requestId };
+  const { data, error } = action === 'savePpeItem'
+    ? await supabase.rpc('ppe_save_categorized_inventory', args)
+    : await supabase.rpc('ppe_apply_inventory', { p_action: action, ...args });
+  if (error) {
+    if (action === 'addNewVoucher' && error.code === 'PT409' && error.details) {
+      let details;
+      try { details = JSON.parse(error.details); } catch {}
+      if (Number.isSafeInteger(details?.voucherId) && Array.isArray(details.missingItemIds)) {
+        throw createHttpError(409, error.message, 'FEEDBACK_REQUIRED', details);
+      }
+    }
+    if (/^PT4[0-9]{2}$/.test(error.code)) throw createHttpError(Number(error.code.slice(2)), error.message);
+    throw error;
+  }
+  return data;
 }
 
 async function readJsonResponse(response) {
@@ -462,48 +520,49 @@ async function notifyVoucherStatus(voucher, statusLabel, items, eventKey, includ
   return { ...userResult, admin: adminResult };
 }
 
-// Audit Log: บันทึกทุก action — fire-and-forget ไม่ throw ไม่กระทบ main flow
+// A completed mutation stays successful even if its supplementary audit write fails.
 async function writeAuditLog(actor, action, entityType, entityId, details = {}) {
   try {
-    await supabase.from('audit_log').insert({
+    const { error } = await supabase.from('audit_log').insert({
       actor: String(actor || 'anonymous'),
       action,
       entity_type: entityType,
       entity_id: String(entityId ?? ''),
       details,
     });
-  } catch (e) {
-    console.error('[audit_log] write failed:', e.message);
+    if (error) throw error;
+  } catch (error) {
+    const code = /^[A-Z0-9_]{1,12}$/.test(error?.code || '') ? error.code : 'UNKNOWN';
+    await reportOperationalAlert(notificationWorkflows, {
+      event: 'audit_log_write_failed',
+      key: 'audit-log:' + action,
+      message: 'PPE Stock: บันทึก Audit Log ไม่สำเร็จ (' + action + ') กรุณาตรวจ Vercel Logs',
+      details: { action, entityType, code },
+    });
   }
-}
-
-// ดึง username จาก HMAC token
-function extractUsernameFromToken(token) {
-  if (!token) return 'unknown';
-  const lastColon = token.lastIndexOf(':');
-  const secondLast = token.lastIndexOf(':', lastColon - 1);
-  return token.substring(0, secondLast) || 'unknown';
 }
 
 // Account Lockout: ตรวจ + บันทึก login attempts
 async function handleLoginWithLockout(username, password, ip) {
+  if (username !== ADMIN_USERNAME || typeof password !== 'string' || password.length > 1024) return false;
   const windowStart = new Date(Date.now() - LOCKOUT_WINDOW_MS).toISOString();
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('login_attempts')
     .select('*', { count: 'exact', head: true })
     .eq('username', username)
     .eq('success', false)
     .gte('attempted_at', windowStart);
 
+  if (error) throw error;
   if ((count ?? 0) >= MAX_LOGIN_FAILURES) {
-    await supabase.from('login_attempts').insert({ username, ip, success: false });
-    throw new Error('บัญชีถูกล็อกชั่วคราว กรุณารอ 15 นาทีแล้วลองใหม่');
+    throw createHttpError(429, 'บัญชีถูกล็อกชั่วคราว กรุณารอ 15 นาทีแล้วลองใหม่');
   }
 
-  const token = await checkAdminCredentials(username, password);
-  await supabase.from('login_attempts').insert({ username, ip, success: !!token });
-  return token;
+  const authenticated = await adminSession.verifyCredentials(username, password);
+  const { error: writeError } = await supabase.from('login_attempts').insert({ username, ip, success: authenticated });
+  if (writeError) throw writeError;
+  return authenticated;
 }
 
 // Auto Stock Alert: แจ้ง LINE admin เมื่อ stock ต่ำกว่า reorder point
@@ -551,14 +610,28 @@ async function checkAndAlertLowStock(updatedItems) {
 
 // ------------------------- utils: อ่าน raw body -------------------------
 function getRawBody(req) {
+  if (Number(req.headers['content-length']) > MAX_PPE_REQUEST_BYTES) {
+    req.resume();
+    return Promise.reject(createHttpError(413, 'ขนาดคำขอใหญ่เกินกำหนด'));
+  }
   return new Promise((resolve, reject) => {
-    let data = '';
+    const chunks = [];
+    let size = 0;
     req.on('data', (chunk) => {
-      data += chunk;
+      if (size > MAX_PPE_REQUEST_BYTES) return;
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.length;
+      if (size > MAX_PPE_REQUEST_BYTES) {
+        chunks.length = 0;
+        reject(createHttpError(413, 'ขนาดคำขอใหญ่เกินกำหนด'));
+        return;
+      }
+      chunks.push(buffer);
     });
     req.on('end', () => {
-      resolve(data);
+      if (size <= MAX_PPE_REQUEST_BYTES) resolve(Buffer.concat(chunks, size).toString('utf8'));
     });
+    req.on('aborted', () => reject(createHttpError(400, 'การรับข้อมูลคำขอถูกยกเลิก')));
     req.on('error', (err) => {
       reject(err);
     });
@@ -567,84 +640,69 @@ function getRawBody(req) {
 
 // บันทึก Feedback ลง Supabase หลังตรวจสิทธิ์และความเป็นเจ้าของรายการ
 async function saveFeedback(payload, auth) {
-  const transactionId = Number(payload?.transactionId);
+  if (auth.isAdmin) throw createHttpError(403, 'ผู้ดูแลระบบไม่สามารถให้คะแนนแทนผู้ใช้');
+  const voucherId = Number(payload?.transactionId);
   const itemId = Number(payload?.itemId);
   const rating = Number(payload?.rating);
-  const type = String(payload?.type || 'issue').trim().slice(0, 40);
-  const comment = String(payload?.comment || '').trim().slice(0, 1000);
-  if (!Number.isInteger(transactionId) || transactionId <= 0 || !Number.isInteger(itemId) || itemId <= 0) {
-    throw new Error('ข้อมูลรายการประเมินไม่ถูกต้อง');
+  if (!Number.isSafeInteger(voucherId) || voucherId < 1 || !Number.isSafeInteger(itemId) || itemId < 1
+    || !Number.isInteger(rating) || rating < 1 || rating > 5 || (payload.type && payload.type !== 'issue')) {
+    throw createHttpError(400, 'ข้อมูลรายการประเมินไม่ถูกต้อง');
   }
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('คะแนนต้องอยู่ระหว่าง 1 ถึง 5');
-
-  if (auth.isAdmin) throw createHttpError(403, 'ผู้ดูแลระบบดูสถานะคะแนนได้ แต่ไม่สามารถให้คะแนนแทนผู้ใช้');
-  let voucherQuery = supabase.from('issue_vouchers').select('id, userid, itemsJson, status, status_received').eq('id', transactionId);
-  voucherQuery = voucherQuery.eq('userid', auth.lineUser.userId);
-  const { data: voucher, error: voucherError } = await voucherQuery.maybeSingle();
-  if (voucherError) throw voucherError;
-  if (!voucher) throw createHttpError(403, 'คุณไม่มีสิทธิ์ประเมินรายการนี้');
-  if (!['approved', 'partially_approved'].includes(voucher.status) || voucher.status_received !== 'received') {
-    throw createHttpError(409, 'ให้คะแนนได้หลังจากยืนยันรับอุปกรณ์แล้วเท่านั้น');
-  }
-  const voucherItems = parseVoucherItems(voucher.itemsJson);
-  if (!voucherItems.some(item => Number(item.itemId) === itemId)) throw new Error('ไม่พบอุปกรณ์นี้ในใบเบิก');
-
-  const { data: existingFeedback, error: existingError } = await supabase
-    .from('feedback')
-    .select('*')
-    .eq('transaction_id', transactionId)
-    .eq('item_id', itemId)
-    .eq('feedback_type', type)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existingError) throw existingError;
-  if (existingFeedback) {
-    return { status: 'success', data: [existingFeedback], alreadyRated: true };
-  }
-
-  const { data: storedItem } = await supabase.from('ppe_items').select('name').eq('id', itemId).maybeSingle();
-  const user = auth.isAdmin ? `Admin (${auth.adminUsername})` : auth.lineUser.displayName;
-
-  // Insert ลงตาราง feedback
-  const { data, error } = await supabase
-    .from('feedback')
-    .insert([
-      {
-        transaction_id: transactionId,
-        item_id: itemId,
-        item_name: storedItem?.name || `อุปกรณ์ #${itemId}`,
-        feedback_type: type,
-        rating,
-        comment,
-        user_name: user
-      }
-    ])
-    .select();
-
+  const { data, error } = await supabase.rpc('ppe_save_issue_feedback', {
+    p_voucher_id: voucherId, p_item_id: itemId, p_line_user: auth.lineUser.userId,
+    p_rating: rating, p_comment: String(payload.comment || '').trim().slice(0, 1000), p_employee_name: auth.employee.name,
+  });
   if (error) {
-    console.error('Supabase Feedback Error:', error);
-    throw new Error(error.message);
+    if (/^PT4[0-9]{2}$/.test(error.code)) throw createHttpError(Number(error.code.slice(2)), error.message);
+    throw error;
   }
-
-  return { status: 'success', data };
+  return data;
 }
 
 // ------------------------- ฟังก์ชันเดิมของคุณ (ไม่ต้องแก้) -------------------------
 
 async function getNextAvailablePpeCode() {
-  const { data, error } = await supabase
-    .from('ppe_items')
-    .select('code')
-    .ilike('code', 'PPE%');
+  const { data, error } = await supabase.rpc('ppe_next_code');
   if (error) throw error;
-  return getNextPpeCode(data || []);
+  return data;
+}
+
+function validDateKey(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+}
+
+async function getIssueReport(payload) {
+  const { startDate = '', endDate = '', department = '', status = 'issued', page = 1, pageSize = 25, search = '' } = payload;
+  if ((startDate !== '' && !validDateKey(startDate)) || (endDate !== '' && !validDateKey(endDate))
+    || (startDate && endDate && startDate > endDate)
+    || !['issued', 'all', 'pending', 'rejected'].includes(status)
+    || typeof department !== 'string' || department.length > 150
+    || !Number.isInteger(page) || page < 1 || page > 100000
+    || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 250
+    || typeof search !== 'string' || search.length > 150) {
+    throw createHttpError(400, 'ตัวกรองรายงานไม่ถูกต้อง');
+  }
+  const { data, error } = await supabase.rpc('ppe_issue_report', {
+    p_start: startDate || null, p_end: endDate || null, p_department: department, p_status: status,
+    p_page: page, p_page_size: pageSize, p_search: search.trim(),
+  });
+  if (error) throw error;
+  return data;
 }
 
 async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
-  const ppeItemsQuery = auth.isAdmin
+  if (!auth.isAdmin && !auth.employee) {
+    return {
+      isAdmin: false, employee: null, accessStatus: auth.lineUser ? 'employee_required' : 'login_required',
+      enrollmentId: auth.lineUser?.userId || null,
+      ppeItems: [], categories: [], departments: [], issueVouchers: [], receiveTransactions: [],
+      loanTransactions: [], feedbackData: [], ppeMatrix: [], ppeDocuments: [], nextPpeCode: null, dashboardMetrics: {},
+    };
+  }
+  const ppeItemsQuery = () => auth.isAdmin
     ? supabase.from('ppe_items').select('*').is('deleted_at', null)
-    : supabase.from('ppe_items').select('id, code, name, category, unit, stock, reorderPoint, onLoanQuantity, image_url').is('deleted_at', null);
+    : supabase.from('ppe_items').select('id, code, name, category, category_id, unit, stock, reorderPoint, onLoanQuantity, image_url').is('deleted_at', null);
   const [
     ppeItemsRes,
     categoriesRes,
@@ -652,17 +710,21 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
     matrixRes,
     docsRes // ⭐ เพิ่มตัวรับ
   ] = await Promise.all([
-    ppeItemsQuery,
-    supabase.from('categories').select('*'),
-    supabase.from('departments').select('*').order('name'),
-    supabase.from('ppe_matrix').select('*'),
-    supabase.from('ppe_documents').select('*').order('created_at', { ascending: false }) // ⭐ ดึงเอกสาร
+    readInventoryPages(ppeItemsQuery),
+    readInventoryPages(() => supabase.from('categories').select('*')),
+    readInventoryPages(() => supabase.from('departments').select('*')),
+    readInventoryPages(() => supabase.from('ppe_matrix').select('*')),
+    readInventoryPages(() => supabase.from('ppe_documents').select('id,title,file_type,created_at').eq('document_state', 'ready'))
   ]);
 
-  const ppeItems = ppeItemsRes.data || [];
-  const categories = categoriesRes.data || [];
-  const ppeMatrix = matrixRes.data || []; // ⭐ 3. ดึง data
-  const ppeDocuments = docsRes.data || []; // ⭐ ดึง data
+  const categories = categoriesRes;
+  const categoryNames = new Map(categories.map(category => [String(category.id), category.name]));
+  const ppeItems = ppeItemsRes.map(item => ({
+    ...item,
+    category: categoryNames.get(String(item.category_id)) ?? item.category,
+  }));
+  const ppeMatrix = matrixRes;
+  const ppeDocuments = docsRes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   let issueVouchers = [];
   let receiveTransactions = [];
@@ -672,32 +734,31 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   let notificationFailures = { count: 0, recent: [], available: true };
   if (auth.isAdmin) {
     const [issues, receives, loans, feedbacks, failedNotifications, receiveAudits, generatedPpeCode] = await Promise.all([
-      supabase.from('issue_vouchers').select('*'),
-      supabase.from('receive_transactions').select('*'),
-      supabase.from('loan_transactions').select('*'),
-      supabase.from('feedback').select('*').order('created_at', { ascending: false }),
+      readInventoryPages(() => supabase.from('issue_vouchers').select('*')),
+      readInventoryPages(() => supabase.from('receive_transactions').select('*')),
+      readInventoryPages(() => supabase.from('loan_transactions').select('*'), 'loanId'),
+      readInventoryPages(() => supabase.from('feedback').select('*')),
       supabase
         .from('notification_log')
         .select('id, status, notification_type, entity_type, entity_id, last_error, attempt_count, max_attempts, created_at, updated_at', { count: 'exact' })
         .in('status', ['failed', 'retry_scheduled'])
         .order('updated_at', { ascending: false })
         .limit(5),
-      supabase
+      readInventoryPages(() => supabase
         .from('audit_log')
-        .select('entity_id, details, created_at')
+        .select('id, entity_id, details')
         .eq('action', 'addReceiveTransaction')
-        .eq('entity_type', 'receive_transactions')
-        .order('created_at', { ascending: false }),
+        .eq('entity_type', 'receive_transactions')),
       getNextAvailablePpeCode(),
     ]);
     nextPpeCode = generatedPpeCode;
-    issueVouchers = issues.data || [];
+    issueVouchers = issues.map(visibleVoucherStatus);
     const receiveAuditById = new Map(
-      (receiveAudits.data || []).map(entry => [String(entry.entity_id), entry.details || {}])
+      receiveAudits.map(entry => [String(entry.entity_id), entry.details || {}])
     );
-    receiveTransactions = (receives.data || []).map(transaction => {
+    receiveTransactions = receives.map(transaction => {
       const details = receiveAuditById.get(String(transaction.id)) || {};
-      const itemId = Number(details.itemId || transaction.itemId || transaction.item_id || 0);
+      const itemId = Number(transaction.ppe_item_id || details.itemId || transaction.itemId || transaction.item_id || 0);
       const item = itemId > 0 ? ppeItems.find(entry => Number(entry.id) === itemId) : null;
       const storedName = String(transaction.itemName || transaction.item_name || '').trim();
       const isGenericName = !storedName || ['อุปกรณ์', 'unknown', 'unknown item'].includes(storedName.toLowerCase());
@@ -710,8 +771,8 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
         unit: item?.unit || 'หน่วย',
       };
     });
-    loanTransactions = loans.data || [];
-    feedback = feedbacks.data || [];
+    loanTransactions = loans;
+    feedback = feedbacks;
     notificationFailures = failedNotifications.error
       ? { count: 0, recent: [], available: false }
       : {
@@ -721,17 +782,22 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
         };
   } else if (auth.lineUser) {
     const [issues, loans] = await Promise.all([
-      supabase.from('issue_vouchers').select('*').eq('userid', auth.lineUser.userId),
-      supabase.from('loan_transactions').select('*').eq('userid', auth.lineUser.userId),
+      readInventoryPages(() => supabase.from('issue_vouchers').select('*').eq('userid', auth.lineUser.userId)),
+      readInventoryPages(() => supabase.from('loan_transactions').select('*').eq('userid', auth.lineUser.userId), 'loanId'),
     ]);
-    issueVouchers = issues.data || [];
-    loanTransactions = loans.data || [];
+    issueVouchers = issues.map(visibleVoucherStatus);
+    loanTransactions = loans;
     const voucherIds = issueVouchers.map(voucher => String(voucher.id));
-    if (voucherIds.length) {
-      const feedbacks = await supabase.from('feedback').select('*').in('transaction_id', voucherIds).order('created_at', { ascending: false });
-      feedback = feedbacks.data || [];
+    for (let start = 0; start < voucherIds.length; start += 100) {
+      const ids = voucherIds.slice(start, start + 100);
+      feedback.push(...await readInventoryPages(() => supabase.from('feedback').select('*').in('transaction_id', ids)));
     }
   }
+
+  const reviewableItems = new Map(issueVouchers.filter(voucher => voucher.status_received === 'received' && !voucher.voided_at)
+    .map(voucher => [String(voucher.id), new Set((getApprovedVoucherItems(voucher) || []).map(item => String(item.itemId)))]));
+  feedback = feedback.filter(row => (!row.feedback_type || row.feedback_type === 'issue')
+    && reviewableItems.get(String(row.transaction_id))?.has(String(row.item_id)));
 
   const totalStockValue = calculateTotalStockValue(ppeItems);
   const topIssuedItems = getTopIssuedItems(issueVouchers, ppeItems, 5);
@@ -745,13 +811,16 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   );
 
   return {
+    isAdmin: auth.isAdmin,
+    employee: auth.employee || null,
+    accessStatus: 'authorized',
     ppeItems,
     issueVouchers,
     receiveTransactions,
     loanTransactions,
     categories,
-    departments: departmentsRes.data || [],
-    feedbackData: feedback, 
+    departments: departmentsRes.sort((a, b) => a.name.localeCompare(b.name, 'th')),
+    feedbackData: feedback.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
     ppeMatrix,
     ppeDocuments, // ⭐ ส่งกลับหน้าบ้าน
     nextPpeCode,
@@ -765,64 +834,49 @@ async function getInitialData(auth = { isAdmin: false, lineUser: null }) {
   };
 }
 
-async function saveCategory(categoryData) {
-  if (!categoryData || !categoryData.name || categoryData.name.trim() === '') {
-    throw new Error('Category name cannot be empty.');
-  }
-  const name = categoryData.name.trim();
+function visibleVoucherStatus(voucher) {
+  return voucher.voided_at ? { ...voucher, status: 'cancelled' } : voucher;
+}
+
+async function saveCategory(categoryData, actor, requestId) {
+  const name = typeof categoryData?.name === 'string' ? categoryData.name.trim() : '';
+  if (!name || name.length > 100) throw createHttpError(400, 'ชื่อหมวดหมู่ต้องมีความยาว 1 ถึง 100 ตัวอักษร');
 
   if (categoryData.id) {
+    const categoryId = parseWholeNumber(categoryData.id);
+    if (!Number.isSafeInteger(categoryId) || categoryId < 1) throw createHttpError(400, 'รหัสหมวดหมู่ไม่ถูกต้อง');
     const { data, error } = await supabase
       .from('categories')
       .update({ name })
-      .eq('id', categoryData.id)
+      .eq('id', categoryId)
       .select()
-      .single();
+      .maybeSingle();
+    if (error?.code === 'PT409') throw createHttpError(409, 'มีหมวดหมู่ชื่อนี้อยู่แล้ว');
     if (error) throw error;
+    if (!data) throw createHttpError(404, 'ไม่พบหมวดหมู่');
     return data;
   } else {
-    const nextId = await getNextId('categories', 'id');
-    const { data, error } = await supabase
-      .from('categories')
-      .insert({ id: nextId, name })
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    return runInventoryMutation('createCategory', { name }, actor, requestId);
   }
 }
 
 async function deleteCategory(categoryId) {
-  const normalizedId = Number(categoryId);
-  if (!Number.isInteger(normalizedId) || normalizedId <= 0) throw new Error('รหัสหมวดหมู่ไม่ถูกต้อง');
-  const { data: category, error: categoryError } = await supabase
-    .from('categories')
-    .select('id, name')
-    .eq('id', normalizedId)
-    .maybeSingle();
-  if (categoryError) throw categoryError;
-  if (!category) throw new Error('ไม่พบหมวดหมู่ที่ต้องการลบ');
-
-  const { count, error: countError } = await supabase
-    .from('ppe_items')
-    .select('*', { count: 'exact', head: true })
-    .eq('category', category.name)
-    .is('deleted_at', null);
-  if (countError) throw countError;
-  if ((count || 0) > 0) throw new Error(`ยังลบหมวดหมู่ “${category.name}” ไม่ได้ เนื่องจากมีอุปกรณ์ใช้งานอยู่ ${count} รายการ`);
-
-  const { error } = await supabase.from('categories').delete().eq('id', normalizedId);
+  const normalizedId = parseWholeNumber(categoryId);
+  if (!Number.isSafeInteger(normalizedId) || normalizedId <= 0) throw createHttpError(400, 'รหัสหมวดหมู่ไม่ถูกต้อง');
+  const { data, error } = await supabase.from('categories').delete().eq('id', normalizedId).select('id').maybeSingle();
+  if (['23001', '23503'].includes(error?.code)) throw createHttpError(409, 'ยังลบหมวดหมู่ไม่ได้ เนื่องจากมีอุปกรณ์อ้างอิงอยู่');
   if (error) throw error;
-  return normalizedId;
+  if (!data) throw createHttpError(404, 'ไม่พบหมวดหมู่ที่ต้องการลบ');
+  return data.id;
 }
 
-async function savePpeItem(itemData) {
+async function savePpeItem(itemData, actor, requestId) {
   if (!itemData) throw new Error('Missing item data');
 
   const id = itemData.id ? Number(itemData.id) : null;
-  let code = '';
   const name = String(itemData.name || '').trim();
   const category = String(itemData.category || '').trim();
+  const categoryId = itemData.categoryId == null ? null : parseWholeNumber(itemData.categoryId);
   const unit = String(itemData.unit || '').trim();
   const stock = Number(itemData.stock);
   const reorderPoint = Number(itemData.reorderPoint);
@@ -831,7 +885,9 @@ async function savePpeItem(itemData) {
 
   if (id !== null && (!Number.isInteger(id) || id <= 0)) throw new Error('รหัสอุปกรณ์ไม่ถูกต้อง');
   if (!name || name.length > 150) throw new Error('กรุณาระบุชื่ออุปกรณ์ไม่เกิน 150 ตัวอักษร');
-  if (!category || category.length > 100) throw new Error('กรุณาเลือกหมวดหมู่ให้ถูกต้อง');
+  if (categoryId === null ? (!category || category.length > 100) : (!Number.isSafeInteger(categoryId) || categoryId < 1)) {
+    throw createHttpError(400, 'กรุณาเลือกหมวดหมู่ให้ถูกต้อง');
+  }
   if (!unit || unit.length > 30) throw new Error('กรุณาระบุหน่วยนับไม่เกิน 30 ตัวอักษร');
   if (!Number.isInteger(stock) || stock < 0) throw new Error('จำนวนคงเหลือต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป');
   if (!Number.isInteger(reorderPoint) || reorderPoint < 0) throw new Error('จุดสั่งซื้อต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป');
@@ -845,140 +901,41 @@ async function savePpeItem(itemData) {
     }
   }
 
-  const { data: validCategory, error: categoryError } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('name', category)
-    .limit(1)
-    .maybeSingle();
-  if (categoryError) throw categoryError;
-  if (!validCategory) throw new Error('ไม่พบหมวดหมู่ที่เลือก กรุณารีเฟรชข้อมูลแล้วลองใหม่');
-
-  let existingItem = null;
-  if (id !== null) {
-    const { data, error } = await supabase
-      .from('ppe_items')
-      .select('*')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) throw new Error('ไม่พบอุปกรณ์ที่ต้องการแก้ไข กรุณารีเฟรชข้อมูล');
-    existingItem = data;
+  const expectedStock = id === null ? null : Number(itemData.expectedStock);
+  if (id !== null && (itemData.expectedStock == null || !Number.isInteger(expectedStock) || expectedStock < 0)) {
+    throw createHttpError(400, 'กรุณาโหลดข้อมูลสต็อกล่าสุดก่อนแก้ไข');
   }
-
-  // Codes are immutable after creation. Generate from all historical rows,
-  // including soft-deleted items, so an old PPE code is never reused.
-  code = existingItem
-    ? String(existingItem.code || '').trim().toUpperCase()
-    : await getNextAvailablePpeCode();
-
-  const payload = {
-    code,
-    name,
-    category,
-    unit,
-    reorderPoint,
-    stock,
-    onLoanQuantity: existingItem ? Math.max(0, Number(existingItem.onLoanQuantity) || 0) : 0,
-    price,
-    image_url: imageUrl,
-  };
-
-  if (id !== null) {
-    const { data, error } = await supabase
-      .from('ppe_items')
-      .update(payload)
-      .eq('id', id)
-      .eq('stock', Number(existingItem.stock) || 0)
-      .is('deleted_at', null)
-      .select()
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) throw new Error('ข้อมูลสต็อกถูกเปลี่ยนโดยรายการอื่น กรุณารีเฟรชแล้วตรวจสอบอีกครั้ง');
-    return { item: data, isNew: false };
-  } else {
-    const nextId = await getNextId('ppe_items', 'id');
-    const { data, error } = await supabase
-      .from('ppe_items')
-      .insert({
-        id: nextId,
-        ...payload
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    return { item: data, isNew: true };
-  }
+  return runInventoryMutation('savePpeItem', {
+    id, name, ...(categoryId === null ? { category } : { categoryId }), unit, stock, expectedStock, reorderPoint, price, imageUrl,
+  }, actor, requestId);
 }
 
 // ✅ แก้ไข: ใช้ชื่อคอลัมน์ตัวพิมพ์เล็ก (userid, employeeid)
-async function addNewVoucher(voucherData, auth) {
+async function getEmployeeIdentity(payload, auth, nameField) {
+  const identity = auth.isAdmin ? {
+    employeeId: String(payload.employeeId || '').trim(),
+    name: String(payload[nameField] || '').trim(),
+    department: String(payload.department || '').trim(),
+  } : auth.employee;
+  if (!identity?.employeeId || identity.employeeId.length > 50 || !identity.name || identity.name.length > 150
+    || !identity.department || identity.department.length > 150) {
+    throw createHttpError(400, 'กรุณาระบุข้อมูลพนักงานให้ครบและถูกต้อง');
+  }
+  const { data, error } = await supabase.from('departments').select('name')
+    .eq('name', identity.department).limit(1).maybeSingle();
+  if (error) throw error;
+  if (!data) throw createHttpError(400, 'ไม่พบแผนกในข้อมูลมาสเตอร์');
+  return identity;
+}
+
+async function addNewVoucher(voucherData, auth, actor, requestId) {
   const ownerUserId = auth.isAdmin
     ? (LINE_USER_ID_PATTERN.test(String(voucherData.userId || '')) ? voucherData.userId : '')
     : auth.lineUser.userId;
-  const requestedName = String(voucherData.user || '').trim();
-  const userName = requestedName || (auth.lineUser?.displayName || 'ผู้ใช้');
-  if (!auth.isAdmin) {
-    const { data: receivedVouchers, error: receivedError } = await supabase
-      .from('issue_vouchers')
-      .select('id, timestamp, received_at, status, status_received, itemsJson')
-      .eq('userid', ownerUserId)
-      .eq('status_received', 'received')
-      .in('status', ['approved', 'partially_approved']);
-    if (receivedError) throw receivedError;
-
-    const voucherIds = (receivedVouchers || []).map(voucher => voucher.id);
-    let feedbackRows = [];
-    if (voucherIds.length) {
-      const { data: feedback, error: feedbackError } = await supabase
-        .from('feedback')
-        .select('transaction_id, item_id, feedback_type, rating, created_at')
-        .in('transaction_id', voucherIds)
-        .order('created_at', { ascending: false });
-      if (feedbackError) throw feedbackError;
-      feedbackRows = feedback || [];
-    }
-
-    const incomplete = findIncompleteReceivedVoucher(receivedVouchers || [], feedbackRows);
-    if (incomplete) {
-      throw createHttpError(
-        409,
-        `กรุณาให้คะแนนอุปกรณ์ในใบเบิก #${incomplete.voucher.id} ให้ครบก่อนสร้างใบเบิกใหม่`,
-        'FEEDBACK_REQUIRED',
-        {
-          voucherId: incomplete.voucher.id,
-          ratedCount: incomplete.progress.ratedCount,
-          total: incomplete.progress.total,
-          missingItemIds: incomplete.progress.missingItemIds,
-        }
-      );
-    }
-  }
-  const nextId = await getNextId('issue_vouchers', 'id');
-  const { data, error } = await supabase
-    .from('issue_vouchers')
-    .insert({
-      id: nextId,
-      timestamp: new Date().toISOString(),
-      user: userName,
-      department: voucherData.department, // แผนก
-      
-      // *** เปลี่ยนเป็นตัวพิมพ์เล็กให้ตรงกับ Supabase ***
-      employeeid: voucherData.employeeId || '', 
-      userid: ownerUserId,
-      
-      status: 'pending',
-      adminNotes: '',
-      itemsJson: voucherData.items,
-    })
-    .select()
-    .single();
-  if (error) {
-      console.error("🔥 [addNewVoucher] Error:", error);
-      throw error;
-  }
-  const itemDetails = await getItemDetails(voucherData.items);
+  const { employeeId, name: userName, department } = await getEmployeeIdentity(voucherData, auth, 'user');
+  const items = voucherLines(voucherData.items);
+  const data = await runInventoryMutation('addNewVoucher', { userId: ownerUserId, user: userName, employeeId, department, items }, actor, requestId);
+  const itemDetails = await getItemDetails(parseVoucherItems(data.itemsJson));
   const userUrl = notificationWorkflows.buildLiffLink('allHistory', { voucherId: data.id });
   const adminUrl = notificationWorkflows.buildLiffLink('pending', { voucherId: data.id });
   const [userNotification, adminNotification] = await Promise.all([
@@ -989,7 +946,7 @@ async function addNewVoucher(voucherData, auth) {
       summary: 'ระบบบันทึกคำขอของคุณเรียบร้อยแล้ว',
       fields: [
         { label: 'ผู้เบิก', value: userName },
-        { label: 'แผนก', value: voucherData.department || '-' },
+        { label: 'แผนก', value: department },
       ],
       items: itemDetails,
       theme: 'pending',
@@ -1005,7 +962,7 @@ async function addNewVoucher(voucherData, auth) {
         status: 'มีคำขอใหม่รอการอนุมัติ',
         fields: [
           { label: 'ผู้เบิก', value: userName },
-          { label: 'แผนก', value: voucherData.department || '-' },
+          { label: 'แผนก', value: department },
         ],
         items: itemDetails,
         theme: 'pending',
@@ -1022,243 +979,99 @@ async function addNewVoucher(voucherData, auth) {
   return { ...data, notification: { user: userNotification, admin: adminNotification } };
 }
 
-async function claimPendingVoucher(voucherId) {
-  const normalizedId = Number(voucherId);
-  if (!Number.isInteger(normalizedId) || normalizedId <= 0) throw new Error('รหัสใบเบิกไม่ถูกต้อง');
-  const { data: voucher, error } = await supabase
-    .from('issue_vouchers')
-    .update({ status: 'processing' })
-    .eq('id', normalizedId)
-    .eq('status', 'pending')
-    .select('*')
-    .maybeSingle();
-  if (error) throw error;
-  if (!voucher) throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว กรุณารีเฟรชข้อมูล');
-  return voucher;
-}
-
-async function releaseVoucherClaim(voucherId) {
-  const { error } = await supabase
-    .from('issue_vouchers')
-    .update({ status: 'pending' })
-    .eq('id', Number(voucherId))
-    .eq('status', 'processing');
-  if (error) console.error('Voucher claim rollback failed:', error);
-}
-
 function normalizeAdminNote(value) {
   return String(value || '').trim().slice(0, 500);
 }
 
-async function approveVoucher(approvalData) {
-  const voucherId = Number(approvalData?.voucherId);
-  const adminNote = normalizeAdminNote(approvalData?.adminNote);
-  const voucher = await claimPendingVoucher(voucherId);
+function parseWholeNumber(value) {
+  if (typeof value === 'number') return value;
+  return typeof value === 'string' && /^[0-9]+$/.test(value) ? Number(value) : NaN;
+}
 
-  const itemsToUpdate = Array.isArray(voucher.itemsJson)
-    ? voucher.itemsJson
-    : JSON.parse(voucher.itemsJson || '[]');
-  let updatedStockItems = [];
-  try {
-    updatedStockItems = await updateStockLevels(itemsToUpdate, 'decrease');
-    const { data: updatedVoucher, error: upErr } = await supabase
-      .from('issue_vouchers')
-      .update({ status: 'approved', adminNotes: adminNote || 'อนุมัติโดย Admin' })
-      .eq('id', voucherId)
-      .eq('status', 'processing')
-      .select('id')
-      .maybeSingle();
-    if (upErr) throw upErr;
-    if (!updatedVoucher) throw new Error('ไม่สามารถยืนยันสถานะใบเบิกได้ กรุณาลองใหม่');
-  } catch (error) {
-    if (updatedStockItems.length) {
-      await updateStockLevels(itemsToUpdate, 'increase').catch(rollbackError => console.error('Approval stock rollback failed:', rollbackError));
-    }
-    await releaseVoucherClaim(voucherId);
-    throw error;
+function voucherLines(items, allowZero = false) {
+  if (!Array.isArray(items) || items.length < 1 || items.length > 100) {
+    throw createHttpError(400, 'ใบเบิกต้องมีอุปกรณ์ 1 ถึง 100 รายการ');
   }
+  const lines = items.map(item => {
+    const itemId = parseWholeNumber(item?.itemId);
+    const quantity = parseWholeNumber(item?.quantity);
+    if (!Number.isSafeInteger(itemId) || itemId < 1 || itemId > 999999999999999
+      || !Number.isInteger(quantity) || quantity < (allowZero ? 0 : 1) || quantity > 999999) {
+      throw createHttpError(400, 'รหัสหรือจำนวนอุปกรณ์ไม่ถูกต้อง');
+    }
+    return { itemId, quantity };
+  });
+  if (new Set(lines.map(line => line.itemId)).size !== lines.length) throw createHttpError(400, 'พบอุปกรณ์ซ้ำในใบเบิก');
+  return lines.sort((a, b) => a.itemId - b.itemId);
+}
 
+async function changeVoucherStatus(action, payload, actor, requestId) {
+  const voucherId = parseWholeNumber(payload.voucherId);
+  if (!Number.isSafeInteger(voucherId) || voucherId < 1) throw createHttpError(400, 'รหัสใบเบิกไม่ถูกต้อง');
+  const note = normalizeAdminNote(payload.adminNote || payload.reason);
+  if (['rejectVoucher', 'deleteVoucher', 'reverseVoucher'].includes(action) && !note) {
+    throw createHttpError(400, 'กรุณาระบุเหตุผล');
+  }
+  const fields = { voucherId, note };
+  if (action === 'approvePartialVoucher') fields.items = voucherLines(payload.items, true);
+  const { voucher, updatedStockItems } = await runInventoryMutation(action, fields, actor, requestId);
+  const response = { updatedVoucherId: voucher.id, status: voucher.voided_at ? 'cancelled' : voucher.status, updatedStockItems };
+  if (action === 'deleteVoucher' || action === 'reverseVoucher') return response;
+  if (action === 'rejectVoucher') {
+    const notification = await notifyVoucherStatus(voucher, 'ใบเบิกไม่ได้รับการอนุมัติ ❌',
+      parseVoucherItems(voucher.itemsJson), 'issue-rejected:' + voucherId);
+    return { ...response, notification };
+  }
+  const partial = voucher.status === 'partially_approved';
+  const eventKey = (action === 'approvePartialVoucher' ? 'issue-partial:' + voucherId + ':' + voucher.status : 'issue-approved:' + voucherId);
   const [notification, stockNotification] = await Promise.all([
-    notifyVoucherStatus(
-      { ...voucher, adminNotes: adminNote || 'อนุมัติโดย Admin' },
-      'อนุมัติใบเบิกเรียบร้อยแล้ว ✅',
-      itemsToUpdate,
-      `issue-approved:${voucherId}`,
-      true,
-      true
-    ),
+    notifyVoucherStatus(voucher, partial ? 'อนุมัติใบเบิกบางส่วน ⚠️' : 'อนุมัติใบเบิกเรียบร้อยแล้ว ✅',
+      getApprovedVoucherItems(voucher), eventKey, true, true),
     checkAndAlertLowStock(updatedStockItems),
   ]);
-  return { updatedVoucherId: voucherId, status: 'approved', updatedStockItems, notification, stockNotification };
+  return { ...response, notification, stockNotification };
 }
 
-async function approvePartialVoucher(approvalData) {
-  const voucherId = Number(approvalData?.voucherId);
-  const adminNote = normalizeAdminNote(approvalData?.adminNote);
-  const voucher = await claimPendingVoucher(voucherId);
-
-  const originalItems = Array.isArray(voucher.itemsJson)
-    ? voucher.itemsJson
-    : JSON.parse(voucher.itemsJson || '[]');
-
-  const approvedItems = Array.isArray(approvalData?.items) ? approvalData.items : [];
-  const seenIds = new Set();
-  let allApprovedFully = true;
-  const notes = ['อนุมัติบางส่วน:'];
-  const itemsToUpdateInStock = [];
-  try {
-    for (const approved of approvedItems) {
-      const itemId = Number(approved?.itemId);
-      const quantity = Number(approved?.quantity);
-      const original = originalItems.find((item) => Number(item.itemId) === itemId);
-      if (!Number.isInteger(itemId) || itemId <= 0 || seenIds.has(itemId) || !original) throw new Error('รายการอนุมัติไม่ถูกต้องหรือซ้ำกัน');
-      if (!Number.isInteger(quantity) || quantity < 0 || quantity > Number(original.quantity)) throw new Error('จำนวนอนุมัติเกินจำนวนที่ผู้ใช้ขอ');
-      seenIds.add(itemId);
-      if (quantity > 0) {
-        itemsToUpdateInStock.push({ itemId, quantity });
-        notes.push(`- ${String(approved.itemName || `อุปกรณ์ #${itemId}`).slice(0, 160)}: ${quantity}/${Number(original.quantity)}`);
-      }
-      if (quantity < Number(original.quantity)) allApprovedFully = false;
-    }
-    if (seenIds.size !== originalItems.length) throw new Error('กรุณาตรวจสอบจำนวนอนุมัติให้ครบทุกรายการ');
-  } catch (error) {
-    await releaseVoucherClaim(voucherId);
-    throw error;
-  }
-
-  if (itemsToUpdateInStock.length === 0) {
-    await releaseVoucherClaim(voucherId);
-    throw new Error('ไม่สามารถอนุมัติโดยไม่มีรายการสินค้าได้ กรุณาปฏิเสธใบเบิกแทน');
-  }
-  let updatedStockItems = [];
-  const newStatus = allApprovedFully ? 'approved' : 'partially_approved';
-  const finalNote = [notes.join(' '), adminNote].filter(Boolean).join(' | ').slice(0, 1000);
-  try {
-    updatedStockItems = await updateStockLevels(itemsToUpdateInStock, 'decrease');
-    const { data: updatedVoucher, error: upErr } = await supabase
-      .from('issue_vouchers')
-      .update({ status: newStatus, adminNotes: finalNote })
-      .eq('id', voucherId)
-      .eq('status', 'processing')
-      .select('id')
-      .maybeSingle();
-    if (upErr) throw upErr;
-    if (!updatedVoucher) throw new Error('ไม่สามารถยืนยันสถานะใบเบิกได้ กรุณาลองใหม่');
-  } catch (error) {
-    if (updatedStockItems.length) {
-      await updateStockLevels(itemsToUpdateInStock, 'increase').catch(rollbackError => console.error('Partial approval stock rollback failed:', rollbackError));
-    }
-    await releaseVoucherClaim(voucherId);
-    throw error;
-  }
-
-  const [notification, stockNotification] = await Promise.all([
-    notifyVoucherStatus(
-      { ...voucher, adminNotes: finalNote },
-      newStatus === 'approved' ? 'อนุมัติใบเบิกเรียบร้อยแล้ว ✅' : 'อนุมัติใบเบิกบางส่วน ⚠️',
-      itemsToUpdateInStock,
-      `issue-partial:${voucherId}:${newStatus}`,
-      true,
-      true
-    ),
-    checkAndAlertLowStock(updatedStockItems),
-  ]);
-  return { updatedVoucherId: voucherId, status: newStatus, updatedStockItems, notification, stockNotification };
-}
-
-async function rejectVoucher(approvalData) {
-  const voucherId = Number(approvalData?.voucherId);
-  const adminNote = normalizeAdminNote(approvalData?.adminNote);
-  if (!Number.isInteger(voucherId) || voucherId <= 0) throw new Error('รหัสใบเบิกไม่ถูกต้อง');
-  if (!adminNote) throw new Error('กรุณาระบุเหตุผลที่ปฏิเสธ');
-  const { data, error } = await supabase
-    .from('issue_vouchers')
-    .update({ status: 'rejected', adminNotes: adminNote })
-    .eq('id', voucherId)
-    .eq('status', 'pending')
-    .select('*')
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error('ใบเบิกนี้ถูกจัดการไปแล้ว กรุณารีเฟรชข้อมูล');
-  const items = Array.isArray(data.itemsJson) ? data.itemsJson : JSON.parse(data.itemsJson || '[]');
-  const notification = await notifyVoucherStatus(data, 'ใบเบิกไม่ได้รับการอนุมัติ ❌', items, `issue-rejected:${voucherId}`);
-  return { updatedVoucherId: voucherId, status: 'rejected', notification };
-}
-
-async function addReceiveTransactionAndUpdateStock(tx) {
-  const itemId = Number(tx?.itemId);
-  const quantity = Number(tx?.quantity);
+async function addReceiveTransactionAndUpdateStock(tx, actor, requestId) {
+  const itemId = parseWholeNumber(tx?.itemId);
+  const quantity = parseWholeNumber(tx?.quantity);
   const type = String(tx?.type || '').trim();
   const user = String(tx?.user || '').trim();
   const department = String(tx?.department || '').trim();
   const allowedTypes = new Set(['purchase', 'return', 'adjustment']);
 
-  if (!Number.isInteger(itemId) || itemId <= 0) throw new Error('กรุณาเลือกอุปกรณ์');
+  if (!Number.isSafeInteger(itemId) || itemId <= 0) throw createHttpError(400, 'กรุณาเลือกอุปกรณ์');
   if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 999999) throw new Error('จำนวนที่รับต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 999,999');
   if (!allowedTypes.has(type)) throw new Error('ประเภทการรับไม่ถูกต้อง');
   if (!user || user.length > 150) throw new Error('กรุณาระบุชื่อผู้รับของให้ถูกต้อง');
   if (!department || department.length > 150) throw new Error('กรุณาเลือกแผนก');
 
-  const [{ data: item, error: itemError }, { data: masterDepartment, error: departmentError }] = await Promise.all([
-    supabase.from('ppe_items').select('id, name').eq('id', itemId).is('deleted_at', null).maybeSingle(),
-    supabase.from('departments').select('id, name').eq('name', department).limit(1).maybeSingle(),
-  ]);
-  if (itemError) throw itemError;
+  const { data: masterDepartment, error: departmentError } = await supabase
+    .from('departments').select('name').eq('name', department).limit(1).maybeSingle();
   if (departmentError) throw departmentError;
-  if (!item) throw new Error('ไม่พบอุปกรณ์ที่เลือก กรุณารีเฟรชข้อมูล');
   if (!masterDepartment) throw new Error('ไม่พบแผนกในข้อมูลมาสเตอร์ กรุณาเลือกแผนกใหม่');
 
-  const updatedStockItems = await updateStockLevels([{ itemId, quantity }], 'increase');
-  let transaction = null;
-
-  try {
-    const nextId = await getNextId('receive_transactions', 'id');
-
-    const { data, error: rErr } = await supabase
-      .from('receive_transactions')
-      .insert({
-        id: nextId,
-        timestamp: new Date().toISOString(),
-        itemName: item.name,
-        type,
-        quantity,
-        user,
-        department: masterDepartment.name,
-        status: 'completed',
-      })
-      .select()
-      .single();
-    if (rErr) throw rErr;
-    transaction = data;
-  } catch (transactionError) {
-    try {
-      await updateStockLevels([{ itemId, quantity }], 'decrease');
-    } catch (rollbackError) {
-      console.error('[receive] stock rollback failed:', rollbackError.message);
-    }
-    throw transactionError;
-  }
-
-  return { updatedStockItems, transaction };
+  const { transaction, updatedItem } = await runInventoryMutation('addReceiveTransaction', {
+    itemId, quantity, type, user, department: masterDepartment.name,
+  }, actor, requestId);
+  return { updatedStockItems: [updatedItem], transaction: { ...transaction, itemId } };
 }
 
 // ในไฟล์ ppe.js ค้นหาฟังก์ชัน borrowItem แล้วแก้เป็นแบบนี้
-async function borrowItem(borrowData, auth) {
-  const itemId = Number(borrowData?.itemId);
-  const borrowerName = String(borrowData?.borrowerName || auth.lineUser?.displayName || '').trim();
-  const employeeId = String(borrowData?.employeeId || '').trim();
-  const department = String(borrowData?.department || '').trim();
+async function borrowItem(borrowData, auth, actor, requestId) {
+  const itemId = parseWholeNumber(borrowData?.itemId);
+  const { name: borrowerName, employeeId, department } = await getEmployeeIdentity(borrowData, auth, 'borrowerName');
   const dueDate = String(borrowData?.dueDate || '');
   const notes = String(borrowData?.notes || '').trim().slice(0, 500);
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
 
-  if (!Number.isInteger(itemId) || itemId <= 0) throw new Error('กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
+  if (!Number.isSafeInteger(itemId) || itemId <= 0) throw createHttpError(400, 'กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
   if (!borrowerName || borrowerName.length > 150) throw new Error('กรุณาระบุชื่อผู้ยืมให้ถูกต้อง');
   if (!employeeId || employeeId.length > 50) throw new Error('กรุณาระบุรหัสพนักงานให้ถูกต้อง');
   if (!department || department.length > 150) throw new Error('กรุณาเลือกแผนก');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || Number.isNaN(Date.parse(`${dueDate}T00:00:00Z`))) {
+  if (!validDateKey(dueDate)) {
     throw new Error('กรุณาระบุกำหนดคืนให้ถูกต้อง');
   }
   if (dueDate < today) throw new Error('กำหนดคืนต้องไม่เป็นวันที่ย้อนหลัง');
@@ -1266,41 +1079,9 @@ async function borrowItem(borrowData, auth) {
   const ownerUserId = auth.isAdmin
     ? (LINE_USER_ID_PATTERN.test(String(borrowData.userId || '')) ? borrowData.userId : '')
     : auth.lineUser.userId;
-  const nextId = await getNextId('loan_transactions', 'loanId');
-  const updatedItem = await updateLoanableStock(itemId, 'borrow');
-
-  const { data, error } = await supabase
-    .from('loan_transactions')
-    .insert({
-      loanId: nextId,
-      itemId,
-      borrowerName,
-      
-      // ✅ แก้ตรงนี้: ฝั่งซ้ายคือชื่อคอลัมน์ใน DB (ตัวเล็ก) = ฝั่งขวาคือค่าจาก Frontend (CamelCase)
-      employeeid: employeeId,
-      userid: ownerUserId,
-      
-      department,
-      
-      borrowDate: new Date().toISOString(),
-      dueDate,
-      returnDate: null,
-      status: 'on_loan',
-      notes,
-    })
-    .select()
-    .single();
-
-  if (error) {
-      console.error("Database Insert Error:", error);
-      // คืนจำนวนสต็อกหากบันทึกรายการยืมไม่สำเร็จ
-      try {
-        await updateLoanableStock(itemId, 'return');
-      } catch (rollbackError) {
-        console.error('Loan stock rollback failed:', rollbackError);
-      }
-      throw error;
-  }
+  const { loan: data, updatedItem } = await runInventoryMutation('borrowItem', {
+    itemId, borrowerName, employeeId, userId: ownerUserId, department, dueDate, notes,
+  }, actor, requestId);
 
   const dueText = new Date(`${dueDate}T00:00:00`).toLocaleDateString('th-TH', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' });
   const loanUrl = notificationWorkflows.buildLiffLink('loan', { loanId: data.loanId });
@@ -1351,36 +1132,10 @@ async function borrowItem(borrowData, auth) {
   return { newLoan: data, updatedItem, notification: { user: userNotification, admin: adminNotification } };
 }
 
-async function returnItem(loanId) {
-  const normalizedLoanId = Number(loanId);
-  if (!Number.isInteger(normalizedLoanId) || normalizedLoanId <= 0) throw new Error('รหัสรายการยืมไม่ถูกต้อง');
-  const { data: loan, error } = await supabase
-    .from('loan_transactions')
-    .select('*')
-    .eq('loanId', normalizedLoanId)
-    .single();
-  if (error) throw error;
-  if (!loan) throw new Error('ไม่พบรายการยืม');
-  if (loan.status !== 'on_loan') throw new Error('รายการนี้ถูกคืนหรือจัดการไปแล้ว');
-
-  const updatedItem = await updateLoanableStock(loan.itemId, 'return');
-
-  const { error: upErr } = await supabase
-    .from('loan_transactions')
-    .update({
-      status: 'returned',
-      returnDate: new Date().toISOString(),
-    })
-    .eq('loanId', normalizedLoanId);
-  if (upErr) {
-    // ย้อนจำนวนสต็อกกลับหากอัปเดตสถานะรับคืนไม่สำเร็จ
-    try {
-      await updateLoanableStock(loan.itemId, 'borrow');
-    } catch (rollbackError) {
-      console.error('Return stock rollback failed:', rollbackError);
-    }
-    throw upErr;
-  }
+async function returnItem(loanId, actor, requestId) {
+  const normalizedLoanId = parseWholeNumber(loanId);
+  if (!Number.isSafeInteger(normalizedLoanId) || normalizedLoanId <= 0) throw createHttpError(400, 'รหัสรายการยืมไม่ถูกต้อง');
+  const { loan, updatedItem } = await runInventoryMutation('returnItem', { loanId: normalizedLoanId }, actor, requestId);
 
   const notification = await sendLinePush(
     loan.userid,
@@ -1403,177 +1158,9 @@ async function returnItem(loanId) {
   return { returnedLoanId: normalizedLoanId, updatedItem, notification };
 }
 
-// สร้าง HMAC session token อายุ 24 ชั่วโมง
-function generateAdminToken(username) {
-  const expiry = Date.now() + 24 * 60 * 60 * 1000;
-  const tokenPayload = `${username}:${expiry}`;
-  const secret = SESSION_SECRET || 'no-secret-set';
-  if (!SESSION_SECRET) console.warn('⚠️ SESSION_SECRET ไม่ได้ตั้งค่า กรุณาเพิ่มใน Vercel Environment Variables');
-  const signature = crypto.createHmac('sha256', secret).update(tokenPayload).digest('hex');
-  return `${tokenPayload}:${signature}`;
-}
-
-// ตรวจสอบ HMAC token
-function verifyAdminToken(token) {
-  if (!token || typeof token !== 'string') return false;
-  const lastColon = token.lastIndexOf(':');
-  const secondLastColon = token.lastIndexOf(':', lastColon - 1);
-  if (lastColon === -1 || secondLastColon === -1 || lastColon === secondLastColon) return false;
-  const username = token.substring(0, secondLastColon);
-  const expiry = token.substring(secondLastColon + 1, lastColon);
-  const signature = token.substring(lastColon + 1);
-  if (Date.now() > Number(expiry)) return false;
-  const tokenPayload = `${username}:${expiry}`;
-  const secret = SESSION_SECRET || 'no-secret-set';
-  const expectedSig = crypto.createHmac('sha256', secret).update(tokenPayload).digest('hex');
-  try {
-    return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'));
-  } catch {
-    return false;
-  }
-}
-
-async function checkAdminCredentials(username, password) {
-  if (username !== ADMIN_USERNAME) return false;
-
-  // เส้นทางหลัก: scrypt (ปลอดภัยกว่า)
-  if (ADMIN_PASSWORD_SCRYPT) {
-    const [salt, storedHash] = ADMIN_PASSWORD_SCRYPT.split(':');
-    try {
-      const derived = crypto.scryptSync(password, salt, 64).toString('hex');
-      const match = crypto.timingSafeEqual(
-        Buffer.from(derived, 'hex'),
-        Buffer.from(storedHash, 'hex')
-      );
-      return match ? generateAdminToken(username) : false;
-    } catch {
-      return false;
-    }
-  }
-
-  // fallback: Base64 (ใช้ได้จนกว่าจะ set ADMIN_PASSWORD_SCRYPT)
-  if (ADMIN_PASSWORD_BASE64) {
-    const provided = Buffer.from(password, 'utf8').toString('base64');
-    if (provided === ADMIN_PASSWORD_BASE64) return generateAdminToken(username);
-  }
-
-  console.warn('⚠️ ไม่มี admin credentials ตั้งค่าใน environment variables');
-  return false;
-}
-
 // ------------------------- helpers -------------------------
-async function getNextId(tableName, colName = 'id') {
-  const { data, error } = await supabase
-    .from(tableName)
-    .select(colName)
-    .order(colName, { ascending: false })
-    .limit(1);
-  if (error) throw error;
-  if (!data || data.length === 0 || data[0][colName] == null) return 1;
-  return Number(data[0][colName]) + 1;
-}
 
-async function updateStockLevels(items, operation = 'decrease') {
-  if (!items || items.length === 0) return [];
 
-  const normalizedItems = items.map(item => ({
-    itemId: Number(item?.itemId),
-    quantity: Number(item?.quantity),
-  }));
-  if (normalizedItems.some(item => !Number.isInteger(item.itemId) || item.itemId <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0)) {
-    throw new Error('รายการหรือจำนวนอุปกรณ์ไม่ถูกต้อง');
-  }
-  if (new Set(normalizedItems.map(item => item.itemId)).size !== normalizedItems.length) {
-    throw new Error('พบรายการอุปกรณ์ซ้ำ');
-  }
-
-  const ids = normalizedItems.map((item) => item.itemId);
-  const { data: ppeRows, error } = await supabase
-    .from('ppe_items')
-    .select('*')
-    .in('id', ids)
-    .is('deleted_at', null);
-  if (error) throw error;
-  if ((ppeRows || []).length !== ids.length) throw new Error('มีอุปกรณ์บางรายการไม่อยู่ในคลังแล้ว');
-
-  const updatedItems = [];
-  const plannedUpdates = normalizedItems.map(item => {
-    const target = ppeRows.find((p) => Number(p.id) === Number(item.itemId));
-    const currentStock = Number(target.stock || 0);
-    const qty = item.quantity;
-    const newStock = operation === 'decrease' ? currentStock - qty : currentStock + qty;
-    if (newStock < 0) throw new Error(`สต็อก "${target.name}" ไม่เพียงพอ (คงเหลือ: ${currentStock}, ต้องการ: ${qty})`);
-    return { target, currentStock, newStock, quantity: qty };
-  });
-
-  try {
-    for (const plan of plannedUpdates) {
-      const { data: updated, error: upErr } = await supabase
-        .from('ppe_items')
-        .update({ stock: plan.newStock })
-        .eq('id', plan.target.id)
-        .eq('stock', plan.currentStock)
-        .select('id, stock')
-        .maybeSingle();
-      if (upErr) throw upErr;
-      if (!updated) throw new Error(`สต็อก "${plan.target.name}" มีการเปลี่ยนแปลง กรุณารีเฟรชและตรวจสอบใหม่`);
-      updatedItems.push({ id: plan.target.id, stock: plan.newStock, previousStock: plan.currentStock, quantity: plan.quantity });
-    }
-  } catch (updateError) {
-    for (const updated of [...updatedItems].reverse()) {
-      const { error: rollbackError } = await supabase
-        .from('ppe_items')
-        .update({ stock: updated.previousStock })
-        .eq('id', updated.id)
-        .eq('stock', updated.stock);
-      if (rollbackError) console.error('Stock rollback failed:', rollbackError);
-    }
-    throw updateError;
-  }
-
-  return updatedItems;
-}
-
-async function updateLoanableStock(itemId, direction) {
-  const { data: item, error } = await supabase
-    .from('ppe_items')
-    .select('*')
-    .eq('id', itemId)
-    .single();
-  if (error) throw error;
-  if (!item) throw new Error(`ไม่พบอุปกรณ์ ID: ${itemId}`);
-
-  let stock = Number(item.stock || 0);
-  let onLoan = Number(item.onLoanQuantity || 0);
-
-  if (direction === 'borrow') {
-    if (stock < 1) throw new Error('อุปกรณ์หมดสต็อก');
-    stock -= 1;
-    onLoan += 1;
-  } else {
-    stock += 1;
-    onLoan = Math.max(0, onLoan - 1);
-  }
-
-  const { error: upErr } = await supabase
-    .from('ppe_items')
-    .update({
-      stock,
-      onLoanQuantity: onLoan,
-    })
-    .eq('id', itemId);
-  if (upErr) throw upErr;
-
-  return {
-    id: itemId,
-    code: item.code || '',
-    name: item.name || '',
-    unit: item.unit || '',
-    image_url: item.image_url || '',
-    stock,
-    onLoanQuantity: onLoan,
-  };
-}
 
 // ----- dashboard helpers -----
 function calculateTotalStockValue(ppeItems) {
@@ -1587,15 +1174,8 @@ function calculateTotalStockValue(ppeItems) {
 function getTopIssuedItems(issueVouchers, ppeItems, n) {
   const counts = {};
   issueVouchers.forEach((v) => {
-    if (v.status === 'approved' || v.status === 'partially_approved') {
-      let items = v.itemsJson;
-      if (!Array.isArray(items)) {
-        try {
-          items = JSON.parse(items || '[]');
-        } catch (e) {
-          items = [];
-        }
-      }
+    if (['approved', 'partially_approved', 'completed'].includes(v.status)) {
+      const items = getApprovedVoucherItems(v) || [];
       items.forEach((it) => {
         const qty = Number(it.quantity || 0);
         counts[it.itemId] = (counts[it.itemId] || 0) + qty;
@@ -1687,51 +1267,13 @@ function getStatusTextServer(status) {
   return map[status] || 'ไม่ทราบ';
 }
 
-async function confirmReceive(payload, auth) {
+async function confirmReceive(payload, auth, actor, requestId) {
   const voucherId = Number(payload?.voucherId);
-  if (!Number.isInteger(voucherId) || voucherId <= 0) throw new Error('รหัสใบเบิกไม่ถูกต้อง');
-
-  const { data: voucher, error: findErr } = await supabase
-    .from('issue_vouchers')
-    .select('*')
-    .eq('id', voucherId)
-    .single();
-
-  if (findErr) throw findErr;
-  if (!voucher) throw new Error('ไม่พบใบเบิก');
-
-  if (!auth.isAdmin && String(voucher.userid || '') !== auth.lineUser.userId) {
-    throw createHttpError(403, 'คุณไม่มีสิทธิ์ยืนยันรับของสำหรับใบเบิกนี้');
-  }
-
-  if (!['approved', 'partially_approved'].includes(voucher.status)) {
-    throw new Error('ใบเบิกนี้ยังไม่ได้รับการอนุมัติ');
-  }
-
-  if (voucher.status_received === 'received') {
-    return { status: 'already_received', voucherId, receivedBy: voucher.received_by || '-' };
-  }
-
-  const receivedBy = auth.isAdmin
-    ? `Admin (${auth.adminUsername}) รับแทน ${voucher.user || 'ผู้ใช้'}`
-    : auth.lineUser.displayName;
-
-  // ✅ อัปเดตสถานะรับของ
-  const { error: upErr } = await supabase
-    .from('issue_vouchers')
-    .update({
-      status_received: 'received',
-      received_at: new Date().toISOString(),
-      received_by: receivedBy
-    })
-    .eq('id', voucherId);
-
-  if (upErr) throw upErr;
-
-  const receivedItems = Array.isArray(voucher.itemsJson)
-    ? voucher.itemsJson
-    : JSON.parse(voucher.itemsJson || '[]');
-  const receivedItemDetails = await getItemDetails(receivedItems);
+  if (!Number.isSafeInteger(voucherId) || voucherId < 1) throw createHttpError(400, 'รหัสใบเบิกไม่ถูกต้อง');
+  const receivedBy = auth.isAdmin ? 'Admin (' + auth.adminUsername + ')' : auth.employee.name;
+  const { status, voucher } = await runInventoryMutation('confirmReceive', { voucherId, receivedBy }, actor, requestId);
+  if (status === 'already_received') return { status, voucherId, receivedBy: voucher.received_by || '-' };
+  const receivedItemDetails = await getItemDetails(getApprovedVoucherItems(voucher));
   const notification = await notificationWorkflows.sendToAdmins({
     topic: 'receipt',
     messages: [createPpeFlexMessage({
@@ -1758,55 +1300,10 @@ async function confirmReceive(payload, auth) {
 }
 
 // ✅ ฟังก์ชันลบอุปกรณ์ (เวอร์ชัน Supabase)
-async function deletePpeItem(payload) {
+async function deletePpeItem(payload, actor, requestId) {
   const itemId = Number(payload?.id);
-  if (!Number.isInteger(itemId) || itemId <= 0) {
-    throw createHttpError(400, 'รหัสอุปกรณ์ไม่ถูกต้อง');
-  }
-
-  const [{ data: item, error: itemError }, { data: activeLoans, error: loanError }, { data: activeVouchers, error: voucherError }] = await Promise.all([
-    supabase.from('ppe_items').select('id, name').eq('id', itemId).is('deleted_at', null).maybeSingle(),
-    supabase.from('loan_transactions').select('loanId').eq('itemId', itemId).eq('status', 'on_loan').limit(1),
-    supabase.from('issue_vouchers').select('id, itemsJson').in('status', ['pending', 'processing']),
-  ]);
-  if (itemError) throw itemError;
-  if (loanError) throw loanError;
-  if (voucherError) throw voucherError;
-  if (!item) throw createHttpError(404, 'ไม่พบอุปกรณ์ที่ต้องการนำออก');
-  if ((activeLoans || []).length > 0) {
-    throw createHttpError(409, `ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากมีรายการยืมที่ยังไม่คืน`);
-  }
-  const pendingReference = (activeVouchers || []).find(voucher => (
-    parseVoucherItems(voucher.itemsJson).some(entry => Number(entry.itemId) === itemId)
-  ));
-  if (pendingReference) {
-    throw createHttpError(409, `ยังนำ “${item.name}” ออกจากรายการไม่ได้ เนื่องจากอยู่ในคำขอ #${pendingReference.id} ที่กำลังดำเนินการ`);
-  }
-
-  // Soft delete — ตั้ง deleted_at แทนการลบจริง (กู้คืนได้จาก Supabase dashboard)
-  const { data, error } = await supabase
-    .from('ppe_items')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', itemId)
-    .is('deleted_at', null)
-    .select('id')
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) throw createHttpError(409, 'อุปกรณ์ถูกนำออกจากรายการไปแล้ว กรุณารีเฟรชข้อมูล');
-  return { status: 'success', message: 'Soft deleted successfully' };
-}
-
-async function deleteVoucher(voucherId) {
-  if (!voucherId) throw new Error('Missing voucherId');
-
-  const { error } = await supabase
-    .from('issue_vouchers')
-    .delete()
-    .eq('id', voucherId);
-
-  if (error) throw error;
-  return { status: 'success' };
+  if (!Number.isSafeInteger(itemId) || itemId <= 0) throw createHttpError(400, 'รหัสอุปกรณ์ไม่ถูกต้อง');
+  return runInventoryMutation('deletePpeItem', { id: itemId }, actor, requestId);
 }
 
 // ⭐⭐⭐ แก้ไขฟังก์ชันนี้ใน api/ppe.js ⭐⭐⭐
@@ -1885,98 +1382,22 @@ async function deleteMatrixRule(payload) {
   return { status: 'success' };
 }
 
-async function uploadDocument(payload) {
+async function uploadDocument(payload, adminUsername) {
   const title = String(payload?.title || '').trim();
-  const fileName = String(payload?.fileName || '').trim();
-  const fileBase64 = String(payload?.fileBase64 || '');
-  const user = String(payload?.user || 'Admin').trim().slice(0, 100);
-
-  if (!title || !fileName || !fileBase64) throw new Error('ข้อมูลไม่ครบ กรุณาระบุชื่อและไฟล์');
-  if (title.length > 200) throw new Error('ชื่อเอกสารยาวเกิน 200 ตัวอักษร');
-  if (!fileName.toLowerCase().endsWith('.pdf')) throw new Error('รองรับเฉพาะไฟล์ PDF เท่านั้น');
-
-  // 1. แปลง Base64 กลับเป็น Buffer
-  const buffer = Buffer.from(fileBase64, 'base64');
-
-  // ตรวจสอบขนาดไฟล์ (สูงสุด 10 MB)
-  const MAX_FILE_SIZE = 10 * 1024 * 1024;
-  if (buffer.length > MAX_FILE_SIZE) throw new Error('ไฟล์ขนาดใหญ่เกินไป (สูงสุด 10 MB)');
-
-  // ตรวจสอบว่าเป็น PDF จริง (magic bytes: %PDF)
-  if (buffer.length < 4 || buffer.subarray(0, 4).toString('ascii') !== '%PDF') {
-    throw new Error('รองรับเฉพาะไฟล์ PDF เท่านั้น');
-  }
-
-  // Sanitize ชื่อไฟล์ ป้องกัน path traversal
-  const safeFileName = fileName.replace(/[^a-zA-Z0-9ก-๙._-]/g, '_');
-
-  // 2. ตั้งชื่อไฟล์ใหม่กันซ้ำ (timestamp_filename)
-  const filePath = `${Date.now()}_${safeFileName}`;
-
-  // 3. Upload ขึ้น Storage Bucket ชื่อ 'documents'
-  const { data: uploadData, error: uploadError } = await supabase
-    .storage
-    .from('documents')
-    .upload(filePath, buffer, {
-      contentType: 'application/pdf',
-      upsert: false
-    });
-
-  if (uploadError) throw uploadError;
-
-  // 4. ขอ Public URL
-  const { data: publicUrlData } = supabase
-    .storage
-    .from('documents')
-    .getPublicUrl(filePath);
-
-  const finalUrl = publicUrlData.publicUrl;
-
-  // 5. บันทึกลง Database
-  const { data: doc, error: dbError } = await supabase
-    .from('ppe_documents')
-    .insert({
-      title: title,
-      file_url: finalUrl,
-      file_type: 'pdf',
-      uploaded_by: user
-    })
-    .select()
-    .single();
-
-  if (dbError) throw dbError;
-
-  return doc;
+  if (!title || title.length > 200) throw createHttpError(400, 'กรุณาระบุชื่อเอกสารไม่เกิน 200 ตัวอักษร');
+  const buffer = decodePdfUpload(payload);
+  return documentStorage.upload({ title, buffer, user: adminUsername.slice(0, 100) });
 }
 
-async function deleteDocument(payload) {
-  const id = Number(payload?.id);
-  if (!Number.isInteger(id) || id <= 0) throw new Error('รหัสเอกสารไม่ถูกต้อง');
+function documentId(id) {
+  const parsed = parseWholeNumber(id);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) throw createHttpError(400, 'รหัสเอกสารไม่ถูกต้อง');
+  return parsed;
+}
 
-  const { data: existingDoc, error: readError } = await supabase
-    .from('ppe_documents')
-    .select('file_url')
-    .eq('id', id)
-    .maybeSingle();
-  if (readError) throw readError;
-
-  // 1. ลบจาก Database
-  const { error: dbError } = await supabase.from('ppe_documents').delete().eq('id', id);
-  if (dbError) throw dbError;
-
-  // 2. ลบไฟล์จาก Storage เพื่อไม่ให้เปลืองพื้นที่
-  if (existingDoc?.file_url) {
-    try {
-      const parsedUrl = new URL(existingDoc.file_url);
-      const storageFileName = decodeURIComponent(parsedUrl.pathname.split('/').pop() || '');
-      if (storageFileName) {
-        await supabase.storage.from('documents').remove([storageFileName]);
-      }
-    } catch (storageErr) {
-      // ไม่ throw เพื่อไม่ให้ blocking — DB ลบแล้ว storage ไม่ blocking
-      console.error('Storage delete error (non-critical):', storageErr);
-    }
+async function getDocumentUrl(id, auth) {
+  if (!auth.isAdmin && !auth.employee) {
+    throw createHttpError(403, 'เอกสารนี้สำหรับพนักงานที่ได้รับสิทธิ์', 'EMPLOYEE_ACCESS_REQUIRED');
   }
-
-  return { status: 'success' };
+  return documentStorage.signedUrl(documentId(id));
 }

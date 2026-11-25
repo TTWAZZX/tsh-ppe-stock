@@ -7,7 +7,8 @@ const npmCli = process.env.npm_execpath;
 function run(command, args, env = process.env) {
   console.log(`\n> ${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, { stdio: 'inherit', env });
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Release check failed with exit code ${result.status ?? 1}`);
 }
 
 if (!npmCli) throw new Error('Run this gate through npm: npm run release:gate');
@@ -18,7 +19,7 @@ run(process.execPath, [npmCli, 'run', 'build']);
 const port = String(process.env.PPE_RELEASE_PORT || '3107');
 const qaUrl = `http://127.0.0.1:${port}/index.html`;
 const nextBin = path.resolve('node_modules/next/dist/bin/next');
-const server = spawn(process.execPath, [nextBin, 'start', '-p', port], {
+const server = spawn(process.execPath, [nextBin, 'start', '-H', '127.0.0.1', '-p', port], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, NODE_ENV: 'production' },
 });
@@ -28,6 +29,7 @@ server.stderr.on('data', chunk => process.stderr.write(chunk));
 
 async function waitForServer() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (server.exitCode !== null) throw new Error(`Production server exited with code ${server.exitCode}`);
     try {
       const response = await fetch(qaUrl);
       if (response.ok) return;
